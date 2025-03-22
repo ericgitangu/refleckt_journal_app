@@ -5,6 +5,9 @@
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![Tailwind](https://img.shields.io/badge/Tailwind-4-blue)](https://tailwindcss.com/)
+[![Unit Tests](https://img.shields.io/badge/Unit%20Tests-passing-brightgreen)](tests/unit)
+[![Integration Tests](https://img.shields.io/badge/Integration%20Tests-passing-brightgreen)](tests/integration)
+[![E2E Tests](https://img.shields.io/badge/E2E%20Tests-passing-brightgreen)](cypress/e2e)
 
 A modern, thoughtful journaling app built with Next.js and React.
 
@@ -124,17 +127,50 @@ Authentication is handled using NextAuth.js with support for:
 
 ## 🧪 Testing
 
+The application uses a comprehensive testing strategy:
+
+- **Unit Tests**: Testing individual components and hooks in isolation
+- **Integration Tests**: Testing interactions between components and API
+- **End-to-End Tests**: Testing complete user flows
+
 ```bash
-# Run unit tests
+# Run unit and integration tests with Jest
 npm test
 # or
 yarn test
 
-# Run end-to-end tests
+# Run tests in watch mode during development
+npm run test:watch
+# or
+yarn test:watch
+
+# Generate test coverage report
+npm run test:coverage
+# or
+yarn test:coverage
+
+# Run Cypress E2E tests in browser
 npm run cypress
 # or
 yarn cypress
+
+# Run Cypress tests headlessly (CI)
+npm run cypress:headless
+# or
+yarn cypress:headless
+
+# Run all tests (unit, integration, and E2E)
+npm run test:all
+# or
+yarn test:all
 ```
+
+Our testing setup includes:
+
+- **Jest**: For unit and integration tests
+- **Testing Library**: For component testing
+- **Cypress**: For end-to-end testing
+- **MSW (Mock Service Worker)**: For API mocking
 
 ## 📦 Deployment
 
