@@ -1,0 +1,378 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Reflekt Journal App - Serverless API'
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    Description: Deployment stage
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    Description: Secret used to sign JWT tokens
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: provided.al2
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        ENTRIES_TABLE: !Ref EntriesTable
+        CATEGORIES_TABLE: !Ref CategoriesTable
+        INSIGHTS_TABLE: !Ref InsightsTable
+        SETTINGS_TABLE: !Ref SettingsTable
+        JWT_SECRET: !Ref JwtSecret
+        EVENT_BUS_NAME: !Ref JournalEventBus
+        LOG_LEVEL: INFO
+
+Resources:
+  # API Gateway
+  JournalApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Auth:
+        DefaultAuthorizer: JwtAuthorizer
+        Authorizers:
+          JwtAuthorizer:
+            FunctionArn: !GetAtt AuthorizerFunction.Arn
+            Identity:
+              Headers:
+                - Authorization
+
+  # Lambda Functions
+  EntryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/entry-service/
+      Handler: bootstrap
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EntriesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !GetAtt JournalEventBus.Arn
+      Events:
+        ListEntries:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries
+            Method: GET
+        CreateEntry:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries
+            Method: POST
+        GetEntry:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries/{id}
+            Method: GET
+        UpdateEntry:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries/{id}
+            Method: PUT
+        DeleteEntry:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries/{id}
+            Method: DELETE
+        SearchEntries:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries/search
+            Method: GET
+
+  SettingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/settings-service/
+      Handler: bootstrap
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SettingsTable
+      Events:
+        GetCategories:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /settings/categories
+            Method: GET
+        CreateCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /settings/categories
+            Method: POST
+        UpdateCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /settings/categories/{id}
+            Method: PUT
+        DeleteCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /settings/categories/{id}
+            Method: DELETE
+        GetSettings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /settings
+            Method: GET
+        UpdateSettings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /settings
+            Method: PUT
+
+  AnalyticsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/analytics-service/
+      Handler: bootstrap
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EntriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InsightsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !GetAtt JournalEventBus.Arn
+      Events:
+        GetAnalytics:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /analytics
+            Method: GET
+        RequestAnalytics:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /analytics
+            Method: POST
+        GetMood:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /analytics/mood
+            Method: GET
+
+  AiProcessingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/ai-service/
+      Handler: bootstrap
+      MemorySize: 1024
+      Timeout: 60
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EntriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InsightsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !GetAtt JournalEventBus.Arn
+      Events:
+        ProcessEntryEvent:
+          Type: CloudWatchEvent
+          Properties:
+            EventBusName: !Ref JournalEventBus
+            Pattern:
+              source:
+                - reflekt.journal
+              detail-type:
+                - EntryCreated
+                - EntryUpdated
+
+  AuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/authorizer/
+      Handler: bootstrap
+      Environment:
+        Variables:
+          JWT_SECRET: !Ref JwtSecret
+
+  DbInitFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/db-init/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EntriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CategoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InsightsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SettingsTable
+
+  # DynamoDB Tables
+  EntriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub reflekt-entries-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: tenant_id
+          AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: tenant_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: UserIndex
+          KeySchema:
+            - AttributeName: tenant_id
+              KeyType: HASH
+            - AttributeName: user_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: DateIndex
+          KeySchema:
+            - AttributeName: user_id
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  CategoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub reflekt-categories-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: tenant_id
+          AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: tenant_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: UserIndex
+          KeySchema:
+            - AttributeName: tenant_id
+              KeyType: HASH
+            - AttributeName: user_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  InsightsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub reflekt-insights-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: entry_id
+          AttributeType: S
+        - AttributeName: tenant_id
+          AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: entry_id
+          KeyType: HASH
+        - AttributeName: tenant_id
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: UserIndex
+          KeySchema:
+            - AttributeName: tenant_id
+              KeyType: HASH
+            - AttributeName: user_id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  SettingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub reflekt-settings-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: tenant_id
+          AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenant_id
+          KeyType: HASH
+        - AttributeName: user_id
+          KeyType: RANGE
+
+  # Event Bus
+  JournalEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub reflekt-journal-events-${Stage}
+
+Outputs:
+  ApiUrl:
+    Description: URL of the API Gateway
+    Value: !Sub https://${JournalApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
+
+  EntriesTableName:
+    Description: Name of the entries DynamoDB table
+    Value: !Ref EntriesTable
+
+  CategoriesTableName:
+    Description: Name of the categories DynamoDB table
+    Value: !Ref CategoriesTable
+
+  InsightsTableName:
+    Description: Name of the insights DynamoDB table
+    Value: !Ref InsightsTable
+
+  SettingsTableName:
+    Description: Name of the settings DynamoDB table
+    Value: !Ref SettingsTable
+
+  EventBusName:
+    Description: Name of the EventBridge event bus
+    Value: !Ref JournalEventBus

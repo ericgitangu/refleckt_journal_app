@@ -1,0 +1,20 @@
+[package]
+name = "journal-ai-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aws-config = "1.6.0"
+aws_lambda_events = "0.16.0"
+aws-lambda-runtime = "0.0.0"
+aws-sdk-dynamodb = "1.69.0"
+aws-sdk-s3 = "1.79.0"
+chrono = { version = "0.4", features = ["serde"] }
+journal-common = { path = "../common" }
+lambda_runtime = "0.13.0"
+rust-bert = "0.23.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.28.2", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
