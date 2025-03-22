@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="#3b82f6"/>
+  
+  <!-- Journal Book -->
+  <rect x="136" y="96" width="280" height="360" rx="16" fill="white"/>
+  <rect x="120" y="86" width="240" height="360" rx="16" fill="#f9fafb"/>
+  <rect x="120" y="86" width="240" height="360" rx="16" stroke="#e5e7eb" stroke-width="2"/>
+  
+  <!-- Bookmark -->
+  <path d="M310 86V180L330 160L350 180V86H310Z" fill="#ef4444"/>
+  
+  <!-- Journal Lines -->
+  <line x1="152" y1="160" x2="328" y2="160" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="152" y1="200" x2="328" y2="200" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="152" y1="240" x2="328" y2="240" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="152" y1="280" x2="328" y2="280" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="152" y1="320" x2="328" y2="320" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="152" y1="360" x2="328" y2="360" stroke="#d1d5db" stroke-width="2"/>
+  
+  <!-- 'R' Letter for Reflekt -->
+  <path d="M180 130C180 123.373 185.373 118 192 118H220C226.627 118 232 123.373 232 130V138C232 144.627 226.627 150 220 150H204L232 180H220L192 150V130Z" fill="#3b82f6"/>
+  <rect x="192" y="118" width="28" height="32" rx="8" fill="#3b82f6"/>
+</svg> 

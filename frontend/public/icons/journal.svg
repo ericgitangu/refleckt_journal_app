@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="96" cy="96" r="88" fill="#3b82f6" opacity="0.1"/>
+  <circle cx="96" cy="96" r="88" stroke="#3b82f6" stroke-width="2"/>
+  
+  <!-- Open Journal -->
+  <path d="M48 64C48 60.6863 50.6863 58 54 58H138C141.314 58 144 60.6863 144 64V138C144 141.314 141.314 144 138 144H54C50.6863 144 48 141.314 48 138V64Z" fill="white"/>
+  <path d="M48 64C48 60.6863 50.6863 58 54 58H138C141.314 58 144 60.6863 144 64V138C144 141.314 141.314 144 138 144H54C50.6863 144 48 141.314 48 138V64Z" stroke="#d1d5db" stroke-width="2"/>
+  
+  <!-- Journal Spine -->
+  <rect x="94" y="58" width="4" height="86" fill="#e5e7eb"/>
+  
+  <!-- Journal Lines - Left Page -->
+  <line x1="58" y1="78" x2="88" y2="78" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="58" y1="98" x2="88" y2="98" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="58" y1="118" x2="88" y2="118" stroke="#d1d5db" stroke-width="2"/>
+  
+  <!-- Calendar Elements - Right Page -->
+  <rect x="104" y="68" width="30" height="30" rx="2" fill="#f3f4f6" stroke="#d1d5db" stroke-width="2"/>
+  <text x="112" y="90" font-family="Arial" font-size="18" fill="#3b82f6">15</text>
+  
+  <!-- Notes List - Right Page -->
+  <line x1="104" y1="108" x2="134" y2="108" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="104" y1="118" x2="134" y2="118" stroke="#d1d5db" stroke-width="2"/>
+  <line x1="104" y1="128" x2="134" y2="128" stroke="#d1d5db" stroke-width="2"/>
+  
+  <!-- Checkmarks -->
+  <circle cx="108" cy="108" r="2" fill="#3b82f6"/>
+  <circle cx="108" cy="118" r="2" fill="#3b82f6"/>
+  <circle cx="108" cy="128" r="2" fill="#3b82f6"/>
+</svg> 
