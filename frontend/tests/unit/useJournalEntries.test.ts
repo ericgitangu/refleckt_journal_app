@@ -1,4 +1,4 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useJournalEntries } from '@/hooks/use-journal-entries';
 import { entriesApi } from '@/lib/api';
@@ -27,11 +27,15 @@ describe('useJournalEntries', () => {
   });
 
   it('fetches entries on mount', async () => {
-    const { result, waitForNextUpdate } = renderHook(() => useJournalEntries());
+    const { result } = renderHook(() => useJournalEntries());
     
     // @ts-ignore -- jest matchers
     expect(result.current.isLoading).toBe(true);
-    await waitForNextUpdate();
+    
+    // Wait for the API call to resolve
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
     
     // @ts-ignore -- jest matchers
     expect(result.current.entries).toEqual(mockEntries);
@@ -47,14 +51,18 @@ describe('useJournalEntries', () => {
     
     (entriesApi.create as jest.Mock).mockResolvedValue(createdEntry);
     
-    const { result, waitForNextUpdate } = renderHook(() => useJournalEntries());
-    await waitForNextUpdate(); // Wait for initial fetch
+    const { result } = renderHook(() => useJournalEntries());
     
-    act(() => {
-      result.current.createEntry(newEntry);
+    // Wait for initial fetch to complete
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
     });
     
-    await waitForNextUpdate();
+    // Create new entry
+    await act(async () => {
+      result.current.createEntry(newEntry);
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
     
     // @ts-ignore -- jest matchers
     expect(entriesApi.create).toHaveBeenCalledWith(newEntry);
