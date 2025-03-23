@@ -96,6 +96,10 @@ export default function RootLayout({
         <meta property="og:title" content="Reflekt - A Personal Journaling App" />
         <meta property="og:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
         <meta property="og:image" content="https://refleckt.vercel.app/og-image.jpg" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="Reflekt Journal App" />
+        <meta property="og:image:type" content="image/jpeg" />
 
         <meta name="twitter:card" content="summary_large_image" />
         <meta property="twitter:domain" content="refleckt.vercel.app" />
