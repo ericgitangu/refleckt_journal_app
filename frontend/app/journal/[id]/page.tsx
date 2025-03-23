@@ -23,16 +23,36 @@ async function fetchJournalEntry(id: string): Promise<JournalEntry> {
 }
 
 /**
- * Generate metadata for this page
+ * Generate metadata for this page including OG images for social sharing
  */
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const entry = await fetchJournalEntry(params.id);
   
+  // Get base URL for absolute URLs in metadata
+  const baseUrl = "https://self-reflektions.vercel.app/_next/image?url=%2Flogo.jpg&w=64&q=75&dpl=dpl_CeMof2aAvKuh89pCWahoAiz8YWxd"
+  const contentPreview = entry.content?.substring(0, 160) || undefined;
+  
+  // Format date for display
+  const formattedDate = new Date(entry.created_at).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
+  // Create OG image URL with query parameters
+  const ogImageUrl = new URL(`${baseUrl}/api/og`);
+  ogImageUrl.searchParams.append('title', entry.title);
+  ogImageUrl.searchParams.append('date', formattedDate);
+  if (contentPreview) {
+    ogImageUrl.searchParams.append('content', contentPreview);
+  }
+  
   return genMeta({
     title: entry.title,
-    description: entry.content?.substring(0, 160) || undefined,
-    date: new Date(entry.created_at).toLocaleDateString(),
-    type: 'article'
+    description: contentPreview,
+    date: formattedDate,
+    type: 'article',
+    ogImage: ogImageUrl.toString()
   });
 }
 

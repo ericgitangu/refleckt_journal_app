@@ -6,41 +6,38 @@ export const dynamic = 'force-dynamic';
 // Set Edge runtime for best performance with OG images
 export const runtime = 'edge';
 
-// No revalidation needed for dynamic content
-export const revalidate = 0;
-
-// Montserrat font
-const montserratBold = fetch(
+// Load fonts from Google (no need for local fonts)
+const fontMontserratBold = fetch(
   new URL('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap')
 ).then((res) => res.arrayBuffer());
 
-const montserratRegular = fetch(
+const fontMontserratRegular = fetch(
   new URL('https://fonts.googleapis.com/css2?family=Montserrat:wght@400&display=swap')
 ).then((res) => res.arrayBuffer());
 
 export async function GET(request: Request) {
   try {
-    // Load the fonts
-    const [montserratBoldData, montserratRegularData] = await Promise.all([
-      montserratBold,
-      montserratRegular,
-    ]);
-
+    // Parse query parameters
     const { searchParams } = new URL(request.url);
     
-    // Get query params
+    // Get title and date from query params with fallbacks
     const title = searchParams.get('title') || 'Reflekt Journal';
-    const date = searchParams.get('date') || new Date().toLocaleDateString();
-    const hasJournal = searchParams.has('title');
+    const date = searchParams.get('date') || new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    
+    // Get optional content preview (truncated)
+    const content = searchParams.get('content') || 'Capture your thoughts and gain insights with AI-powered journaling';
+    
+    // Load fonts
+    const [montserratBoldData, montserratRegularData] = await Promise.all([
+      fontMontserratBold,
+      fontMontserratRegular,
+    ]);
 
-    // Get the absolute URL for images
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                    process.env.VERCEL_URL ? 
-                    `https://${process.env.VERCEL_URL}` : 
-                    'http://localhost:3000';
-    
-    const logoUrl = `${baseUrl}/android-chrome-512x512.png`;
-    
+    // Generate the OG image with branded styling
     return new ImageResponse(
       (
         <div
@@ -51,130 +48,132 @@ export async function GET(request: Request) {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#0f172a', // Dark blue
-            color: 'white',
-            fontFamily: '"Montserrat", sans-serif',
-            padding: '40px',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            backgroundColor: '#f8f9fa',
+            backgroundImage: 'linear-gradient(to bottom right, #f8f9fa, #e9ecef)',
+            padding: 50,
           }}
         >
-          {/* Background pattern */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundImage: 'radial-gradient(circle at 25px 25px, rgba(255, 255, 255, 0.1) 2px, transparent 0)',
-              backgroundSize: '50px 50px',
-              opacity: 0.4,
-            }}
-          />
-          
-          {/* Logo at the top */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              position: 'absolute',
-              top: '30px',
-              left: '40px',
-            }}
-          >
-            <img 
-              src={logoUrl} 
-              width={60} 
-              height={60} 
-              style={{
-                borderRadius: '12px',
-              }}
-            />
-            <span
-              style={{
-                marginLeft: '15px',
-                fontSize: '24px',
-                fontWeight: 'bold',
-              }}
-            >
-              Reflekt Journal
-            </span>
-          </div>
-          
-          {/* Main content */}
+          {/* Journal paper background */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '2px solid rgba(100, 116, 139, 0.5)',
-              borderRadius: '16px',
-              padding: '50px',
-              width: '85%',
-              background: 'rgba(15, 23, 42, 0.7)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-              backdropFilter: 'blur(10px)',
+              justifyContent: 'space-between',
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'white',
+              borderRadius: 16,
+              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+              padding: 40,
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
-            {hasJournal && (
+            {/* Paper texture lines */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundImage: 'linear-gradient(transparent 38px, #e5e7eb 38px)',
+                backgroundSize: '100% 39px',
+                zIndex: 0,
+                opacity: 0.3,
+              }}
+            />
+            
+            {/* Logo and Title section */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: 20,
+                zIndex: 1,
+              }}
+            >
               <div
                 style={{
-                  fontSize: '18px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '2px',
-                  color: '#94a3b8',
-                  marginBottom: '10px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  width: 60,
+                  height: 60,
+                  borderRadius: '50%',
+                  backgroundColor: '#5046e5',
+                  marginRight: 20,
                 }}
               >
-                Journal Entry
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
+                  <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"></path>
+                  <path d="M9 9l1 0"></path>
+                  <path d="M9 13l6 0"></path>
+                  <path d="M9 17l6 0"></path>
+                </svg>
               </div>
-            )}
+              <div>
+                <p style={{ margin: 0, fontSize: 24, color: '#5046e5', fontWeight: 700 }}>
+                  Reflekt Journal
+                </p>
+                <p style={{ margin: 0, fontSize: 16, color: '#6b7280' }}>
+                  {date}
+                </p>
+              </div>
+            </div>
             
-            <h1
-              style={{
-                fontSize: hasJournal ? '52px' : '64px',
-                fontWeight: 'bold',
-                textAlign: 'center',
-                margin: '0 0 20px 0',
-                maxWidth: '90%',
-              }}
-            >
-              {title}
-            </h1>
-            
-            {date && (
+            {/* Main content */}
+            <div style={{ marginBottom: 30, zIndex: 1 }}>
+              <h1
+                style={{
+                  fontSize: 48,
+                  fontWeight: 700,
+                  marginBottom: 20,
+                  color: '#111827',
+                  lineHeight: 1.2,
+                }}
+              >
+                {title}
+              </h1>
               <p
                 style={{
-                  fontSize: '22px',
-                  textAlign: 'center',
-                  margin: '0 0 30px 0',
-                  color: '#94a3b8',
+                  fontSize: 24,
+                  color: '#4b5563',
+                  lineHeight: 1.5,
                 }}
               >
-                {date}
+                {content.length > 160 ? content.substring(0, 157) + '...' : content}
               </p>
-            )}
-          </div>
-          
-          {/* Footer */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <p
-              style={{
-                fontSize: '16px',
-                color: '#94a3b8',
-              }}
-            >
-              reflektjournal.app
-            </p>
+            </div>
+            
+            {/* Bottom tag */}
+            <div style={{ display: 'flex', alignItems: 'center', zIndex: 1 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '8px 16px',
+                  backgroundColor: '#5046e510',
+                  borderRadius: 9999,
+                  fontSize: 18,
+                  color: '#5046e5',
+                  fontWeight: 600,
+                }}
+              >
+                #Reflection
+              </div>
+            </div>
           </div>
         </div>
       ),
@@ -184,21 +183,21 @@ export async function GET(request: Request) {
         fonts: [
           {
             name: 'Montserrat',
-            data: montserratBoldData,
+            data: montserratRegularData,
+            weight: 400,
             style: 'normal',
-            weight: 700,
           },
           {
             name: 'Montserrat',
-            data: montserratRegularData,
+            data: montserratBoldData,
+            weight: 700,
             style: 'normal',
-            weight: 400,
           },
         ],
       }
     );
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error('Error generating OG image:', error);
     return new Response('Failed to generate OG image', { status: 500 });
   }
 } 

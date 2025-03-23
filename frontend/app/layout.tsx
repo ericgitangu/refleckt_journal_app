@@ -11,6 +11,10 @@ const montserrat = Montserrat({
   display: 'swap',
 });
 
+// Get base URL for absolute URLs in metadata
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://self-reflektions.vercel.app/');
+
 // Static metadata that doesn't depend on contexts or hooks
 export const metadata: Metadata = {
   title: 'Reflekt - A Personal Journaling App',
@@ -29,10 +33,38 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_BASE_URL || 
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-  ),
+  metadataBase: new URL(baseUrl),
+  
+  // OpenGraph metadata for social sharing
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: baseUrl,
+    siteName: 'Reflekt Journal',
+    title: 'Reflekt - A Personal Journaling App',
+    description: 'Capture your thoughts and gain AI-powered insights with this beautiful journaling app',
+    images: [
+      {
+        url: `${baseUrl}/og-image.jpg`,
+        width: 1200,
+        height: 630,
+        alt: 'Reflekt Journal App',
+      }
+    ],
+  },
+  
+  // Twitter/X card metadata
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Reflekt Journal',
+    description: 'Your personal journaling space with AI-powered insights',
+    images: [`${baseUrl}/og-image.jpg`],
+  },
+  
+  // LinkedIn specific (they use OpenGraph)
+  // Adding content type and author for better LinkedIn preview
+  keywords: ['journal', 'journaling', 'reflection', 'AI', 'insights', 'personal growth'],
+  authors: [{ name: 'Reflekt Journal' }],
 };
 
 // Separate viewport configuration

@@ -1,61 +1,53 @@
 import { Metadata } from 'next';
 
 export interface GenerateMetadataProps {
-  title?: string;
+  title: string;
   description?: string;
-  date?: string;
   type?: 'website' | 'article';
+  date?: string;
+  ogImage?: string;
 }
 
 /**
- * Helper function to generate consistent metadata for pages
- * Compatible with Next.js App Router metadata API
+ * Generate metadata for Next.js pages including OpenGraph
  */
 export function generateMetadata({
   title,
   description,
+  type = 'website',
   date,
-  type = 'website'
+  ogImage,
 }: GenerateMetadataProps): Metadata {
+  // Get base URL for absolute URLs in metadata
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-                 (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-  
-  const pageTitle = title 
-    ? `${title} | Reflekt Journal`
-    : 'Reflekt - A Personal Journaling App';
-  
-  const pageDescription = description || 'Reflect on your thoughts with AI-powered insights';
-  
-  // Use dynamic OG image if title and date are provided
-  const ogImageUrl = title && date
-    ? `${baseUrl}/api/og?title=${encodeURIComponent(title)}&date=${encodeURIComponent(date)}`
-    : `${baseUrl}/og-image.jpg`;
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    
+  // Default OG image if none provided
+  const defaultOgImage = `${baseUrl}/og-image.jpg`;
+  const ogImageUrl = ogImage || defaultOgImage;
 
   return {
-    title: pageTitle,
-    description: pageDescription,
-    metadataBase: new URL(baseUrl),
+    title,
+    description,
     openGraph: {
-      title: pageTitle,
-      description: pageDescription,
+      title,
+      description,
+      type,
+      ...(date && { publishedTime: date }),
       images: [
         {
           url: ogImageUrl,
           width: 1200,
           height: 630,
-          alt: title || 'Reflekt Journal App',
-        }
+          alt: title,
+        },
       ],
-      locale: 'en_US',
-      type,
-      siteName: 'Reflekt Journal',
     },
     twitter: {
       card: 'summary_large_image',
-      title: pageTitle,
-      description: pageDescription,
+      title,
+      description,
       images: [ogImageUrl],
-      creator: '@reflektapp',
     },
   };
 } 
