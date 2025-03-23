@@ -11,8 +11,8 @@ const montserrat = Montserrat({
   display: 'swap',
 });
 
-// Usbsolute URLs in metadata - avoid trailing slash to avoid double slashes in paths
-const baseUrl = 'https://refleckt.vercel.app/'.replace(/\/$/, '');
+// Absolute URLs in metadata - avoid trailing slash to avoid double slashes in paths
+const baseUrl = 'https://refleckt.vercel.app'.replace(/\/$/, '');
 
 // Static metadata that doesn't depend on contexts or hooks
 export const metadata: Metadata = {
@@ -84,6 +84,26 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={montserrat.variable}>
+      <head>
+        {/* Next.js metadata API tags */}
+        {/* Explicit fallback meta tags for crawlers */}
+        
+        <title>Reflekt - A Personal Journaling App</title>
+        <meta name="description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
+
+        <meta property="og:url" content="https://refleckt.vercel.app" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Reflekt - A Personal Journaling App" />
+        <meta property="og:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
+        <meta property="og:image" content="https://refleckt.vercel.app/og-image.jpg" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta property="twitter:domain" content="refleckt.vercel.app" />
+        <meta property="twitter:url" content="https://refleckt.vercel.app" />
+        <meta name="twitter:title" content="Reflekt - A Personal Journaling App" />
+        <meta name="twitter:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
+        <meta name="twitter:image" content="https://refleckt.vercel.app/og-image.jpg" />
+      </head>
       <body className={inter.className}>
         <Providers>{children}</Providers>
       </body>
