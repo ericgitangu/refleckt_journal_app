@@ -152,10 +152,21 @@ The API will be available at http://localhost:3000/api
 ## 🧪 Testing
 
 ### Frontend Tests
+
 ```bash
 cd frontend
 yarn test          # Run unit tests
 yarn cypress       # Run E2E tests
+```
+
+See the package.json file for more test options for example:
+
+```bash
+yarn test:watch    # Run tests in watch mode
+yarn test:coverage # Run tests with coverage report
+yarn lint          # Run ESLint
+yarn type-check    # Run TypeScript type checking
+yarn test:all      # Run all checks (lint, type-check, and tests)
 ```
 
 ### Backend Tests
