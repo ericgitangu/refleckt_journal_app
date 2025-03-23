@@ -24,13 +24,17 @@ async function fetchJournalEntry(id: string): Promise<JournalEntry> {
 
 /**
  * Generate metadata for this page including OG images for social sharing
+ * Optimized for WhatsApp and other social media platforms
  */
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const entry = await fetchJournalEntry(params.id);
   
   // Get base URL for absolute URLs in metadata
-  const baseUrl = "https://self-reflektions.vercel.app/_next/image?url=%2Flogo.jpg&w=64&q=75&dpl=dpl_CeMof2aAvKuh89pCWahoAiz8YWxd"
-  const contentPreview = entry.content?.substring(0, 160) || undefined;
+  const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://self-reflektions.vercel.app')).replace(/\/$/, '');
+  
+  // Generate content preview for OG image - shorter for better WhatsApp display
+  const contentPreview = entry.content?.substring(0, 120) || undefined;
   
   // Format date for display
   const formattedDate = new Date(entry.created_at).toLocaleDateString('en-US', {
@@ -40,12 +44,17 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   });
   
   // Create OG image URL with query parameters
-  const ogImageUrl = new URL(`${baseUrl}/api/og`);
-  ogImageUrl.searchParams.append('title', entry.title);
-  ogImageUrl.searchParams.append('date', formattedDate);
+  // Using direct path to API route - no _next rewriting
+  // Encode parameters to ensure they're valid in URLs
+  const ogImageUrl = new URL('/api/og', baseUrl);
+  ogImageUrl.searchParams.append('title', encodeURIComponent(entry.title));
+  ogImageUrl.searchParams.append('date', encodeURIComponent(formattedDate));
   if (contentPreview) {
-    ogImageUrl.searchParams.append('content', contentPreview);
+    ogImageUrl.searchParams.append('content', encodeURIComponent(contentPreview));
   }
+  
+  // Add a cache busting parameter to ensure fresh images
+  ogImageUrl.searchParams.append('v', new Date().getTime().toString().slice(0, 6));
   
   return genMeta({
     title: entry.title,

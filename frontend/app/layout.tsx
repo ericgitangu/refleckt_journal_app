@@ -11,9 +11,8 @@ const montserrat = Montserrat({
   display: 'swap',
 });
 
-// Get base URL for absolute URLs in metadata
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://self-reflektions.vercel.app/');
+// Usbsolute URLs in metadata - avoid trailing slash to avoid double slashes in paths
+const baseUrl = 'https://refleckt.vercel.app/'.replace(/\/$/, '');
 
 // Static metadata that doesn't depend on contexts or hooks
 export const metadata: Metadata = {
@@ -45,6 +44,7 @@ export const metadata: Metadata = {
     description: 'Capture your thoughts and gain AI-powered insights with this beautiful journaling app',
     images: [
       {
+        // Use absolute URL with direct path to public image (no _next)
         url: `${baseUrl}/og-image.jpg`,
         width: 1200,
         height: 630,
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
       }
     ],
   },
-  
+
   // Twitter/X card metadata
   twitter: {
     card: 'summary_large_image',
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
   // LinkedIn specific (they use OpenGraph)
   // Adding content type and author for better LinkedIn preview
   keywords: ['journal', 'journaling', 'reflection', 'AI', 'insights', 'personal growth'],
-  authors: [{ name: 'Reflekt Journal' }],
+  authors: [{ name: 'Eric Gitangul' }],
 };
 
 // Separate viewport configuration
@@ -75,7 +75,6 @@ export const viewport: Viewport = {
 };
 
 // Force dynamic rendering for root layout
-// This is crucial to prevent "Cannot read properties of null (reading 'useRef')" errors
 export const dynamic = 'force-dynamic';
 
 export default function RootLayout({

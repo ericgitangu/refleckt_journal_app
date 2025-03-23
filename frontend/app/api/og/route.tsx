@@ -6,30 +6,33 @@ export const dynamic = 'force-dynamic';
 // Set Edge runtime for best performance with OG images
 export const runtime = 'edge';
 
-// Load fonts from Google (no need for local fonts)
+// Load fonts using direct URLs to avoid _next path issues
+// Use full Google Font URLs instead of CSS endpoints
 const fontMontserratBold = fetch(
-  new URL('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap')
+  new URL('https://fonts.gstatic.com/s/montserrat/v25/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCu173w5aXp-p7K4KLg.woff2')
 ).then((res) => res.arrayBuffer());
 
 const fontMontserratRegular = fetch(
-  new URL('https://fonts.googleapis.com/css2?family=Montserrat:wght@400&display=swap')
+  new URL('https://fonts.gstatic.com/s/montserrat/v25/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtr6Hw5aXp-p7K4KLg.woff2')
 ).then((res) => res.arrayBuffer());
 
+// Add proper cache control for social media crawlers
 export async function GET(request: Request) {
   try {
     // Parse query parameters
     const { searchParams } = new URL(request.url);
     
     // Get title and date from query params with fallbacks
-    const title = searchParams.get('title') || 'Reflekt Journal';
-    const date = searchParams.get('date') || new Date().toLocaleDateString('en-US', {
+    // Decode URI components to handle encoded characters
+    const title = decodeURIComponent(searchParams.get('title') || 'Reflekt Journal');
+    const date = decodeURIComponent(searchParams.get('date') || new Date().toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-    });
+    }));
     
     // Get optional content preview (truncated)
-    const content = searchParams.get('content') || 'Capture your thoughts and gain insights with AI-powered journaling';
+    const content = decodeURIComponent(searchParams.get('content') || 'Capture your thoughts and gain insights with AI-powered journaling');
     
     // Load fonts
     const [montserratBoldData, montserratRegularData] = await Promise.all([
@@ -38,7 +41,7 @@ export async function GET(request: Request) {
     ]);
 
     // Generate the OG image with branded styling
-    return new ImageResponse(
+    const response = new ImageResponse(
       (
         <div
           style={{
@@ -196,6 +199,13 @@ export async function GET(request: Request) {
         ],
       }
     );
+    
+    // Add headers to help with social media crawling
+    response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    response.headers.set('Content-Type', 'image/jpg');
+    response.headers.set('Content-Disposition', 'inline; filename="og-image.jpg"');
+    
+    return response;
   } catch (error) {
     console.error('Error generating OG image:', error);
     return new Response('Failed to generate OG image', { status: 500 });
