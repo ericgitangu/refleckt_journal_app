@@ -1,8 +1,7 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
-import { Providers } from '@/app/providers/Providers';
-import Head from 'next/head';
+import ClientProviders from '@/app/providers/ClientProviders';
 
 // Load fonts in server component
 const inter = Inter({ subsets: ['latin'] });
@@ -12,13 +11,13 @@ const montserrat = Montserrat({
   display: 'swap',
 });
 
-// Absolute URLs in metadata - avoid trailing slash to avoid double slashes in paths
-const baseUrl = 'https://refleckt.vercel.app'.replace(/\/$/, '');
+// Absolute URL with domain verification
+const baseUrl = 'https://refleckt.vercel.app';
 
 // Static metadata that doesn't depend on contexts or hooks
 export const metadata: Metadata = {
   title: 'Reflekt - A Personal Journaling App',
-  description: 'Reflect on your thoughts with AI-powered insights',
+  description: 'Capture your thoughts and gain AI-powered insights with this beautiful journaling app',
   icons: {
     icon: [
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -45,8 +44,7 @@ export const metadata: Metadata = {
     description: 'Capture your thoughts and gain AI-powered insights with this beautiful journaling app',
     images: [
       {
-        // Use absolute URL with direct path to public image (no _next)
-        url: `${baseUrl}/og-image.jpg`,
+        url: `/og-image.jpg`, // Relative path works with metadataBase
         width: 1200,
         height: 630,
         alt: 'Reflekt Journal App',
@@ -59,7 +57,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Reflekt Journal',
     description: 'Your personal journaling space with AI-powered insights',
-    images: [`${baseUrl}/og-image.jpg`],
+    images: [`/og-image.jpg`], // Relative path works with metadataBase
   },
 
   // LinkedIn specific (they use OpenGraph)
@@ -86,31 +84,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={montserrat.variable}>
       <body className={inter.className}>
-        <Head>
-          {/* Next.js metadata API tags */}
-          {/* Explicit fallback meta tags for crawlers */}
-
-          <title>Reflekt - A Personal Journaling App</title>
-          <meta name="description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
-
-          <meta property="og:url" content="https://refleckt.vercel.app" />
-          <meta property="og:type" content="website" />
-          <meta property="og:title" content="Reflekt - A Personal Journaling App" />
-          <meta property="og:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
-          <meta property="og:image" content="https://refleckt.vercel.app/og-image.jpg" />
-          <meta property="og:image:width" content="1200" />
-          <meta property="og:image:height" content="630" />
-          <meta property="og:image:alt" content="Reflekt Journal App" />
-          <meta property="og:image:type" content="image/jpeg" />
-
-          <meta name="twitter:card" content="summary_large_image" />
-          <meta property="twitter:domain" content="refleckt.vercel.app" />
-          <meta property="twitter:url" content="https://refleckt.vercel.app" />
-          <meta name="twitter:title" content="Reflekt - A Personal Journaling App" />
-          <meta name="twitter:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
-          <meta name="twitter:image" content="https://refleckt.vercel.app/og-image.jpg" />
-        </Head>
-        <Providers>{children}</Providers>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );
