@@ -1,9 +1,13 @@
 import { ImageResponse } from 'next/og';
 
+// Force dynamic rendering to avoid static generation issues
+export const dynamic = 'force-dynamic';
+
+// Set Edge runtime for best performance with OG images
 export const runtime = 'edge';
 
-// Route segment config
-export const revalidate = 3600; // Revalidate the OG image every hour
+// No revalidation needed for dynamic content
+export const revalidate = 0;
 
 // Montserrat font
 const montserratBold = fetch(

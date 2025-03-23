@@ -1,6 +1,6 @@
-@import '@tailwindcss/postcss/base';
-@import '@tailwindcss/postcss/components';
-@import '@tailwindcss/postcss/utilities';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
@@ -132,4 +132,19 @@
     border-image: linear-gradient(to right, hsl(var(--primary)), transparent) 1;
     outline: none;
   }
+}
+
+@keyframes logo-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.logo-pulse {
+  animation: logo-pulse 3s ease-in-out infinite;
+  filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.07));
+}
+
+.logo-pulse:hover {
+  filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.15));
 }

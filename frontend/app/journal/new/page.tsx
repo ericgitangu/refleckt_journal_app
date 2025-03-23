@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense, lazy } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ThemeToggleClient } from '@/components/theme/theme-toggle-client';
 import { ChevronLeft, Save, X } from 'lucide-react';
+
+// Lazy load client components
+const ThemeToggleClient = lazy(() => import('@/components/theme/theme-toggle-client'));
+
+// Loading fallback
+const LoadingFallback = () => <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>;
+
+// Force dynamic rendering for this page
+export const dynamic = 'force-dynamic';
 
 export default function NewJournalEntryPage() {
   const router = useRouter();
@@ -49,7 +57,9 @@ export default function NewJournalEntryPage() {
               <span>Back to Journal</span>
             </Link>
           </div>
-          <ThemeToggleClient />
+          <Suspense fallback={<LoadingFallback />}>
+            <ThemeToggleClient />
+          </Suspense>
         </div>
 
         <div className="journal-paper p-6 rounded-lg">

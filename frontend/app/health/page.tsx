@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { HealthDashboard } from '@/components/health/HealthDashboard';
 import { HealthStatusSkeleton } from '@/components/health/HealthStatusSkeleton';
+import { TrueErrorBoundary } from '@/components/ui/react-error-boundary';
 
 export const metadata = {
   title: 'System Health - Reflekt Journal',
@@ -9,6 +10,11 @@ export const metadata = {
 
 export default function HealthPage() {
   return (
+    <TrueErrorBoundary
+      fallbackUI="full"
+      title="Something went wrong"
+      showDetails={true}
+    >
     <div className="container mx-auto p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">System Health</h1>
@@ -21,5 +27,6 @@ export default function HealthPage() {
         <HealthDashboard />
       </Suspense>
     </div>
+    </TrueErrorBoundary>
   );
 } 

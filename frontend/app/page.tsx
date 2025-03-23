@@ -1,56 +1,79 @@
-import { ThemeToggleClient } from '@/components/theme/theme-toggle-client';
+'use client';
+
+import { Suspense } from 'react';
 import { BookOpen, PenLine, Archive, Sparkles } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { ThemeToggle } from '@/components/theme-toggle';
+
+// Force dynamic rendering to prevent hook errors during static generation
+export const dynamic = 'force-dynamic';
+
+// Fallback for client components when loading
+const LoadingFallback = () => <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>;
 
 export default function Home() {
   return (
     <div className="min-h-[90vh] flex flex-col items-center justify-center">
       <div className="absolute top-4 right-4">
-        <ThemeToggleClient />
+        <Suspense fallback={<LoadingFallback />}>
+          <ThemeToggle />
+        </Suspense>
       </div>
-      
+
       <div className="max-w-3xl w-full px-4">
         <div className="journal-paper p-8 rounded-lg">
           <div className="text-center mb-10">
-            <h1 className="text-5xl font-serif font-bold mb-3">Reflekt</h1>
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <Image
+                src="/logo.jpg"
+                alt="Reflekt Logo"
+                width={56}
+                height={56}
+                className="rounded-full logo-pulse"
+                priority
+              />
+              <h1 className="text-5xl font-serif font-bold">Reflekt</h1>
+            </div>
             <p className="text-lg text-muted-foreground">Your personal journaling space with AI-powered insights</p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 gap-6 mb-10">
-            <FeatureCard 
+            <FeatureCard
               icon={<PenLine className="h-6 w-6" />}
               title="Write & Reflect"
               description="Capture your thoughts, feelings, and experiences in a beautiful, distraction-free environment"
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Archive className="h-6 w-6" />}
               title="Organize Easily"
               description="Categorize entries with tags and search through your journal to find past reflections"
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<BookOpen className="h-6 w-6" />}
               title="Daily Prompts"
               description="Never run out of ideas with our thoughtful journaling prompts to inspire reflection"
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Sparkles className="h-6 w-6" />}
               title="AI Insights"
               description="Discover patterns and gain deeper understanding of your thoughts with AI-powered analysis"
             />
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a 
+            <Link
               href="/journal"
               className="px-6 py-3 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-md hover:bg-[hsl(var(--primary))]/90 transition text-center font-medium"
             >
               View Journal
-            </a>
-            <a 
+            </Link>
+            <Link
               href="/journal/new"
               className="px-6 py-3 bg-[hsl(var(--journal-accent))] text-[hsl(var(--journal-ink))] rounded-md hover:bg-[hsl(var(--journal-accent))]/80 transition text-center font-medium"
             >
               New Entry
-            </a>
+            </Link>
           </div>
         </div>
       </div>

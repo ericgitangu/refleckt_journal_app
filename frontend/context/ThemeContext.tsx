@@ -1,17 +1,60 @@
 'use client';
 
-import * as React from 'react';
-import { ThemeProvider as NextThemesProvider } from 'next-themes';
+import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 
-interface ThemeProviderProps {
-  children: React.ReactNode;
-  [key: string]: any;
+type Theme = 'light' | 'dark';
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
 }
 
-export function CustomThemeProvider({ children, ...props }: ThemeProviderProps) {
+// Create context with a meaningful default value
+const ThemeContext = createContext<ThemeContextType>({
+  theme: 'light',
+  toggleTheme: () => {},
+});
+
+// Custom hook to use the theme context
+export function useThemeContext() {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useThemeContext must be used within a ThemeProvider');
+  }
+  return context;
+}
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  // Initialize with system preference or default to light
+  const [theme, setTheme] = useState<Theme>('light');
+
+  useEffect(() => {
+    // Check for stored preference
+    const storedTheme = localStorage.getItem('theme') as Theme;
+    if (storedTheme) {
+      setTheme(storedTheme);
+    } else {
+      // Use system preference as fallback
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
+    }
+  }, []);
+
+  // Update html class when theme changes
+  useEffect(() => {
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+  };
+
+  // Provide both current theme and toggle function
   return (
-    <NextThemesProvider attribute="class" defaultTheme="system" enableSystem {...props}>
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}
-    </NextThemesProvider>
+    </ThemeContext.Provider>
   );
 } 

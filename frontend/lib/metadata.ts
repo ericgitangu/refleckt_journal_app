@@ -34,6 +34,7 @@ export function generateMetadata({
   return {
     title: pageTitle,
     description: pageDescription,
+    metadataBase: new URL(baseUrl),
     openGraph: {
       title: pageTitle,
       description: pageDescription,

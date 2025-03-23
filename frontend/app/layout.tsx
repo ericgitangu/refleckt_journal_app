@@ -1,8 +1,9 @@
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import { Providers } from '@/app/providers/Providers';
 
+// Load fonts in server component
 const inter = Inter({ subsets: ['latin'] });
 const montserrat = Montserrat({ 
   subsets: ['latin'],
@@ -10,6 +11,7 @@ const montserrat = Montserrat({
   display: 'swap',
 });
 
+// Static metadata that doesn't depend on contexts or hooks
 export const metadata: Metadata = {
   title: 'Reflekt - A Personal Journaling App',
   description: 'Reflect on your thoughts with AI-powered insights',
@@ -27,43 +29,22 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
-  openGraph: {
-    title: 'Reflekt - A Personal Journaling App',
-    description: 'Reflect on your thoughts with AI-powered insights',
-    images: [
-      {
-        url: '/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Reflekt Journal App',
-      }
-    ],
-    locale: 'en_US',
-    type: 'website',
-    siteName: 'Reflekt Journal',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Reflekt - A Personal Journaling App',
-    description: 'Reflect on your thoughts with AI-powered insights',
-    images: ['/og-image.jpg'],
-    creator: '@reflektapp',
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Reflekt Journal',
-  },
-  applicationName: 'Reflekt Journal',
-  formatDetection: {
-    telephone: false,
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_BASE_URL || 
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  ),
 };
+
+// Separate viewport configuration
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
+// Force dynamic rendering for root layout
+// This is crucial to prevent "Cannot read properties of null (reading 'useRef')" errors
+export const dynamic = 'force-dynamic';
 
 export default function RootLayout({
   children,

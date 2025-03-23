@@ -1,16 +1,20 @@
+'use client';
+
 import Link from 'next/link';
-import { ThemeToggleClient } from '@/components/theme/theme-toggle-client';
 import { ChevronLeft } from 'lucide-react';
 import { JournalEntryFeed } from '@/components/journal/journal-entry-feed';
 import { CreateEntryButton } from '@/components/journal/create-entry-button';
-import { Suspense } from 'react';
+import { Suspense, lazy } from 'react';
 import { LoadingFeed } from '@/components/journal/loading-feed';
 
+// Lazy load client components
+const ThemeToggleClient = lazy(() => import('@/components/theme/theme-toggle-client'));
 
-export const metadata = {
-  title: 'Journal - Reflekt',
-  description: 'Your personal journal entries',
-};
+// Loading fallback
+const LoadingFallback = () => <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>;
+
+// Set dynamic option for App Router
+export const dynamic = 'force-dynamic';
 
 export default function JournalPage() {
   return (
@@ -25,7 +29,9 @@ export default function JournalPage() {
           </div>
           <div className="flex items-center gap-4">
             <CreateEntryButton />
-            <ThemeToggleClient />
+            <Suspense fallback={<LoadingFallback />}>
+              <ThemeToggleClient />
+            </Suspense>
           </div>
         </div>
 

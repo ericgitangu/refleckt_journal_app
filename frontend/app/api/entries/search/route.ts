@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { apiRequest, handleApiError } from '@/lib/api-utils';
 
+// Add this to make the route explicitly dynamic
+export const dynamic = 'force-dynamic';
+
 // GET: Search for entries
 export async function GET(request: Request) {
   try {

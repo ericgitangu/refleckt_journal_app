@@ -9,7 +9,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ServiceDebugMonitor } from '@/components/debug/ServiceDebugMonitor';
 import { DebugMonitorSkeleton } from '@/components/debug/DebugMonitorSkeleton';
-
+import { TrueErrorBoundary } from '@/components/ui/react-error-boundary';
 export const metadata = {
   title: 'Debug Dashboard - Reflekt Journal',
   description: 'Debug and monitor Reflekt Journal services',
@@ -17,6 +17,11 @@ export const metadata = {
 
 export default function DebugPage() {
   return (
+    <TrueErrorBoundary
+      fallbackUI="full"
+      title="Something went wrong"
+      showDetails={true}
+    >
     <div className="container mx-auto p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Debug Dashboard</h1>
@@ -64,5 +69,6 @@ export default function DebugPage() {
         </Card>
       </Tabs>
     </div>
+    </TrueErrorBoundary>
   );
 } 
