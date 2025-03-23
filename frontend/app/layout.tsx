@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     description: 'Capture your thoughts and gain AI-powered insights with this beautiful journaling app',
     images: [
       {
-        url: `/og-image.jpg`, // Relative path works with metadataBase
+        url: `/og-image.jpg`,
         width: 1200,
         height: 630,
         alt: 'Reflekt Journal App',

@@ -11,7 +11,31 @@ interface ServiceCheck {
   message?: string;
 }
 
+interface HealthResponse {
+  timestamp: string;
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  services: ServiceCheck[];
+}
+
 export async function GET() {
+  // First try the backend's unified health endpoint
+  try {
+    const startTime = Date.now();
+    const response = await apiRequest('/health', 'GET', undefined, { requireAuth: false });
+    
+    // If we reach here, the backend health endpoint worked
+    const backendHealth = response.data as HealthResponse;
+    
+    return NextResponse.json({
+      ...backendHealth,
+      frontend_latency: Date.now() - startTime,
+    });
+  } catch (error) {
+    console.warn('Backend health endpoint failed, falling back to service checks');
+    // Fall back to individual service checks
+  }
+  
+  // If the backend health endpoint failed, check individual services
   const services = [
     'entry-service',
     'settings-service',
@@ -21,7 +45,7 @@ export async function GET() {
 
   const results: ServiceCheck[] = [];
   
-  // Health check doesn't require authentication
+  // Health check doesn't require authentication for initial probing
   for (const service of services) {
     const start = Date.now();
     try {
@@ -68,6 +92,16 @@ export async function GET() {
       }
     }
   }
+  
+  // Check connectivity to the backend API itself
+  results.push({
+    name: 'backend-api',
+    status: API_URL ? 'degraded' : 'unhealthy',
+    latency: 0,
+    message: API_URL 
+      ? 'Backend API connection issue' 
+      : 'Backend API URL not configured'
+  });
   
   // Calculate overall status
   const hasUnhealthy = results.some(r => r.status === 'unhealthy');

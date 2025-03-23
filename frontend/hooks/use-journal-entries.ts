@@ -46,7 +46,12 @@ export function useJournalEntries() {
   const createEntry = async (entryData: Omit<JournalEntry, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       setIsLoading(true);
-      const newEntry = await entriesApi.create(entryData);
+      // Convert mood from string to number if it exists
+      const processedData = {
+        ...entryData,
+        mood: entryData.mood ? Number(entryData.mood) : undefined
+      };
+      const newEntry = await entriesApi.create(processedData);
       setEntries(prev => [newEntry, ...prev]);
       toast({
         title: 'Success',
@@ -69,7 +74,12 @@ export function useJournalEntries() {
   const updateEntry = async (id: string, entryData: Partial<JournalEntry>) => {
     try {
       setIsLoading(true);
-      const updatedEntry = await entriesApi.update(id, entryData);
+      // Convert mood from string to number if it exists
+      const processedData = {
+        ...entryData,
+        mood: entryData.mood !== undefined ? Number(entryData.mood) : undefined
+      };
+      const updatedEntry = await entriesApi.update(id, processedData);
       setEntries(prev => 
         prev.map(entry => entry.id === id ? updatedEntry : entry)
       );

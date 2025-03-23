@@ -3,6 +3,17 @@ import { analyticsApi } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import { AnalyticsData, MoodData } from '@/types/api';
 
+// Helper function to transform mood data from API to MoodData type
+function transformMoods(data: { date: string; value: number }[]): MoodData[] {
+  return data.map((item, index) => ({
+    id: `mood-${index}`,
+    entry_id: `entry-${index}`,
+    mood: item.value.toString(),
+    confidence: 1.0,
+    created_at: item.date
+  }));
+}
+
 export function useAnalytics() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [moods, setMoods] = useState<MoodData[]>([]);
@@ -37,7 +48,7 @@ export function useAnalytics() {
       try {
         setIsLoading(true);
         const data = await analyticsApi.getMood();
-        setMoods(data);
+        setMoods(transformMoods(data.moods));
         setError(null);
       } catch (err) {
         console.error('Failed to fetch mood data:', err);

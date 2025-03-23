@@ -46,6 +46,9 @@ export interface UserSettings {
   updated_at: string;
 }
 
+// Alias for the client-side API
+export type Settings = UserSettings;
+
 // Analytics types
 export interface AnalyticsData {
   id: string;
@@ -56,6 +59,9 @@ export interface AnalyticsData {
   created_at: string;
   updated_at: string;
 }
+
+// Alias for the client-side API
+export type Analytics = AnalyticsData;
 
 export interface MoodData {
   id: string;

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, Suspense, lazy } from 'react';
+import { useState, Suspense, lazy, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ChevronLeft, Save, X } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ChevronLeft, Save, X, MessageSquareText } from 'lucide-react';
+import { RandomPrompt } from '@/components/RandomPrompt';
+import { Prompt } from '@/lib/api';
 
 // Lazy load client components
 const ThemeToggleClient = lazy(() => import('@/components/theme/theme-toggle-client'));
@@ -16,10 +18,20 @@ export const dynamic = 'force-dynamic';
 
 export default function NewJournalEntryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [showPrompts, setShowPrompts] = useState(false);
+
+  // Check for prompt in URL parameters
+  useEffect(() => {
+    const promptParam = searchParams?.get('prompt');
+    if (promptParam) {
+      setContent(promptParam + '\n\n');
+    }
+  }, [searchParams]);
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim().toLowerCase())) {
@@ -47,6 +59,17 @@ export default function NewJournalEntryPage() {
     router.push('/journal');
   };
 
+  const handleUsePrompt = (prompt: Prompt) => {
+    // Insert the prompt at the beginning of the content
+    setContent(prompt.text + '\n\n' + content);
+    // Add the category as a tag if it doesn't exist
+    if (!tags.includes(prompt.category.toLowerCase())) {
+      setTags([...tags, prompt.category.toLowerCase()]);
+    }
+    // Hide the prompts panel
+    setShowPrompts(false);
+  };
+
   return (
     <div className="min-h-screen bg-[hsl(var(--background))]">
       <div className="max-w-3xl mx-auto px-4 py-8">
@@ -57,10 +80,41 @@ export default function NewJournalEntryPage() {
               <span>Back to Journal</span>
             </Link>
           </div>
-          <Suspense fallback={<LoadingFallback />}>
-            <ThemeToggleClient />
-          </Suspense>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPrompts(!showPrompts)}
+              className="flex items-center gap-1 px-3 py-2 text-muted-foreground hover:text-foreground transition text-sm"
+            >
+              <MessageSquareText className="h-4 w-4" />
+              <span>{showPrompts ? 'Hide Prompts' : 'Show Prompts'}</span>
+            </button>
+            <Suspense fallback={<LoadingFallback />}>
+              <ThemeToggleClient />
+            </Suspense>
+          </div>
         </div>
+
+        {showPrompts && (
+          <div className="mb-6 p-4 border rounded-lg bg-background/50">
+            <h2 className="text-lg font-medium mb-4">Writing Prompts</h2>
+            <div className="grid grid-cols-1 gap-4">
+              <RandomPrompt 
+                onUsePrompt={handleUsePrompt} 
+                initialFetch={true}
+                compact={true}
+                label="Get a Prompt"
+              />
+              <div className="flex justify-end">
+                <Link 
+                  href="/journal/prompts" 
+                  className="text-sm text-muted-foreground hover:text-foreground transition"
+                >
+                  Browse more prompts →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="journal-paper p-6 rounded-lg">
           <h1 className="font-serif text-2xl font-bold mb-6">New Journal Entry</h1>
