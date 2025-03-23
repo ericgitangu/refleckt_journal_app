@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Cognito User Pool with Google federation'
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    Description: The deployment stage
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+  
+  GoogleClientId:
+    Type: String
+    Description: Google OAuth Client ID
+    NoEcho: false
+  
+  GoogleClientSecret:
+    Type: String
+    Description: Google OAuth Client Secret
+    NoEcho: true
+  
+  CallbackURL:
+    Type: String
+    Description: 'The callback URL for the client, typically https://domain/api/auth/callback/cognito'
+    Default: 'http://localhost:3000/api/auth/callback/cognito'
+
+Resources:
+  # Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub 'reflekt-user-pool-${Stage}'
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      MfaConfiguration: 'OFF'
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      UserPoolTags:
+        Application: 'Reflekt Journal'
+        Environment: !Ref Stage
+
+  # Cognito User Pool Client
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub 'reflekt-client-${Stage}'
+      UserPoolId: !Ref UserPool
+      GenerateSecret: true
+      SupportedIdentityProviders:
+        - COGNITO
+        - Google
+      CallbackURLs:
+        - !Ref CallbackURL
+      LogoutURLs:
+        - !Sub '${CallbackURL}/api/auth/signout'
+      AllowedOAuthFlows:
+        - code
+        - implicit
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - phone
+        - email
+        - openid
+        - profile
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+
+  # Identity Provider for Google
+  GoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: 'profile email openid'
+      AttributeMapping:
+        email: email
+        name: name
+        picture: picture
+
+  # Domain name for the Cognito hosted UI
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub 'reflekt-${Stage}-${AWS::AccountId}'
+      UserPoolId: !Ref UserPool
+
+Outputs:
+  UserPoolId:
+    Description: 'ID of the Cognito User Pool'
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolId'
+  
+  UserPoolClientId:
+    Description: 'ID of the Cognito User Pool Client'
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolClientId'
+  
+  UserPoolDomain:
+    Description: 'Domain name for the Cognito hosted UI'
+    Value: !Sub 'https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolDomain'
+  
+  CognitoProviderURL:
+    Description: 'URL for the Cognito identity provider'
+    Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+    Export:
+      Name: !Sub '${AWS::StackName}-CognitoProviderURL' 

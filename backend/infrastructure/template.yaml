@@ -30,6 +30,7 @@ Globals:
         CATEGORIES_TABLE: !Ref CategoriesTable
         INSIGHTS_TABLE: !Ref InsightsTable
         SETTINGS_TABLE: !Ref SettingsTable
+        PROMPTS_TABLE: !Ref PromptsTable
         JWT_SECRET: !Ref JwtSecret
         EVENT_BUS_NAME: !Ref JournalEventBus
         LOG_LEVEL: INFO
@@ -238,6 +239,64 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref SettingsTable
 
+  PromptsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/prompts-service/
+      Handler: bootstrap
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PromptsTable
+      Events:
+        ListPrompts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /prompts
+            Method: GET
+        GetPromptById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /prompts/{id}
+            Method: GET
+        GetDailyPrompt:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /prompts/daily
+            Method: GET
+        GetRandomPrompt:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /prompts/random
+            Method: GET
+        GetPromptsByCategory:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /prompts/category/{category}
+            Method: GET
+        CreatePrompt:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /prompts
+            Method: POST
+        UpdatePrompt:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /prompts/{id}
+            Method: PUT
+        DeletePrompt:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /prompts/{id}
+            Method: DELETE
+
   # DynamoDB Tables
   EntriesTable:
     Type: AWS::DynamoDB::Table
@@ -345,6 +404,27 @@ Resources:
           KeyType: HASH
         - AttributeName: user_id
           KeyType: RANGE
+
+  PromptsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub reflekt-prompts-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: category-index
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
 
   # Event Bus
   JournalEventBus:
