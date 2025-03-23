@@ -2,10 +2,11 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import { Providers } from '@/app/providers/Providers';
+import Head from 'next/head';
 
 // Load fonts in server component
 const inter = Inter({ subsets: ['latin'] });
-const montserrat = Montserrat({ 
+const montserrat = Montserrat({
   subsets: ['latin'],
   variable: '--font-montserrat',
   display: 'swap',
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
   },
   manifest: '/site.webmanifest',
   metadataBase: new URL(baseUrl),
-  
+
   // OpenGraph metadata for social sharing
   openGraph: {
     type: 'website',
@@ -60,7 +61,7 @@ export const metadata: Metadata = {
     description: 'Your personal journaling space with AI-powered insights',
     images: [`${baseUrl}/og-image.jpg`],
   },
-  
+
   // LinkedIn specific (they use OpenGraph)
   // Adding content type and author for better LinkedIn preview
   keywords: ['journal', 'journaling', 'reflection', 'AI', 'insights', 'personal growth'],
@@ -84,31 +85,31 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={montserrat.variable}>
-      <head>
-        {/* Next.js metadata API tags */}
-        {/* Explicit fallback meta tags for crawlers */}
-        
-        <title>Reflekt - A Personal Journaling App</title>
-        <meta name="description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
-
-        <meta property="og:url" content="https://refleckt.vercel.app" />
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content="Reflekt - A Personal Journaling App" />
-        <meta property="og:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
-        <meta property="og:image" content="https://refleckt.vercel.app/og-image.jpg" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content="Reflekt Journal App" />
-        <meta property="og:image:type" content="image/jpeg" />
-
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta property="twitter:domain" content="refleckt.vercel.app" />
-        <meta property="twitter:url" content="https://refleckt.vercel.app" />
-        <meta name="twitter:title" content="Reflekt - A Personal Journaling App" />
-        <meta name="twitter:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
-        <meta name="twitter:image" content="https://refleckt.vercel.app/og-image.jpg" />
-      </head>
       <body className={inter.className}>
+        <Head>
+          {/* Next.js metadata API tags */}
+          {/* Explicit fallback meta tags for crawlers */}
+
+          <title>Reflekt - A Personal Journaling App</title>
+          <meta name="description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
+
+          <meta property="og:url" content="https://refleckt.vercel.app" />
+          <meta property="og:type" content="website" />
+          <meta property="og:title" content="Reflekt - A Personal Journaling App" />
+          <meta property="og:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
+          <meta property="og:image" content="https://refleckt.vercel.app/og-image.jpg" />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:alt" content="Reflekt Journal App" />
+          <meta property="og:image:type" content="image/jpeg" />
+
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta property="twitter:domain" content="refleckt.vercel.app" />
+          <meta property="twitter:url" content="https://refleckt.vercel.app" />
+          <meta name="twitter:title" content="Reflekt - A Personal Journaling App" />
+          <meta name="twitter:description" content="Capture your thoughts and gain AI-powered insights with this beautiful journaling app" />
+          <meta name="twitter:image" content="https://refleckt.vercel.app/og-image.jpg" />
+        </Head>
         <Providers>{children}</Providers>
       </body>
     </html>
