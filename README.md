@@ -1,4 +1,4 @@
-# ✨ Reflekt Journal App
+# ✨ Reflekt
 
 A modern, thoughtful journaling application with a React frontend and serverless AWS backend.
 
