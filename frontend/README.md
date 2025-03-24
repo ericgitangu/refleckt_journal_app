@@ -24,6 +24,7 @@ A modern, thoughtful journaling app built with Next.js and React.
 - [📦 Deployment](#-deployment)
 - [📄 License](#-license)
 - [🤔 Known Issues and Solutions](#-known-issues-and-solutions)
+- [👨‍💻 Author](#author)
 
 ## 📝 Description
 
@@ -256,3 +257,9 @@ When adding new Radix UI components:
 2. Use `as any` type assertions on forwardRef components
 3. Document why this is necessary with comments
 4. Run `node scripts/add-ts-nocheck.js` to ensure all component files are properly configured
+
+## Author
+
+👨‍💻 **Eric Gitangu (Deveric)**
+- Email: [developer.ericgitangu@gmail.com](mailto:developer.ericgitangu@gmail.com)
+- Website: [https://developer.ericgitangu.com](https://developer.ericgitangu.com)
