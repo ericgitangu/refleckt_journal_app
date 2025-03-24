@@ -3,7 +3,24 @@ import type { NextRequest } from 'next/dist/server/web/spec-extension/request';
 import { getToken } from 'next-auth/jwt';
 
 // Public routes that don't require authentication
-const publicRoutes = ['/api/health', '/api/config', '/login', '/signup', '/auth'];
+const publicRoutes = [
+  '/',                   // Root path
+  '/api/health', 
+  '/api/config', 
+  '/login', 
+  '/signup', 
+  '/auth'
+];
+
+// Static assets that should be publicly accessible
+const staticAssets = [
+  '/logo.jpg',
+  '/og-image.jpg',
+  '/manifest.json',
+  '/site.webmanifest',
+  '/favicon.ico',
+  '/robots.txt'
+];
 
 // AWS X-Ray headers
 const AWS_HEADERS = [
@@ -45,8 +62,16 @@ export async function middleware(request: NextRequest) {
     });
   }
 
+  // Check if the path is a static asset or starts with /images/
+  if (staticAssets.includes(pathname) || pathname.startsWith('/images/') || pathname.startsWith('/icons/')) {
+    // Allow access to static assets without authentication
+    console.log(`Allowing static asset: ${pathname}`);
+    return NextResponse.next();
+  }
+
   // Check if the route is public
-  if (publicRoutes.includes(pathname)) {
+  if (publicRoutes.includes(pathname) || publicRoutes.some(route => pathname.startsWith(route + '/'))) {
+    console.log(`Allowing public route: ${pathname}`);
     const response = NextResponse.next();
     Object.entries(CORS_HEADERS).forEach(([key, value]) => {
       response.headers.set(key, value);
@@ -57,6 +82,7 @@ export async function middleware(request: NextRequest) {
   // Verify authentication for protected routes
   const token = await getToken({ req: request });
   if (!token) {
+    console.log(`Redirecting to login: ${pathname}`);
     const response = NextResponse.redirect(new URL('/login', request.url));
     Object.entries(CORS_HEADERS).forEach(([key, value]) => {
       response.headers.set(key, value);
@@ -107,7 +133,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - public directory files (logo.jpg, images/, icons/, etc.)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|logo.jpg|images|icons|manifest.json|site.webmanifest|robots.txt).*)',
   ],
 }; 

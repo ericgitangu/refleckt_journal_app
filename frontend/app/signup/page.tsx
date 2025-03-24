@@ -6,8 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Icons } from '@/components/icons';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -24,14 +23,11 @@ export default function SignUpPage() {
     }
   }, [session, router, callbackUrl]);
 
-  // For Cognito, we'll redirect to the Cognito hosted UI for signup
-  // The actual signup process will be handled by Cognito
   const handleSignup = async (provider: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // For Cognito, we redirect to the sign-in page with signup parameter
       const result = await signIn(provider, {
         callbackUrl,
         redirect: true,
@@ -49,40 +45,77 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
-      <Card className="w-[350px]">
-        <CardHeader className="space-y-1">
-          <Link href="/" className="flex justify-center mb-4">
-            <Image 
-              src="/logo.jpg" 
-              alt="Refleckt Journal Logo" 
-              width={120} 
-              height={120} 
-              className="rounded-md"
-            />
-          </Link>
-          <CardTitle className="text-2xl text-center">Create an account</CardTitle>
-          <CardDescription className="text-center">
-            Sign up to start your journaling journey
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
+    <div className="container relative flex h-screen w-screen flex-col items-center justify-center">
+      {/* Theme toggle in top right corner */}
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      
+      <div className="w-full max-w-[350px] space-y-6 text-center">
+        {/* Logo (circular) */}
+        <div className="mx-auto rounded-full border-2 w-24 h-24 flex items-center justify-center">
+          <Image src="/logo.jpg" alt="Reflekt Journal Logo" width={120} height={120} className="rounded-md" />
+        </div>
+        
+        {/* Heading and subheading */}
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold tracking-tight">Welcome to Reflekt</h1>
+          <p className="text-xs text-muted-foreground mt-1">© {new Date().getFullYear()} Reflekt Journal. All rights reserved.</p>
+          <p className="text-muted-foreground">Your personal journaling companion</p>
+        </div>
+        
+        {/* Auth buttons */}
+        <div className="flex flex-col space-y-3">
+          <Button
+            onClick={() => handleSignup('cognito')}
+            className="w-full border border-gray-800 dark:border-transparent"
+            disabled={isLoading}
+          >
+            Continue with Cognito
+          </Button>
+          
           <Button
             variant="outline"
-            onClick={() => signIn('google', { callbackUrl })}
+            onClick={() => handleSignup('google')}
             className="w-full"
+            disabled={isLoading}
           >
-            <Icons.google className="mr-2 h-4 w-4" />
+            <Image 
+              src="/images/google-logo.svg" 
+              alt="Google" 
+              width={16} 
+              height={16} 
+              className="mr-2"
+            />
             Continue with Google
           </Button>
-          <div className="text-center text-sm">
-            Already have an account?{' '}
-            <Link href="/login" className="text-primary hover:underline">
-              Sign in
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+        
+        {/* Error display */}
+        {error && (
+          <p className="text-destructive text-sm">{error}</p>
+        )}
+        
+        {/* Login link */}
+        <div className="text-sm">
+          Already have an account?{' '}
+          <Link href="/login" className="text-primary hover:underline">
+            Sign in
+          </Link>
+        </div>
+        
+        {/* Terms and privacy notice */}
+        <p className="text-xs text-muted-foreground px-6">
+          By signing up, you agree to our{' '}
+          <Link href="/terms" className="text-primary hover:underline">
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link href="/privacy" className="text-primary hover:underline">
+            Privacy Policy
+          </Link>
+        </p>
+      </div>
     </div>
   );
 } 
