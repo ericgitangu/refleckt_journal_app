@@ -12,6 +12,7 @@ A serverless microservices-based backend architecture powering the Reflekt Journ
 - [🧪 Testing](#-testing)
 - [🔧 Configuration](#-configuration)
 - [📝 API Documentation](#-api-documentation)
+- [👨‍💻 Author](#-author)
 
 ## 📋 Overview
 
@@ -208,6 +209,12 @@ Services communicate through:
 - **API Gateway**: Request validation and throttling
 - **Input Validation**: Parameter validation for all endpoints
 - **CloudWatch Logs**: For audit trail and troubleshooting
+
+## 👨‍💻 Author
+
+**Eric Gitangu (Deveric)**
+- Email: [developer.ericgitangu@gmail.com](mailto:developer.ericgitangu@gmail.com)
+- Website: [https://developer.ericgitangu.com](https://developer.ericgitangu.com)
 
 ---
 

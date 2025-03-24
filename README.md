@@ -13,6 +13,7 @@ A modern, thoughtful journaling application with a React frontend and serverless
 - [🧪 Testing](#-testing)
 - [☁️ Deployment](#️-deployment)
 - [🔒 Authentication](#-authentication)
+- [👨‍💻 Author](#-author)
 - [📄 License](#-license)
 
 ## 🌟 Introduction
@@ -220,6 +221,12 @@ Reflekt uses AWS Cognito for authentication with the following features:
 For detailed authentication setup:
 - [Authentication Setup Guide](docs/auth-setup.md)
 - [Google OAuth Configuration](docs/google-oauth.md)
+
+## 👨‍💻 Author
+
+**Eric Gitangu (Deveric)**
+- Email: [developer.ericgitangu@gmail.com](mailto:developer.ericgitangu@gmail.com)
+- Website: [https://developer.ericgitangu.com](https://developer.ericgitangu.com)
 
 ## 📄 License
 
