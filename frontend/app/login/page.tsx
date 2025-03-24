@@ -49,7 +49,7 @@ export default function LoginPage() {
     <div className="container flex h-screen w-screen flex-col items-center justify-center">
       <Card className="w-[350px]">
         <CardHeader className="space-y-1">
-          <div className="flex justify-center mb-4">
+          <Link href="/" className="flex justify-center mb-4">
             <Image 
               src="/logo.jpg" 
               alt="Refleckt Journal Logo" 
@@ -57,7 +57,7 @@ export default function LoginPage() {
               height={120} 
               className="rounded-md"
             />
-          </div>
+          </Link>
           <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
           <CardDescription className="text-center">
             Sign in to your account to continue
