@@ -71,9 +71,9 @@ export function TopNavbar() {
             <Image 
               src="/logo.jpg" 
               alt="Reflekt Logo" 
-              width={28} 
-              height={28} 
-              className="rounded-md"
+              width={48} 
+              height={48} 
+              className="rounded-md border-2 border-black dark:border-transparent"
             />
             <span className="font-bold text-lg">Reflekt</span>
           </Link>

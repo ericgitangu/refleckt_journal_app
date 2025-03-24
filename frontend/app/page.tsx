@@ -28,9 +28,9 @@ export default function Home() {
               <Image
                 src="/logo.jpg"
                 alt="Reflekt Logo"
-                width={56}
-                height={56}
-                className="rounded-full logo-pulse"
+                width={72}
+                height={72}
+                className="rounded-full logo-pulse border-2 border-black dark:border-transparent"
                 priority
               />
               <h1 className="text-5xl font-serif font-bold">Reflekt</h1>

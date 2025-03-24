@@ -90,7 +90,7 @@ Shared utilities and code used across multiple Lambda functions.
 
 ### Prerequisites
 
-- Node.js (v16+)
+- Node.js (v18+)
 - Yarn package manager
 - AWS CLI configured with appropriate credentials
 - AWS SAM CLI
