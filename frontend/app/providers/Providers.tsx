@@ -43,11 +43,10 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <JotaiProvider>
-      {/* ThemeProvider is safe outside ClientOnly as it doesn't use React context during render */}
+    // Wrap all providers in ClientOnly including ThemeProvider which also uses hooks
+    <ClientOnly>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        {/* Wrap all authentication and data providers in ClientOnly */}
-        <ClientOnly>
+        <JotaiProvider>
           <SWRConfig 
             value={{
               fetcher: (resource: string, init?: RequestInit) => fetch(resource, init).then(res => res.json()),
@@ -74,8 +73,8 @@ export function Providers({ children }: ProvidersProps) {
               </TrpcProvider>
             </SessionProvider>
           </SWRConfig>
-        </ClientOnly>
+        </JotaiProvider>
       </ThemeProvider>
-    </JotaiProvider>
+    </ClientOnly>
   );
 } 

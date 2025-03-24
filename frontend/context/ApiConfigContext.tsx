@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 
 // API Configuration types
 interface ApiConfig {
@@ -41,44 +41,68 @@ const initialConfig: ApiConfig = {
 // Create context
 const ApiConfigContext = createContext<ApiConfig>(initialConfig);
 
-// Provider component
-export function ApiConfigProvider({ children }: { children: React.ReactNode }) {
-  const [config, setConfig] = useState<ApiConfig>(initialConfig);
+// Server-safe provider that doesn't use hooks conditionally
+class ConfigLoader extends React.Component<
+  { children: React.ReactNode }, 
+  { config: ApiConfig; mounted: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = {
+      config: initialConfig,
+      mounted: false
+    };
+  }
 
-  useEffect(() => {
-    // Fetch configuration from our backend endpoint
-    const fetchConfig = async () => {
-      try {
-        const response = await fetch('/api/config');
-        
-        if (!response.ok) {
-          throw new Error(`Failed to load configuration: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        setConfig({
+  componentDidMount() {
+    // Set mounted flag
+    this.setState({ mounted: true });
+    
+    // Fetch configuration
+    this.fetchConfig();
+  }
+
+  fetchConfig = async () => {
+    try {
+      const response = await fetch('/api/config');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load configuration: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      this.setState({
+        config: {
           ...data,
           isLoaded: true,
-        });
-      } catch (error) {
-        console.error('Error loading API configuration:', error);
-        setConfig({
+        }
+      });
+    } catch (error) {
+      console.error('Error loading API configuration:', error);
+      this.setState({
+        config: {
           ...initialConfig,
           isLoaded: true,
           error: error instanceof Error ? error.message : 'Unknown error loading configuration',
-        });
-      }
-    };
+        }
+      });
+    }
+  };
 
-    fetchConfig();
-  }, []);
+  render() {
+    // Always render children with context
+    return (
+      <ApiConfigContext.Provider value={this.state.config}>
+        {this.props.children}
+      </ApiConfigContext.Provider>
+    );
+  }
+}
 
-  return (
-    <ApiConfigContext.Provider value={config}>
-      {children}
-    </ApiConfigContext.Provider>
-  );
+// Provider component that uses the class component internally
+export function ApiConfigProvider({ children }: { children: React.ReactNode }) {
+  return <ConfigLoader>{children}</ConfigLoader>;
 }
 
 // Hook for using the API configuration

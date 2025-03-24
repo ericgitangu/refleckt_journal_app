@@ -45,7 +45,17 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-indigo-50 to-white">
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
-        <div className="text-center">
+        <div className="flex flex-col items-center justify-center">
+          <div className="mb-6 relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-300 dark:border-gray-600 shadow-md">
+            <Image 
+              src="/logo.jpg" 
+              alt="Reflekt Logo" 
+              fill
+              style={{ objectFit: 'cover' }}
+              priority
+              className="rounded-full"
+            />
+          </div>
           <h1 className="text-3xl font-bold text-gray-900">Welcome to Reflekt</h1>
           <p className="mt-2 text-gray-600">Your personal journaling companion</p>
         </div>
