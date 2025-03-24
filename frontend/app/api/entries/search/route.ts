@@ -1,23 +1,28 @@
-import { NextResponse } from 'next/server';
-import { apiRequest, handleApiError } from '@/lib/api-utils';
+import { NextResponse } from "next/server";
+import { apiRequest, handleApiError } from "@/lib/api-utils";
 
 // Add this to make the route explicitly dynamic
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 // GET: Search for entries
 export async function GET(request: Request) {
   try {
     // Get query params
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q') || '';
-    
+    const query = searchParams.get("q") || "";
+
     if (!query) {
-      return NextResponse.json({ error: 'Search query is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Search query is required" },
+        { status: 400 },
+      );
     }
 
-    const response = await apiRequest(`/entries/search?q=${encodeURIComponent(query)}`);
+    const response = await apiRequest(
+      `/entries/search?q=${encodeURIComponent(query)}`,
+    );
     return NextResponse.json(response.data);
   } catch (error) {
-    return handleApiError(error, 'Failed to search entries');
+    return handleApiError(error, "Failed to search entries");
   }
-} 
+}

@@ -1,6 +1,6 @@
 import { DefaultSession, DefaultJWT } from "next-auth";
-import React from 'react';
-import { Session } from 'next-auth';
+import React from "react";
+import { Session } from "next-auth";
 
 declare module "next-auth" {
   interface Session extends DefaultSession {
@@ -13,7 +13,7 @@ declare module "next-auth" {
       image?: string;
     } & DefaultSession["user"];
   }
-  
+
   interface User {
     id: string;
     name?: string;
@@ -31,7 +31,7 @@ declare module "next-auth/jwt" {
   }
 }
 
-declare module 'next-auth/react' {
+declare module "next-auth/react" {
   export interface SessionProviderProps {
     children: React.ReactNode;
     session?: Session | null;
@@ -40,4 +40,4 @@ declare module 'next-auth/react' {
   }
 
   export function SessionProvider(props: SessionProviderProps): JSX.Element;
-} 
+}

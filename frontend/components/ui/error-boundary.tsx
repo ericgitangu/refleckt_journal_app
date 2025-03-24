@@ -1,17 +1,23 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useEffect } from "react";
+import { AlertCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ErrorBoundaryProps {
   error: Error;
   reset: () => void;
   title?: string;
   showDetails?: boolean;
-  variant?: 'full' | 'inline' | 'minimal';
+  variant?: "full" | "inline" | "minimal";
 }
 
 export function ReactErrorBoundary({
@@ -19,13 +25,13 @@ export function ReactErrorBoundary({
   reset,
   title = "Something went wrong",
   showDetails = false,
-  variant = 'full'
+  variant = "full",
 }: ErrorBoundaryProps) {
   useEffect(() => {
-    console.error('Component error:', error);
+    console.error("Component error:", error);
   }, [error]);
 
-  if (variant === 'minimal') {
+  if (variant === "minimal") {
     return (
       <div className="p-2 text-sm text-[hsl(var(--destructive))] flex items-center gap-2">
         <AlertCircle className="h-4 w-4" />
@@ -37,7 +43,7 @@ export function ReactErrorBoundary({
     );
   }
 
-  if (variant === 'inline') {
+  if (variant === "inline") {
     return (
       <Alert variant="destructive" className="my-4">
         <AlertCircle className="h-4 w-4" />
@@ -46,7 +52,12 @@ export function ReactErrorBoundary({
           {showDetails && (
             <div className="text-xs mt-1 opacity-80">{error.message}</div>
           )}
-          <Button size="sm" variant="destructive" onClick={reset} className="mt-2">
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={reset}
+            className="mt-2"
+          >
             Try again
           </Button>
         </AlertDescription>
@@ -69,8 +80,8 @@ export function ReactErrorBoundary({
         )}
       </CardContent>
       <CardFooter className="border-t border-[rgba(0,0,0,0.1)] pt-4">
-        <Button 
-          onClick={reset} 
+        <Button
+          onClick={reset}
           size="sm"
           className="bg-[hsl(var(--journal-accent))] text-[hsl(var(--journal-ink))]"
         >
@@ -80,4 +91,4 @@ export function ReactErrorBoundary({
       </CardFooter>
     </Card>
   );
-} 
+}

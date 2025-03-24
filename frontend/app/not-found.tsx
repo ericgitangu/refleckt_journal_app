@@ -1,9 +1,9 @@
-import Link from 'next/link';
-import { FileQuestion, Home } from 'lucide-react';
-import { BackButton } from '@/components/navigation/back-button';
+import Link from "next/link";
+import { FileQuestion, Home } from "lucide-react";
+import { BackButton } from "@/components/navigation/back-button";
 
 // Disable static generation for this page
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 // Server component version of not-found page
 // No client-side hooks or context that could cause SSR issues
@@ -19,18 +19,19 @@ export default function NotFound() {
             404 - Page Not Found
           </h1>
           <p className="text-muted-foreground mt-2 mb-6">
-            The page you&apos;re looking for doesn&apos;t exist or has been moved.
+            The page you&apos;re looking for doesn&apos;t exist or has been
+            moved.
           </p>
         </div>
-        
+
         <div className="h-px bg-[rgba(0,0,0,0.1)] dark:bg-[rgba(255,255,255,0.1)] my-4" />
-        
+
         <div className="pt-4 pb-2">
           <p className="text-center text-sm italic text-muted-foreground">
             &ldquo;Journal pages are meant to be filled, not left blank.&rdquo;
           </p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-3 pt-4">
           <Link
             href="/"
@@ -39,10 +40,10 @@ export default function NotFound() {
             <Home className="mr-2 h-4 w-4" />
             Return Home
           </Link>
-          
+
           <BackButton />
         </div>
       </div>
     </div>
   );
-} 
+}

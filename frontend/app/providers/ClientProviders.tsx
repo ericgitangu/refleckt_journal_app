@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { Providers } from '@/app/providers/Providers';
-import { ApiConfigProvider } from '@/context/ApiConfigContext';
-import { ReactNode } from 'react';
+import { Providers } from "@/app/providers/Providers";
+import { ApiConfigProvider } from "@/context/ApiConfigContext";
+import { ReactNode } from "react";
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
@@ -10,4 +10,4 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
       <Providers>{children}</Providers>
     </ApiConfigProvider>
   );
-} 
+}

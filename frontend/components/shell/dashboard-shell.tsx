@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -14,4 +14,4 @@ export function DashboardShell({ children }: DashboardShellProps) {
       </div>
     </div>
   );
-} 
+}

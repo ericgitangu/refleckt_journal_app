@@ -9,7 +9,7 @@ import {
   ChevronRight,
   Command,
   Plus,
-} from 'lucide-react';
+} from "lucide-react";
 
 export type Icon = LucideProps;
 
@@ -23,4 +23,4 @@ export const Icons = {
   chevronRight: ChevronRight,
   command: Command,
   plus: Plus,
-}; 
+};

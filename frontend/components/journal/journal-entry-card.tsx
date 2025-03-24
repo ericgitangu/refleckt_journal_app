@@ -1,29 +1,29 @@
 // File: components/journal/journal-entry-card.tsx
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { 
+import { useState } from "react";
+import { formatDistanceToNow } from "date-fns";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
-import { Edit, MoreVertical, Trash, Share } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { JournalEntry } from '@/hooks/use-journal-entries';
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Edit, MoreVertical, Trash, Share } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { JournalEntry } from "@/hooks/use-journal-entries";
 
 interface JournalEntryCardProps {
   entry: JournalEntry;
@@ -31,15 +31,22 @@ interface JournalEntryCardProps {
   onDelete: (id: string) => void;
 }
 
-export function JournalEntryCard({ entry, onEdit, onDelete }: JournalEntryCardProps) {
+export function JournalEntryCard({
+  entry,
+  onEdit,
+  onDelete,
+}: JournalEntryCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
-  const truncatedContent = entry.content.length > 200 && !isExpanded 
-    ? `${entry.content.substring(0, 200)}...` 
-    : entry.content;
-  
-  const timeAgo = formatDistanceToNow(new Date(entry.created_at), { addSuffix: true });
-  
+
+  const truncatedContent =
+    entry.content.length > 200 && !isExpanded
+      ? `${entry.content.substring(0, 200)}...`
+      : entry.content;
+
+  const timeAgo = formatDistanceToNow(new Date(entry.created_at), {
+    addSuffix: true,
+  });
+
   return (
     <Card className="mb-4 transition-all hover:shadow-md">
       <CardHeader className="pb-2">
@@ -65,7 +72,7 @@ export function JournalEntryCard({ entry, onEdit, onDelete }: JournalEntryCardPr
                 <span>Share</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={() => onDelete(entry.id)}
                 className="text-destructive focus:text-destructive"
               >
@@ -78,33 +85,27 @@ export function JournalEntryCard({ entry, onEdit, onDelete }: JournalEntryCardPr
         <CardDescription>{timeAgo}</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-muted-foreground whitespace-pre-line">{truncatedContent}</p>
+        <p className="text-muted-foreground whitespace-pre-line">
+          {truncatedContent}
+        </p>
         {entry.content.length > 200 && (
-          <Button 
-            variant="link" 
-            className="p-0 h-auto mt-2 text-muted-foreground" 
+          <Button
+            variant="link"
+            className="p-0 h-auto mt-2 text-muted-foreground"
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            {isExpanded ? 'Read less' : 'Read more'}
+            {isExpanded ? "Read less" : "Read more"}
           </Button>
         )}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 pt-0">
-        {entry.tags && entry.tags.map((tag) => (
-          <Badge 
-            key={tag} 
-            variant="outline"
-          >
-            {tag}
-          </Badge>
-        ))}
-        {entry.mood && (
-          <Badge 
-            variant="secondary"
-          >
-            Mood: {entry.mood}
-          </Badge>
-        )}
+        {entry.tags &&
+          entry.tags.map((tag) => (
+            <Badge key={tag} variant="outline">
+              {tag}
+            </Badge>
+          ))}
+        {entry.mood && <Badge variant="secondary">Mood: {entry.mood}</Badge>}
       </CardFooter>
     </Card>
   );

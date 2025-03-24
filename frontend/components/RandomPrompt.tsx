@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { promptsApi, Prompt } from '@/lib/api';
-import { PromptCard } from '@/components/PromptCard';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { promptsApi, Prompt } from "@/lib/api";
+import { PromptCard } from "@/components/PromptCard";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, Loader2 } from "lucide-react";
 
 interface RandomPromptProps {
   onUsePrompt?: (prompt: Prompt) => void;
@@ -14,11 +14,11 @@ interface RandomPromptProps {
   label?: string;
 }
 
-export function RandomPrompt({ 
-  onUsePrompt, 
+export function RandomPrompt({
+  onUsePrompt,
   initialFetch = true,
   compact = false,
-  label = 'Get Inspired'
+  label = "Get Inspired",
 }: RandomPromptProps) {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [isLoading, setIsLoading] = useState(initialFetch);
@@ -27,14 +27,14 @@ export function RandomPrompt({
 
   const fetchRandomPrompt = async () => {
     setIsLoading(true);
-    
+
     try {
       const response = await promptsApi.getRandom();
       setPrompt(response.prompt);
       setError(null);
     } catch (err) {
-      console.error('Error fetching random prompt:', err);
-      setError('Could not load a prompt');
+      console.error("Error fetching random prompt:", err);
+      setError("Could not load a prompt");
     } finally {
       setIsLoading(false);
     }
@@ -91,4 +91,4 @@ export function RandomPrompt({
       <PromptCard prompt={prompt} onUsePrompt={onUsePrompt} compact={compact} />
     </div>
   );
-} 
+}

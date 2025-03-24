@@ -1,16 +1,18 @@
-'use client';
+"use client";
 
-import { Suspense } from 'react';
-import { BookOpen, PenLine, Archive, Sparkles } from 'lucide-react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { Suspense } from "react";
+import { BookOpen, PenLine, Archive, Sparkles } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Force dynamic rendering to prevent hook errors during static generation
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 // Fallback for client components when loading
-const LoadingFallback = () => <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>;
+const LoadingFallback = () => (
+  <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>
+);
 
 export default function Home() {
   return (
@@ -35,7 +37,9 @@ export default function Home() {
               />
               <h1 className="text-5xl font-serif font-bold">Reflekt</h1>
             </div>
-            <p className="text-lg text-muted-foreground">Your personal journaling space with AI-powered insights</p>
+            <p className="text-lg text-muted-foreground">
+              Your personal journaling space with AI-powered insights
+            </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 mb-10">
@@ -81,7 +85,15 @@ export default function Home() {
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="flex gap-4 p-4 rounded-md bg-[hsl(var(--background))]/50 hover:bg-[hsl(var(--background))]/80 transition">
       <div className="shrink-0 h-12 w-12 rounded-full bg-[hsl(var(--primary))]/10 flex items-center justify-center text-[hsl(var(--primary))]">

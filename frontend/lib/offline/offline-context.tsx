@@ -1,6 +1,12 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 
 type OfflineContextType = {
   isOnline: boolean;
@@ -14,7 +20,7 @@ const OfflineContext = createContext<OfflineContextType | null>(null);
 export function useOffline() {
   const context = useContext(OfflineContext);
   if (!context) {
-    throw new Error('useOffline must be used within an OfflineProvider');
+    throw new Error("useOffline must be used within an OfflineProvider");
   }
   return context;
 }
@@ -30,25 +36,25 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       // Process each pending action
       // This would be implementation-specific based on your app's needs
       const newPendingActions = [...pendingActions];
-      
+
       for (let i = 0; i < newPendingActions.length; i++) {
         const action = newPendingActions[i];
         try {
           // Example: if your action is a fetch request
           // await fetch(action.url, action.options);
-          
+
           // Remove the processed action
           newPendingActions.splice(i, 1);
           i--;
         } catch (error) {
-          console.error('Failed to process action:', error);
+          console.error("Failed to process action:", error);
           // We'll keep the action in the queue to try again later
         }
       }
-      
+
       setPendingActions(newPendingActions);
     } catch (error) {
-      console.error('Error processing pending actions:', error);
+      console.error("Error processing pending actions:", error);
     }
   }, [pendingActions]);
 
@@ -57,8 +63,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     // Check initial status
     setIsOnline(navigator.onLine);
@@ -66,26 +72,26 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     // Load any pending actions from storage
     const loadPendingActions = () => {
       try {
-        const stored = localStorage.getItem('pendingActions');
+        const stored = localStorage.getItem("pendingActions");
         if (stored) {
           setPendingActions(JSON.parse(stored));
         }
       } catch (error) {
-        console.error('Failed to load pending actions:', error);
+        console.error("Failed to load pending actions:", error);
       }
     };
 
     loadPendingActions();
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
   // Save pending actions to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('pendingActions', JSON.stringify(pendingActions));
+    localStorage.setItem("pendingActions", JSON.stringify(pendingActions));
   }, [pendingActions]);
 
   // Process pending actions when we come back online
@@ -111,4 +117,4 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       {children}
     </OfflineContext.Provider>
   );
-} 
+}

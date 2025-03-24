@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { settingsApi } from '@/lib/api';
-import { toast } from '@/hooks/use-toast';
-import { Category, UserSettings } from '@/types/api';
+import { useState, useEffect } from "react";
+import { settingsApi } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
+import { Category, UserSettings } from "@/types/api";
 
 export function useSettings() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -18,12 +18,12 @@ export function useSettings() {
         setSettings(data);
         setError(null);
       } catch (err) {
-        console.error('Failed to fetch settings:', err);
-        setError('Failed to load settings. Please try again later.');
+        console.error("Failed to fetch settings:", err);
+        setError("Failed to load settings. Please try again later.");
         toast({
-          title: 'Error',
-          description: 'Failed to load settings',
-          variant: 'destructive',
+          title: "Error",
+          description: "Failed to load settings",
+          variant: "destructive",
         });
       } finally {
         setIsLoading(false);
@@ -42,12 +42,12 @@ export function useSettings() {
         setCategories(data);
         setError(null);
       } catch (err) {
-        console.error('Failed to fetch categories:', err);
-        setError('Failed to load categories. Please try again later.');
+        console.error("Failed to fetch categories:", err);
+        setError("Failed to load categories. Please try again later.");
         toast({
-          title: 'Error',
-          description: 'Failed to load categories',
-          variant: 'destructive',
+          title: "Error",
+          description: "Failed to load categories",
+          variant: "destructive",
         });
       } finally {
         setIsLoading(false);
@@ -64,16 +64,16 @@ export function useSettings() {
       const updatedSettings = await settingsApi.updateSettings(data);
       setSettings(updatedSettings);
       toast({
-        title: 'Success',
-        description: 'Settings updated successfully',
+        title: "Success",
+        description: "Settings updated successfully",
       });
       return updatedSettings;
     } catch (err) {
-      console.error('Failed to update settings:', err);
+      console.error("Failed to update settings:", err);
       toast({
-        title: 'Error',
-        description: 'Failed to update settings',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to update settings",
+        variant: "destructive",
       });
       throw err;
     } finally {
@@ -82,22 +82,24 @@ export function useSettings() {
   };
 
   // Create category
-  const createCategory = async (data: Omit<Category, 'id' | 'created_at' | 'updated_at'>) => {
+  const createCategory = async (
+    data: Omit<Category, "id" | "created_at" | "updated_at">,
+  ) => {
     try {
       setIsLoading(true);
       const newCategory = await settingsApi.createCategory(data);
-      setCategories(prevCategories => [...prevCategories, newCategory]);
+      setCategories((prevCategories) => [...prevCategories, newCategory]);
       toast({
-        title: 'Success',
-        description: 'Category created successfully',
+        title: "Success",
+        description: "Category created successfully",
       });
       return newCategory;
     } catch (err) {
-      console.error('Failed to create category:', err);
+      console.error("Failed to create category:", err);
       toast({
-        title: 'Error',
-        description: 'Failed to create category',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to create category",
+        variant: "destructive",
       });
       throw err;
     } finally {
@@ -110,22 +112,22 @@ export function useSettings() {
     try {
       setIsLoading(true);
       const updatedCategory = await settingsApi.updateCategory(id, data);
-      setCategories(prevCategories => 
-        prevCategories.map(category => 
-          category.id === id ? updatedCategory : category
-        )
+      setCategories((prevCategories) =>
+        prevCategories.map((category) =>
+          category.id === id ? updatedCategory : category,
+        ),
       );
       toast({
-        title: 'Success',
-        description: 'Category updated successfully',
+        title: "Success",
+        description: "Category updated successfully",
       });
       return updatedCategory;
     } catch (err) {
-      console.error('Failed to update category:', err);
+      console.error("Failed to update category:", err);
       toast({
-        title: 'Error',
-        description: 'Failed to update category',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to update category",
+        variant: "destructive",
       });
       throw err;
     } finally {
@@ -138,19 +140,19 @@ export function useSettings() {
     try {
       setIsLoading(true);
       await settingsApi.deleteCategory(id);
-      setCategories(prevCategories => 
-        prevCategories.filter(category => category.id !== id)
+      setCategories((prevCategories) =>
+        prevCategories.filter((category) => category.id !== id),
       );
       toast({
-        title: 'Success',
-        description: 'Category deleted successfully',
+        title: "Success",
+        description: "Category deleted successfully",
       });
     } catch (err) {
-      console.error('Failed to delete category:', err);
+      console.error("Failed to delete category:", err);
       toast({
-        title: 'Error',
-        description: 'Failed to delete category',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to delete category",
+        variant: "destructive",
       });
       throw err;
     } finally {
@@ -166,6 +168,6 @@ export function useSettings() {
     updateSettings,
     createCategory,
     updateCategory,
-    deleteCategory
+    deleteCategory,
   };
-} 
+}

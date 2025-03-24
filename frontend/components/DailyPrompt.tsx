@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { promptsApi, Prompt } from '@/lib/api';
-import { PromptCard } from '@/components/PromptCard';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { promptsApi, Prompt } from "@/lib/api";
+import { PromptCard } from "@/components/PromptCard";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, Loader2 } from "lucide-react";
 
 interface DailyPromptProps {
   onUsePrompt?: (prompt: Prompt) => void;
@@ -14,11 +14,11 @@ interface DailyPromptProps {
   compact?: boolean;
 }
 
-export function DailyPrompt({ 
-  onUsePrompt, 
+export function DailyPrompt({
+  onUsePrompt,
   refreshInterval,
   showRefreshButton = true,
-  compact = false 
+  compact = false,
 }: DailyPromptProps) {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,14 +30,14 @@ export function DailyPrompt({
     if (showLoading) {
       setIsRefreshing(true);
     }
-    
+
     try {
       const response = await promptsApi.getDaily();
       setPrompt(response.prompt);
       setError(null);
     } catch (err) {
-      console.error('Error fetching daily prompt:', err);
-      setError('Could not load today\'s prompt');
+      console.error("Error fetching daily prompt:", err);
+      setError("Could not load today's prompt");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -47,13 +47,13 @@ export function DailyPrompt({
   // Fetch daily prompt on mount
   useEffect(() => {
     fetchDailyPrompt(true);
-    
+
     // Set up refresh interval if specified
     if (refreshInterval) {
       const interval = setInterval(() => {
         fetchDailyPrompt(false);
       }, refreshInterval);
-      
+
       return () => clearInterval(interval);
     }
   }, [refreshInterval]);
@@ -91,11 +91,19 @@ export function DailyPrompt({
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+          />
           <span className="sr-only">Refresh</span>
         </Button>
       )}
-      {prompt && <PromptCard prompt={prompt} onUsePrompt={onUsePrompt} compact={compact} />}
+      {prompt && (
+        <PromptCard
+          prompt={prompt}
+          onUsePrompt={onUsePrompt}
+          compact={compact}
+        />
+      )}
     </div>
   );
-} 
+}

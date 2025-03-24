@@ -1,9 +1,9 @@
-import { Metadata } from 'next';
+import { Metadata } from "next";
 
 export interface GenerateMetadataProps {
   title: string;
   description?: string;
-  type?: 'website' | 'article';
+  type?: "website" | "article";
   date?: string;
   ogImage?: string;
 }
@@ -15,15 +15,19 @@ export interface GenerateMetadataProps {
 export function generateMetadata({
   title,
   description,
-  type = 'website',
+  type = "website",
   date,
   ogImage,
 }: GenerateMetadataProps): Metadata {
   // Get base URL for absolute URLs in metadata
   // Remove trailing slash to avoid double slashes in paths
-  const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://self-reflektions.vercel.app')).replace(/\/$/, '');
-    
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "https://self-reflektions.vercel.app")
+  ).replace(/\/$/, "");
+
   // Default OG image if none provided - use the actual image filename
   const defaultOgImage = `${baseUrl}/og-image.jpg`;
   const ogImageUrl = ogImage || defaultOgImage;
@@ -48,25 +52,25 @@ export function generateMetadata({
         },
       ],
       // Adding site_name helps with WhatsApp preview
-      siteName: 'Reflekt Journal',
+      siteName: "Reflekt Journal",
     },
     twitter: {
-      card: 'summary_large_image',
+      card: "summary_large_image",
       title: fullTitle,
       description,
       images: [ogImageUrl],
       // Adding creator helps with Twitter preview
-      creator: '@reflektjournal',
+      creator: "@reflektjournal",
     },
     // Adding these properties helps with broader compatibility
-    applicationName: 'Reflekt Journal',
-    referrer: 'origin-when-cross-origin',
-    keywords: ['journal', 'reflection', 'personal', 'ai', 'insights', type],
-    authors: [{ name: 'Reflekt Journal', url: baseUrl }],
+    applicationName: "Reflekt Journal",
+    referrer: "origin-when-cross-origin",
+    keywords: ["journal", "reflection", "personal", "ai", "insights", type],
+    authors: [{ name: "Reflekt Journal", url: baseUrl }],
     // Setting robots to ensure crawlers can access your OG content
     robots: {
       index: true,
       follow: true,
     },
   };
-} 
+}

@@ -1,16 +1,16 @@
 // Type declarations for libraries
 
-declare module 'axios' {
+declare module "axios" {
   export interface AxiosRequestConfig {
     url?: string;
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+    method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
     baseURL?: string;
     headers?: Record<string, string>;
     params?: any;
     data?: any;
     timeout?: number;
     withCredentials?: boolean;
-    responseType?: 'json' | 'text' | 'blob' | 'arraybuffer';
+    responseType?: "json" | "text" | "blob" | "arraybuffer";
     [key: string]: any;
   }
 
@@ -32,18 +32,46 @@ declare module 'axios' {
 
   export function isAxiosError(error: any): error is AxiosError;
   export function create(config?: AxiosRequestConfig): AxiosInstance;
-  export function get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
-  export function post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
-  export function put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
-  export function del<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
+  export function get<T = any>(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): Promise<AxiosResponse<T>>;
+  export function post<T = any>(
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig,
+  ): Promise<AxiosResponse<T>>;
+  export function put<T = any>(
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig,
+  ): Promise<AxiosResponse<T>>;
+  export function del<T = any>(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): Promise<AxiosResponse<T>>;
 
   export interface AxiosInstance {
     (config: AxiosRequestConfig): Promise<AxiosResponse>;
     (url: string, config?: AxiosRequestConfig): Promise<AxiosResponse>;
-    get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
-    post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
-    put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
-    delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>>;
+    get<T = any>(
+      url: string,
+      config?: AxiosRequestConfig,
+    ): Promise<AxiosResponse<T>>;
+    post<T = any>(
+      url: string,
+      data?: any,
+      config?: AxiosRequestConfig,
+    ): Promise<AxiosResponse<T>>;
+    put<T = any>(
+      url: string,
+      data?: any,
+      config?: AxiosRequestConfig,
+    ): Promise<AxiosResponse<T>>;
+    delete<T = any>(
+      url: string,
+      config?: AxiosRequestConfig,
+    ): Promise<AxiosResponse<T>>;
   }
 
   const axios: AxiosInstance & {
@@ -55,9 +83,9 @@ declare module 'axios' {
   export default axios;
 }
 
-declare module 'next-auth' {
-  import { NextApiRequest, NextApiResponse } from 'next';
-  
+declare module "next-auth" {
+  import { NextApiRequest, NextApiResponse } from "next";
+
   export interface Session {
     expires: string;
     user?: {
@@ -76,10 +104,20 @@ declare module 'next-auth' {
   export interface NextAuthOptions {
     providers: any[];
     callbacks?: {
-      signIn?: (user: any, account: any, profile: any) => Promise<boolean> | boolean;
+      signIn?: (
+        user: any,
+        account: any,
+        profile: any,
+      ) => Promise<boolean> | boolean;
       redirect?: (url: string, baseUrl: string) => Promise<string> | string;
       session?: (session: any, user: any) => Promise<any> | any;
-      jwt?: (token: any, user: any, account: any, profile: any, isNewUser: boolean) => Promise<any> | any;
+      jwt?: (
+        token: any,
+        user: any,
+        account: any,
+        profile: any,
+        isNewUser: boolean,
+      ) => Promise<any> | any;
     };
     pages?: {
       signIn?: string;
@@ -89,7 +127,7 @@ declare module 'next-auth' {
       newUser?: string;
     };
     session?: {
-      strategy?: 'jwt' | 'database';
+      strategy?: "jwt" | "database";
       maxAge?: number;
       updateAge?: number;
     };
@@ -97,13 +135,17 @@ declare module 'next-auth' {
     [key: string]: any;
   }
 
-  export default function NextAuth(req: NextApiRequest, res: NextApiResponse, options: NextAuthOptions): Promise<void>;
+  export default function NextAuth(
+    req: NextApiRequest,
+    res: NextApiResponse,
+    options: NextAuthOptions,
+  ): Promise<void>;
   export default function NextAuth(options: NextAuthOptions): any;
 }
 
-declare module 'next-auth/react' {
-  import { Session } from 'next-auth';
-  
+declare module "next-auth/react" {
+  import { Session } from "next-auth";
+
   export interface SignInOptions {
     redirect?: boolean;
     callbackUrl?: string;
@@ -114,30 +156,45 @@ declare module 'next-auth/react' {
     redirect?: boolean;
     callbackUrl?: string;
   }
-  
-  export function signIn(provider?: string, options?: SignInOptions, authorizationParams?: any): Promise<any>;
+
+  export function signIn(
+    provider?: string,
+    options?: SignInOptions,
+    authorizationParams?: any,
+  ): Promise<any>;
   export function signOut(options?: SignOutOptions): Promise<void>;
   export function useSession(): {
     data: Session | null;
-    status: 'loading' | 'authenticated' | 'unauthenticated';
+    status: "loading" | "authenticated" | "unauthenticated";
   };
   export function getSession(options?: { req?: any }): Promise<Session | null>;
 }
 
-declare module 'next-auth/providers/credentials' {
+declare module "next-auth/providers/credentials" {
   export default function Credentials(options: {
     name: string;
-    credentials: Record<string, { label: string; type: string; [key: string]: any }>;
-    authorize: (credentials: Record<string, string> | undefined) => Promise<any> | any;
+    credentials: Record<
+      string,
+      { label: string; type: string; [key: string]: any }
+    >;
+    authorize: (
+      credentials: Record<string, string> | undefined,
+    ) => Promise<any> | any;
   }): any;
 }
 
-declare module 'next/server' {
+declare module "next/server" {
   export class NextResponse extends Response {
     constructor(body?: BodyInit | null, init?: ResponseInit);
     static json(body: any, init?: ResponseInit): NextResponse;
-    static redirect(url: string | URL, init?: number | ResponseInit): NextResponse;
-    static rewrite(destination: string | URL, init?: ResponseInit): NextResponse;
+    static redirect(
+      url: string | URL,
+      init?: number | ResponseInit,
+    ): NextResponse;
+    static rewrite(
+      destination: string | URL,
+      init?: ResponseInit,
+    ): NextResponse;
     static next(init?: ResponseInit): NextResponse;
   }
 }
@@ -149,4 +206,4 @@ declare namespace NodeJS {
     NEXTAUTH_URL: string;
     [key: string]: string | undefined;
   }
-} 
+}

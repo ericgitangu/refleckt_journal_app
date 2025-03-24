@@ -1,6 +1,6 @@
-import type { NextAuthOptions } from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
-import CognitoProvider from 'next-auth/providers/cognito';
+import type { NextAuthOptions } from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
+import CognitoProvider from "next-auth/providers/cognito";
 
 // Define a redirect options interface to match NextAuth's expected params
 interface RedirectParams {
@@ -11,21 +11,21 @@ interface RedirectParams {
 export const authOptions: NextAuthOptions = {
   providers: [
     CognitoProvider({
-      clientId: process.env.COGNITO_CLIENT_ID || '',
-      clientSecret: process.env.COGNITO_CLIENT_SECRET || '',
-      issuer: process.env.COGNITO_ISSUER || '',
+      clientId: process.env.COGNITO_CLIENT_ID || "",
+      clientSecret: process.env.COGNITO_CLIENT_SECRET || "",
+      issuer: process.env.COGNITO_ISSUER || "",
     }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_ID || '',
-      clientSecret: process.env.GOOGLE_SECRET || '',
+      clientId: process.env.GOOGLE_ID || "",
+      clientSecret: process.env.GOOGLE_SECRET || "",
     }),
   ],
   pages: {
-    signIn: '/login',
-    signOut: '/logout',
-    error: '/auth/error',
+    signIn: "/login",
+    signOut: "/logout",
+    error: "/auth/error",
   },
-  session: { strategy: 'jwt' },
+  session: { strategy: "jwt" },
   jwt: { secret: process.env.NEXTAUTH_SECRET },
   callbacks: {
     async jwt({ token, account }) {
@@ -36,16 +36,16 @@ export const authOptions: NextAuthOptions = {
         token.expiresAt = account.expires_at;
         token.provider = account.provider;
       }
-      
+
       // Check if token needs refreshing
       const expiresAt = token.expiresAt as number;
       if (Date.now() < expiresAt * 1000) {
         return token;
       }
-      
+
       // Implement token refresh logic here if needed for Cognito
       // This would use the refresh token to get a new access token
-      
+
       return token;
     },
     async session({ session, token }) {
@@ -60,12 +60,12 @@ export const authOptions: NextAuthOptions = {
     },
     redirect: async (url: string, baseUrl: string) => {
       // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
       // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url
+      else if (new URL(url).origin === baseUrl) return url;
       // Default fallback is the baseUrl
-      return baseUrl
-    }
+      return baseUrl;
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
-}; 
+};

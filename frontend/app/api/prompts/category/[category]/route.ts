@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import { apiRequest, handleApiError } from '@/lib/api-utils';
-import { getAuthSession } from '@/lib/auth-utils';
+import { NextResponse } from "next/server";
+import { apiRequest, handleApiError } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth-utils";
 
 interface CategoryParams {
   params: {
@@ -14,22 +14,24 @@ export async function GET(request: Request, { params }: CategoryParams) {
     // Get authentication session
     const session = await getAuthSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Validate category parameter
     const { category } = params;
     if (!category) {
       return NextResponse.json(
-        { error: 'Category parameter is required' },
-        { status: 400 }
+        { error: "Category parameter is required" },
+        { status: 400 },
       );
     }
 
     // Forward request to backend API
-    const response = await apiRequest(`/prompts/category/${encodeURIComponent(category)}`);
+    const response = await apiRequest(
+      `/prompts/category/${encodeURIComponent(category)}`,
+    );
     return NextResponse.json(response.data);
   } catch (error) {
-    return handleApiError(error, 'Failed to fetch prompts by category');
+    return handleApiError(error, "Failed to fetch prompts by category");
   }
-} 
+}

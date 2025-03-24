@@ -1,50 +1,50 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { promptsApi, Prompt } from '@/lib/api';
-import { DailyPrompt } from '@/components/DailyPrompt';
-import { RandomPrompt } from '@/components/RandomPrompt';
-import { PromptCard } from '@/components/PromptCard';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { 
-  Calendar, 
-  Edit, 
-  FileText, 
-  Search, 
-  Sparkles, 
-  Lightbulb, 
-  ListFilter, 
-  Loader2 
-} from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { promptsApi, Prompt } from "@/lib/api";
+import { DailyPrompt } from "@/components/DailyPrompt";
+import { RandomPrompt } from "@/components/RandomPrompt";
+import { PromptCard } from "@/components/PromptCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Calendar,
+  Edit,
+  FileText,
+  Search,
+  Sparkles,
+  Lightbulb,
+  ListFilter,
+  Loader2,
+} from "lucide-react";
 
 const PROMPT_CATEGORIES = [
-  'Gratitude',
-  'Reflection',
-  'Goals',
-  'Creativity',
-  'Growth',
-  'Relationships',
-  'Wellness',
-  'Career',
-  'Mindfulness',
-  'All'
+  "Gratitude",
+  "Reflection",
+  "Goals",
+  "Creativity",
+  "Growth",
+  "Relationships",
+  "Wellness",
+  "Career",
+  "Mindfulness",
+  "All",
 ];
 
 export default function PromptsPage() {
-  const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [activeCategory, setActiveCategory] = useState<string>("All");
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
   // Fetch prompts based on active category
@@ -52,7 +52,7 @@ export default function PromptsPage() {
     setIsLoading(true);
     try {
       let response;
-      if (activeCategory === 'All') {
+      if (activeCategory === "All") {
         response = await promptsApi.getAll();
         setPrompts(response.prompts);
       } else {
@@ -60,7 +60,7 @@ export default function PromptsPage() {
         setPrompts(response.prompts);
       }
     } catch (error) {
-      console.error('Error fetching prompts:', error);
+      console.error("Error fetching prompts:", error);
       setPrompts([]);
     } finally {
       setIsLoading(false);
@@ -78,12 +78,15 @@ export default function PromptsPage() {
   };
 
   // Filter prompts based on search query
-  const filteredPrompts = prompts.filter(prompt => {
+  const filteredPrompts = prompts.filter((prompt) => {
     if (!searchQuery.trim()) return true;
-    return prompt.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           (prompt.tags && prompt.tags.some(tag => 
-             tag.toLowerCase().includes(searchQuery.toLowerCase())
-           ));
+    return (
+      prompt.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (prompt.tags &&
+        prompt.tags.some((tag) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase()),
+        ))
+    );
   });
 
   return (
@@ -127,17 +130,16 @@ export default function PromptsPage() {
                 <Edit className="h-5 w-5" />
                 Start Writing
               </CardTitle>
-              <CardDescription>
-                Begin a new journal entry
-              </CardDescription>
+              <CardDescription>Begin a new journal entry</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground text-sm">
-                Start a blank entry or use one of our prompts to inspire your writing.
+                Start a blank entry or use one of our prompts to inspire your
+                writing.
               </p>
-              <Button 
-                className="w-full flex gap-2 items-center" 
-                onClick={() => router.push('/journal/new')}
+              <Button
+                className="w-full flex gap-2 items-center"
+                onClick={() => router.push("/journal/new")}
               >
                 <FileText className="h-4 w-4" />
                 New Entry
@@ -178,8 +180,10 @@ export default function PromptsPage() {
                     value={activeCategory}
                     onChange={(e) => setActiveCategory(e.target.value)}
                   >
-                    {PROMPT_CATEGORIES.map(category => (
-                      <option key={category} value={category}>{category}</option>
+                    {PROMPT_CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -194,10 +198,10 @@ export default function PromptsPage() {
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">No prompts found.</p>
                   {searchQuery && (
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       className="mt-2"
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => setSearchQuery("")}
                     >
                       Clear search
                     </Button>
@@ -221,4 +225,4 @@ export default function PromptsPage() {
       </div>
     </div>
   );
-} 
+}

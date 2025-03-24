@@ -1,16 +1,16 @@
-import { AxiosResponse, AxiosError as AxiosErrorType } from 'axios';
+import { AxiosResponse, AxiosError as AxiosErrorType } from "axios";
 
 // Health check types
 export interface ServiceStatus {
   name: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   latency: number;
   message?: string;
 }
 
 export interface HealthCheckResponse {
   timestamp: string;
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: "healthy" | "degraded" | "unhealthy";
   services: ServiceStatus[];
 }
 
@@ -39,7 +39,7 @@ export interface Category {
 export interface UserSettings {
   id: string;
   user_id: string;
-  theme: 'light' | 'dark' | 'system';
+  theme: "light" | "dark" | "system";
   reminder_enabled: boolean;
   reminder_time?: string;
   created_at: string;
@@ -100,4 +100,4 @@ export interface JWTToken {
 
 // Use axios types to avoid import errors
 export type AxiosError = AxiosErrorType;
-export type { AxiosResponse }; 
+export type { AxiosResponse };

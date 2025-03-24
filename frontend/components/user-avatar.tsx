@@ -18,4 +18,4 @@ export function UserAvatar({ src, alt, fallback, className }: UserAvatarProps) {
       <AvatarFallback>{fallback}</AvatarFallback>
     </Avatar>
   );
-} 
+}

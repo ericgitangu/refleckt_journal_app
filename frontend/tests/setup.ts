@@ -1,13 +1,13 @@
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 
 // Polyfill for TextEncoder/TextDecoder (needed for MSW)
-if (typeof global.TextEncoder === 'undefined') {
-  global.TextEncoder = require('util').TextEncoder;
-  global.TextDecoder = require('util').TextDecoder;
+if (typeof global.TextEncoder === "undefined") {
+  global.TextEncoder = require("util").TextEncoder;
+  global.TextDecoder = require("util").TextDecoder;
 }
 
 // Polyfill for Response (needed for MSW)
-if (typeof global.Response === 'undefined') {
+if (typeof global.Response === "undefined") {
   global.Response = class Response {
     constructor(body?: any, init?: any) {
       this.body = body;
@@ -20,14 +20,14 @@ if (typeof global.Response === 'undefined') {
     }
     static json(data: any) {
       return new Response(JSON.stringify(data), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     }
   } as any;
 }
 
 // Polyfill for BroadcastChannel (needed for MSW)
-if (typeof global.BroadcastChannel === 'undefined') {
+if (typeof global.BroadcastChannel === "undefined") {
   global.BroadcastChannel = class BroadcastChannel {
     constructor(name: string) {
       this.name = name;
@@ -42,7 +42,7 @@ if (typeof global.BroadcastChannel === 'undefined') {
   } as any;
 }
 
-// This file is loaded by jest.config.js setupFilesAfterEnv 
+// This file is loaded by jest.config.js setupFilesAfterEnv
 
 // Extend Jest's expect
 declare global {
@@ -69,4 +69,4 @@ declare global {
       toHaveDescription(text: string | RegExp): R;
     }
   }
-} 
+}

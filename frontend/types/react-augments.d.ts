@@ -1,19 +1,22 @@
-import 'react';
+import "react";
 
 // Fix all React type issues with Radix UI components
-declare module 'react' {
+declare module "react" {
   // Allow displayName on all forwardRef components
   interface ForwardRefExoticComponent<P = any> {
     displayName?: string;
   }
-  
+
   // Fix FunctionComponent type to allow displayName
   interface FunctionComponent<P = {}> {
     displayName?: string;
   }
-  
+
   // Fix the ElementType constraint issues - this is the critical fix
-  interface ElementType<P = any, T extends keyof JSX.IntrinsicElements = keyof JSX.IntrinsicElements> {
+  interface ElementType<
+    P = any,
+    T extends keyof JSX.IntrinsicElements = keyof JSX.IntrinsicElements,
+  > {
     // The constraint here needs to be more flexible
     (props: P): React.ReactElement | null;
   }
@@ -30,4 +33,4 @@ declare module 'react' {
       [elemName: string]: any;
     }
   }
-} 
+}

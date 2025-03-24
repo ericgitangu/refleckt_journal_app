@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useSession } from 'next-auth/react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useSession } from "next-auth/react";
+import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface UseAuthCheckOptions {
   redirectTo?: string;
@@ -14,17 +14,17 @@ interface UseAuthCheckOptions {
  * and redirect accordingly
  */
 export function useAuthCheck(options: UseAuthCheckOptions = {}) {
-  const { redirectTo = '/login', redirectIfFound = false } = options;
+  const { redirectTo = "/login", redirectIfFound = false } = options;
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!session?.user;
-  
+
   useEffect(() => {
     // If not finished loading, don't do anything yet
-    if (status === 'loading') {
+    if (status === "loading") {
       return;
     }
 
@@ -33,16 +33,18 @@ export function useAuthCheck(options: UseAuthCheckOptions = {}) {
 
     if (
       // If redirectTo is set, redirectIfFound is false, and user is not logged in
-      !redirectIfFound && 
-      !isAuthenticated && 
+      !redirectIfFound &&
+      !isAuthenticated &&
       redirectTo
     ) {
       // Redirect to login with callback URL
-      router.push(`${redirectTo}?callbackUrl=${encodeURIComponent(pathname || '/')}`);
+      router.push(
+        `${redirectTo}?callbackUrl=${encodeURIComponent(pathname || "/")}`,
+      );
     } else if (
       // If redirectIfFound is true and user is logged in
-      redirectIfFound && 
-      isAuthenticated && 
+      redirectIfFound &&
+      isAuthenticated &&
       redirectTo
     ) {
       // Redirect to the specified URL
@@ -54,6 +56,6 @@ export function useAuthCheck(options: UseAuthCheckOptions = {}) {
     isAuthenticated,
     isLoading,
     session,
-    status
+    status,
   };
-} 
+}

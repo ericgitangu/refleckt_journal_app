@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 type User = {
   id: string;
@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
@@ -35,17 +35,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkAuth = async () => {
       try {
         // This would be replaced with your actual auth check logic
-        const storedUser = localStorage.getItem('user');
+        const storedUser = localStorage.getItem("user");
         if (storedUser) {
           setUser(JSON.parse(storedUser));
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        console.error("Auth check failed:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     checkAuth();
   }, []);
 
@@ -54,9 +54,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // This would be replaced with your actual login logic
       // Simulating an API call
-      const mockUser = { id: '1', name: 'Test User', email };
+      const mockUser = { id: "1", name: "Test User", email };
       setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
+      localStorage.setItem("user", JSON.stringify(mockUser));
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // This would be replaced with your actual logout logic
       setUser(null);
-      localStorage.removeItem('user');
+      localStorage.removeItem("user");
     } finally {
       setIsLoading(false);
     }
@@ -86,4 +86,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-} 
+}

@@ -1,6 +1,6 @@
-import type { NextAuthOptions } from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
-import { isDevelopment } from '../utils/environment';
+import type { NextAuthOptions } from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
+import { isDevelopment } from "../utils/environment";
 
 interface Token {
   accessToken?: string;
@@ -22,27 +22,37 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          prompt: 'consent',
-          access_type: 'offline',
-          response_type: 'code',
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
         },
       },
     }),
   ],
   debug: isDevelopment,
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
-    async jwt({ token, account, user }: { token: Token; account: any; user: any }) {
+    async jwt({
+      token,
+      account,
+      user,
+    }: {
+      token: Token;
+      account: any;
+      user: any;
+    }) {
       // Initial sign in
       if (account && user) {
         return {
           ...token,
           accessToken: account.access_token,
           refreshToken: account.refresh_token,
-          accessTokenExpires: account.expires_at ? account.expires_at * 1000 : 0,
+          accessTokenExpires: account.expires_at
+            ? account.expires_at * 1000
+            : 0,
           user: {
             id: user.id,
             name: user.name,
@@ -67,23 +77,23 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: '/login',
-    signOut: '/logout',
-    error: '/auth/error',
+    signIn: "/login",
+    signOut: "/logout",
+    error: "/auth/error",
   },
 };
 
 async function refreshAccessToken(token: Token): Promise<Token> {
   try {
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         client_id: process.env.GOOGLE_CLIENT_ID!,
         client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        grant_type: 'refresh_token',
+        grant_type: "refresh_token",
         refresh_token: token.refreshToken!,
       }),
     });
@@ -99,10 +109,10 @@ async function refreshAccessToken(token: Token): Promise<Token> {
       refreshToken: tokens.refresh_token ?? token.refreshToken,
     };
   } catch (error) {
-    console.error('Error refreshing access token', error);
+    console.error("Error refreshing access token", error);
     return {
       ...token,
-      error: 'RefreshAccessTokenError',
+      error: "RefreshAccessTokenError",
     };
   }
-} 
+}

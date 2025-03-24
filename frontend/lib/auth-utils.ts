@@ -1,6 +1,6 @@
-import getServerSession from 'next-auth';
-import { Session } from '@/types/api';
-import { authOptions } from '@/lib/auth/auth-options';
+import getServerSession from "next-auth";
+import { Session } from "@/types/api";
+import { authOptions } from "@/lib/auth/auth-options";
 
 /**
  * Get the server session with typechecking
@@ -8,10 +8,10 @@ import { authOptions } from '@/lib/auth/auth-options';
 export async function getAuthSession(): Promise<Session | null> {
   // For Next.js App Router, use the auth() function directly instead
   try {
-    const session = await getServerSession(authOptions) as Session | null;
+    const session = (await getServerSession(authOptions)) as Session | null;
     return session;
   } catch (error) {
-    console.error('Error getting session:', error);
+    console.error("Error getting session:", error);
     return null;
   }
 }
@@ -28,4 +28,4 @@ export function getAccessToken(session: Session | null): string | null {
  */
 export function isAuthenticated(session: Session | null): boolean {
   return !!session?.user?.accessToken;
-} 
+}

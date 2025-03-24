@@ -1,23 +1,23 @@
 // @ts-nocheck - Suppress TypeScript errors related to Radix UI components
-"use client"
+"use client";
 
-import * as React from "react"
-import * as AvatarPrimitive from "@radix-ui/react-avatar"
+import * as React from "react";
+import * as AvatarPrimitive from "@radix-ui/react-avatar";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 /**
  * Note: The `as any` type assertion below is necessary to work around a TypeScript limitation
  * with Radix UI components and React's ElementType constraints.
- * 
+ *
  * The specific error is:
  * "Type 'ForwardRefExoticComponent<Props>' does not satisfy the constraint 'ElementType<any, keyof IntrinsicElements>'."
- * 
+ *
  * This is a known issue in the TypeScript/React/Radix UI ecosystem that occurs because:
  * 1. React's ElementType expects components to return ReactElement | null
  * 2. But Radix UI components can return ReactNode (which includes undefined)
- * 
- * A proper global type fix is being worked on. For now, this assertion 
+ *
+ * A proper global type fix is being worked on. For now, this assertion
  * allows the component to compile correctly.
  */
 
@@ -30,7 +30,7 @@ const Avatar = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
-      className
+      className,
     )}
     {...props}
   />
@@ -61,7 +61,7 @@ const AvatarFallback = React.forwardRef<
     ref={ref}
     className={cn(
       "flex h-full w-full items-center justify-center rounded-full bg-muted",
-      className
+      className,
     )}
     {...props}
   />
@@ -69,4 +69,4 @@ const AvatarFallback = React.forwardRef<
 
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
 
-export { Avatar, AvatarImage, AvatarFallback } 
+export { Avatar, AvatarImage, AvatarFallback };

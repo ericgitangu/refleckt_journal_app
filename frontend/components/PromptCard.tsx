@@ -1,13 +1,20 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Bookmark, Edit3 } from 'lucide-react';
-import type { Prompt } from '@/lib/api';
+import React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Bookmark, Edit3 } from "lucide-react";
+import type { Prompt } from "@/lib/api";
 
 interface PromptCardProps {
   prompt: Prompt;
@@ -15,9 +22,13 @@ interface PromptCardProps {
   compact?: boolean;
 }
 
-export function PromptCard({ prompt, onUsePrompt, compact = false }: PromptCardProps) {
+export function PromptCard({
+  prompt,
+  onUsePrompt,
+  compact = false,
+}: PromptCardProps) {
   const router = useRouter();
-  
+
   const handleUsePrompt = () => {
     if (onUsePrompt) {
       onUsePrompt(prompt);
@@ -29,9 +40,11 @@ export function PromptCard({ prompt, onUsePrompt, compact = false }: PromptCardP
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className={compact ? 'pb-2' : undefined}>
+      <CardHeader className={compact ? "pb-2" : undefined}>
         <div className="flex justify-between items-start">
-          <CardTitle className={`${compact ? 'text-base' : 'text-xl'} font-serif`}>
+          <CardTitle
+            className={`${compact ? "text-base" : "text-xl"} font-serif`}
+          >
             Daily Reflection
           </CardTitle>
           <Badge variant="outline" className="bg-muted/50">
@@ -45,7 +58,9 @@ export function PromptCard({ prompt, onUsePrompt, compact = false }: PromptCardP
         )}
       </CardHeader>
       <CardContent className="flex-grow">
-        <p className={`${compact ? 'text-sm' : 'text-base'} italic text-muted-foreground font-medium leading-relaxed`}>
+        <p
+          className={`${compact ? "text-sm" : "text-base"} italic text-muted-foreground font-medium leading-relaxed`}
+        >
           &ldquo;{prompt.text}&rdquo;
         </p>
         {!compact && prompt.tags && prompt.tags.length > 0 && (
@@ -58,9 +73,9 @@ export function PromptCard({ prompt, onUsePrompt, compact = false }: PromptCardP
           </div>
         )}
       </CardContent>
-      <CardFooter className={`${compact ? 'pt-2' : 'pt-4'} flex justify-end`}>
-        <Button 
-          variant="outline" 
+      <CardFooter className={`${compact ? "pt-2" : "pt-4"} flex justify-end`}>
+        <Button
+          variant="outline"
           size={compact ? "sm" : "default"}
           className="flex gap-2 items-center"
           onClick={handleUsePrompt}
@@ -71,4 +86,4 @@ export function PromptCard({ prompt, onUsePrompt, compact = false }: PromptCardP
       </CardFooter>
     </Card>
   );
-} 
+}

@@ -209,6 +209,7 @@ Type 'ForwardRefExoticComponent<Props>' does not satisfy the constraint 'Element
 #### Root Cause
 
 This occurs because:
+
 1. React's `ElementType` expects components to return `ReactElement | null`
 2. But Radix UI components can return `ReactNode` (which includes `undefined`)
 
@@ -217,11 +218,12 @@ This occurs because:
 We're using a two-pronged approach to handle this issue:
 
 1. **Component Level**: Each Radix UI component file includes:
+
    - `// @ts-nocheck` directive at the top of the file to suppress TypeScript errors
    - `as any` type assertions on forwardRef components
    - Detailed documentation explaining the issue
 
-2. **Project Level**: 
+2. **Project Level**:
    - ESLint is configured to allow `@ts-nocheck` and `as any` in UI components
    - VS Code settings include configuration to suppress TS2344 errors
    - The build process temporarily ignores TypeScript errors
@@ -230,21 +232,17 @@ Example:
 
 ```tsx
 // @ts-nocheck - Suppress TypeScript errors related to Radix UI components
-"use client"
+"use client";
 
-import * as React from "react"
-import * as RadixPrimitive from "@radix-ui/react-component"
+import * as React from "react";
+import * as RadixPrimitive from "@radix-ui/react-component";
 
 // Component implementation with type assertions
 const Component = React.forwardRef<
   React.ElementRef<typeof RadixPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof RadixPrimitive.Root>
 >(({ className, ...props }, ref) => (
-  <RadixPrimitive.Root
-    ref={ref}
-    className={cn("...")}
-    {...props}
-  />
+  <RadixPrimitive.Root ref={ref} className={cn("...")} {...props} />
 )) as any;
 
 Component.displayName = RadixPrimitive.Root.displayName;
@@ -253,6 +251,7 @@ Component.displayName = RadixPrimitive.Root.displayName;
 #### For Contributors
 
 When adding new Radix UI components:
+
 1. Include `// @ts-nocheck` at the top of the file
 2. Use `as any` type assertions on forwardRef components
 3. Document why this is necessary with comments

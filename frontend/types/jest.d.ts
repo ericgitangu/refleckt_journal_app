@@ -1,5 +1,5 @@
-import '@testing-library/jest-dom';
-import { expect } from '@jest/globals';
+import "@testing-library/jest-dom";
+import { expect } from "@jest/globals";
 
 declare global {
   namespace jest {
@@ -8,4 +8,4 @@ declare global {
       toHaveBeenCalledWith(...args: any[]): R;
     }
   }
-} 
+}

@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import { apiRequest, handleApiError } from '@/lib/api-utils';
-import { getAuthSession } from '@/lib/auth-utils';
+import { NextResponse } from "next/server";
+import { apiRequest, handleApiError } from "@/lib/api-utils";
+import { getAuthSession } from "@/lib/auth-utils";
 
 interface PromptParams {
   params: {
@@ -14,15 +14,15 @@ export async function GET(request: Request, { params }: PromptParams) {
     // Get authentication session
     const session = await getAuthSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Validate id parameter
     const { id } = params;
     if (!id) {
       return NextResponse.json(
-        { error: 'Prompt ID is required' },
-        { status: 400 }
+        { error: "Prompt ID is required" },
+        { status: 400 },
       );
     }
 
@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: PromptParams) {
     const response = await apiRequest(`/prompts/${id}`);
     return NextResponse.json(response.data);
   } catch (error) {
-    return handleApiError(error, 'Failed to fetch prompt');
+    return handleApiError(error, "Failed to fetch prompt");
   }
 }
 
@@ -40,26 +40,26 @@ export async function PUT(request: Request, { params }: PromptParams) {
     // Get authentication session
     const session = await getAuthSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Validate id parameter
     const { id } = params;
     if (!id) {
       return NextResponse.json(
-        { error: 'Prompt ID is required' },
-        { status: 400 }
+        { error: "Prompt ID is required" },
+        { status: 400 },
       );
     }
 
     // Parse request body
     const body = await request.json();
-    
+
     // Forward request to backend API
-    const response = await apiRequest(`/prompts/${id}`, 'PUT', body);
+    const response = await apiRequest(`/prompts/${id}`, "PUT", body);
     return NextResponse.json(response.data);
   } catch (error) {
-    return handleApiError(error, 'Failed to update prompt');
+    return handleApiError(error, "Failed to update prompt");
   }
 }
 
@@ -69,22 +69,22 @@ export async function DELETE(request: Request, { params }: PromptParams) {
     // Get authentication session
     const session = await getAuthSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Validate id parameter
     const { id } = params;
     if (!id) {
       return NextResponse.json(
-        { error: 'Prompt ID is required' },
-        { status: 400 }
+        { error: "Prompt ID is required" },
+        { status: 400 },
       );
     }
 
     // Forward request to backend API
-    const response = await apiRequest(`/prompts/${id}`, 'DELETE');
+    const response = await apiRequest(`/prompts/${id}`, "DELETE");
     return NextResponse.json({}, { status: 204 });
   } catch (error) {
-    return handleApiError(error, 'Failed to delete prompt');
+    return handleApiError(error, "Failed to delete prompt");
   }
-} 
+}

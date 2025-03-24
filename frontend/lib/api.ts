@@ -1,9 +1,16 @@
-import { getSession } from 'next-auth/react';
-import axios, { AxiosRequestConfig, AxiosError, AxiosResponse } from 'axios';
-import { HealthCheckResponse, Session as CustomSession, JournalEntry, Category, Settings, Analytics } from '@/types/api';
+import { getSession } from "next-auth/react";
+import axios, { AxiosRequestConfig, AxiosError, AxiosResponse } from "axios";
+import {
+  HealthCheckResponse,
+  Session as CustomSession,
+  JournalEntry,
+  Category,
+  Settings,
+  Analytics,
+} from "@/types/api";
 
 interface ApiOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: any;
   headers?: Record<string, string>;
   cache?: RequestCache;
@@ -12,21 +19,21 @@ interface ApiOptions {
 
 export class ApiError extends Error {
   status: number;
-  
+
   constructor(message: string, status: number) {
     super(message);
     this.status = status;
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
 // Initialize axios instance - now pointing to our Next.js API routes
 const apiClient = axios.create({
-  baseURL: '/api', // Using relative URL to hit our Next.js API routes
+  baseURL: "/api", // Using relative URL to hit our Next.js API routes
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
-  }
+    "Content-Type": "application/json",
+  },
 });
 
 /**
@@ -34,18 +41,18 @@ const apiClient = axios.create({
  */
 async function createAuthHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
+    "Content-Type": "application/json",
   };
-  
+
   try {
     const session = await getSession();
     if (session?.user?.accessToken) {
-      headers['Authorization'] = `Bearer ${session.user.accessToken}`;
+      headers["Authorization"] = `Bearer ${session.user.accessToken}`;
     }
   } catch (error) {
-    console.error('Error setting auth header:', error);
+    console.error("Error setting auth header:", error);
   }
-  
+
   return headers;
 }
 
@@ -57,19 +64,19 @@ function handleApiError(error: unknown): never {
   if (axios.isAxiosError(error)) {
     // For 401 errors, we could trigger a session refresh or redirect to login
     if (error.response?.status === 401) {
-      console.error('Authentication error - redirecting to login');
+      console.error("Authentication error - redirecting to login");
       // Could add logic to redirect or refresh token here
     }
-    
+
     throw new ApiError(
       `API request failed: ${error.message}`,
-      error.response?.status || 500
+      error.response?.status || 500,
     );
   }
-  
+
   throw new ApiError(
-    `API request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    500
+    `API request failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+    500,
   );
 }
 
@@ -78,19 +85,15 @@ function handleApiError(error: unknown): never {
  * The Next.js API routes will handle authentication with the backend
  */
 export async function fetchApi<T>(
-  endpoint: string, 
-  options: ApiOptions = {}
+  endpoint: string,
+  options: ApiOptions = {},
 ): Promise<T> {
-  const { 
-    method = 'GET',
-    body,
-    headers: customHeaders = {},
-  } = options;
-  
+  const { method = "GET", body, headers: customHeaders = {} } = options;
+
   try {
     // Get authentication headers
     const authHeaders = await createAuthHeaders();
-    
+
     // Prepare request config
     const config: AxiosRequestConfig = {
       method,
@@ -104,7 +107,7 @@ export async function fetchApi<T>(
 
     // Check for offline status
     if (!navigator.onLine) {
-      console.warn('Offline mode - attempting to use cached data');
+      console.warn("Offline mode - attempting to use cached data");
       // Could implement offline caching strategy here
     }
 
@@ -133,20 +136,24 @@ export interface EntryUpdateData {
 }
 
 export const entriesApi = {
-  getAll: () => fetchApi<JournalEntry[]>('/entries'),
+  getAll: () => fetchApi<JournalEntry[]>("/entries"),
   getById: (id: string) => fetchApi<JournalEntry>(`/entries/${id}`),
-  create: (data: EntryCreateData) => fetchApi<JournalEntry>('/entries', { 
-    method: 'POST', 
-    body: data 
-  }),
-  update: (id: string, data: EntryUpdateData) => fetchApi<JournalEntry>(`/entries/${id}`, { 
-    method: 'PUT', 
-    body: data 
-  }),
-  delete: (id: string) => fetchApi<void>(`/entries/${id}`, { 
-    method: 'DELETE' 
-  }),
-  search: (query: string) => fetchApi<JournalEntry[]>(`/entries/search?q=${encodeURIComponent(query)}`)
+  create: (data: EntryCreateData) =>
+    fetchApi<JournalEntry>("/entries", {
+      method: "POST",
+      body: data,
+    }),
+  update: (id: string, data: EntryUpdateData) =>
+    fetchApi<JournalEntry>(`/entries/${id}`, {
+      method: "PUT",
+      body: data,
+    }),
+  delete: (id: string) =>
+    fetchApi<void>(`/entries/${id}`, {
+      method: "DELETE",
+    }),
+  search: (query: string) =>
+    fetchApi<JournalEntry[]>(`/entries/search?q=${encodeURIComponent(query)}`),
 };
 
 // Settings API types and functions
@@ -167,38 +174,47 @@ export interface SettingsUpdateData {
 }
 
 export const settingsApi = {
-  getCategories: () => fetchApi<Category[]>('/settings/categories'),
-  createCategory: (data: CategoryCreateData) => fetchApi<Category>('/settings/categories', { 
-    method: 'POST', 
-    body: data 
-  }),
-  updateCategory: (id: string, data: CategoryUpdateData) => fetchApi<Category>(`/settings/categories/${id}`, { 
-    method: 'PUT', 
-    body: data 
-  }),
-  deleteCategory: (id: string) => fetchApi<void>(`/settings/categories/${id}`, { 
-    method: 'DELETE' 
-  }),
-  getSettings: () => fetchApi<Settings>('/settings'),
-  updateSettings: (data: SettingsUpdateData) => fetchApi<Settings>('/settings', { 
-    method: 'PUT', 
-    body: data 
-  })
+  getCategories: () => fetchApi<Category[]>("/settings/categories"),
+  createCategory: (data: CategoryCreateData) =>
+    fetchApi<Category>("/settings/categories", {
+      method: "POST",
+      body: data,
+    }),
+  updateCategory: (id: string, data: CategoryUpdateData) =>
+    fetchApi<Category>(`/settings/categories/${id}`, {
+      method: "PUT",
+      body: data,
+    }),
+  deleteCategory: (id: string) =>
+    fetchApi<void>(`/settings/categories/${id}`, {
+      method: "DELETE",
+    }),
+  getSettings: () => fetchApi<Settings>("/settings"),
+  updateSettings: (data: SettingsUpdateData) =>
+    fetchApi<Settings>("/settings", {
+      method: "PUT",
+      body: data,
+    }),
 };
 
 // Analytics API types and functions
 export const analyticsApi = {
-  getAll: () => fetchApi<Analytics>('/analytics'),
-  requestAnalysis: () => fetchApi<{ status: string; job_id: string }>('/analytics', { 
-    method: 'POST' 
-  }),
-  getMood: () => fetchApi<{ moods: Array<{ date: string; value: number }> }>('/analytics/mood')
+  getAll: () => fetchApi<Analytics>("/analytics"),
+  requestAnalysis: () =>
+    fetchApi<{ status: string; job_id: string }>("/analytics", {
+      method: "POST",
+    }),
+  getMood: () =>
+    fetchApi<{ moods: Array<{ date: string; value: number }> }>(
+      "/analytics/mood",
+    ),
 };
 
 // Health check API
 export const healthApi = {
-  checkServices: () => fetchApi<HealthCheckResponse>('/health'),
-  checkService: (service: string) => fetchApi<HealthCheckResponse>(`/health/${service}`)
+  checkServices: () => fetchApi<HealthCheckResponse>("/health"),
+  checkService: (service: string) =>
+    fetchApi<HealthCheckResponse>(`/health/${service}`),
 };
 
 // Prompt API types and functions
@@ -223,20 +239,26 @@ export interface PromptUpdateData {
 }
 
 export const promptsApi = {
-  getAll: () => fetchApi<{ prompts: Prompt[] }>('/prompts'),
+  getAll: () => fetchApi<{ prompts: Prompt[] }>("/prompts"),
   getById: (id: string) => fetchApi<{ prompt: Prompt }>(`/prompts/${id}`),
-  getDaily: () => fetchApi<{ prompt: Prompt }>('/prompts/daily'),
-  getRandom: () => fetchApi<{ prompt: Prompt }>('/prompts/random'),
-  getByCategory: (category: string) => fetchApi<{ prompts: Prompt[] }>(`/prompts/category/${encodeURIComponent(category)}`),
-  create: (data: PromptCreateData) => fetchApi<{ prompt: Prompt }>('/prompts', { 
-    method: 'POST', 
-    body: data 
-  }),
-  update: (id: string, data: PromptUpdateData) => fetchApi<{ prompt: Prompt }>(`/prompts/${id}`, { 
-    method: 'PUT', 
-    body: data 
-  }),
-  delete: (id: string) => fetchApi<void>(`/prompts/${id}`, { 
-    method: 'DELETE' 
-  })
-}; 
+  getDaily: () => fetchApi<{ prompt: Prompt }>("/prompts/daily"),
+  getRandom: () => fetchApi<{ prompt: Prompt }>("/prompts/random"),
+  getByCategory: (category: string) =>
+    fetchApi<{ prompts: Prompt[] }>(
+      `/prompts/category/${encodeURIComponent(category)}`,
+    ),
+  create: (data: PromptCreateData) =>
+    fetchApi<{ prompt: Prompt }>("/prompts", {
+      method: "POST",
+      body: data,
+    }),
+  update: (id: string, data: PromptUpdateData) =>
+    fetchApi<{ prompt: Prompt }>(`/prompts/${id}`, {
+      method: "PUT",
+      body: data,
+    }),
+  delete: (id: string) =>
+    fetchApi<void>(`/prompts/${id}`, {
+      method: "DELETE",
+    }),
+};

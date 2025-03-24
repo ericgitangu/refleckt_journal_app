@@ -1,17 +1,27 @@
 // File: components/journal/journal-entry-feed.tsx
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { JournalEntryCard } from './journal-entry-card';
-import { useJournalEntries, JournalEntry } from '@/hooks/use-journal-entries';
-import { useToast } from '@/hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { LoadingFeed } from '@/components/journal/loading-feed';
+import { useEffect, useState } from "react";
+import { JournalEntryCard } from "./journal-entry-card";
+import { useJournalEntries, JournalEntry } from "@/hooks/use-journal-entries";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LoadingFeed } from "@/components/journal/loading-feed";
 
 export function JournalEntryFeed() {
   const { entries, isLoading, error, deleteEntry } = useJournalEntries();
@@ -35,7 +45,7 @@ export function JournalEntryFeed() {
 
   const handleDelete = async () => {
     if (!entryToDelete) return;
-    
+
     try {
       await deleteEntry(entryToDelete);
       toast({
@@ -46,7 +56,8 @@ export function JournalEntryFeed() {
       toast({
         variant: "destructive",
         title: "Error deleting entry",
-        description: err instanceof Error ? err.message : "An unknown error occurred",
+        description:
+          err instanceof Error ? err.message : "An unknown error occurred",
       });
     } finally {
       setEntryToDelete(null);
@@ -63,7 +74,11 @@ export function JournalEntryFeed() {
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
           Try Again
         </Button>
       </Alert>
@@ -94,17 +109,24 @@ export function JournalEntryFeed() {
         ))}
       </div>
 
-      <AlertDialog open={!!entryToDelete} onOpenChange={(open: boolean) => !open && setEntryToDelete(null)}>
+      <AlertDialog
+        open={!!entryToDelete}
+        onOpenChange={(open: boolean) => !open && setEntryToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your journal entry.
+              This action cannot be undone. This will permanently delete your
+              journal entry.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

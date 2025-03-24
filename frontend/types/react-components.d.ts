@@ -4,10 +4,10 @@
  */
 
 // Tell TypeScript we're augmenting the React module
-import 'react';
+import "react";
 
-declare module 'react' {
-  /** 
+declare module "react" {
+  /**
    * Core fix for the ElementType constraint issue.
    * This allows components to return ReactNode instead of ReactElement | null
    */
@@ -38,4 +38,4 @@ declare module 'react' {
       [name: string]: any;
     }
   }
-} 
+}

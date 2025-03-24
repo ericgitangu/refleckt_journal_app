@@ -17,4 +17,4 @@ export interface EntryType {
 }
 
 // Alias for backward compatibility with existing code
-export type JournalEntry = EntryType; 
+export type JournalEntry = EntryType;

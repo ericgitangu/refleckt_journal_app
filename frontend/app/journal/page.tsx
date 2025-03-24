@@ -1,20 +1,21 @@
-'use client';
+"use client";
 
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Icons } from '@/components/icons';
-import { trpc } from '@/app/hooks/useTRPC';
-import { JournalEntryFeed } from '@/components/journal/journal-entry-feed';
-import { TrpcExample } from '@/components/TrpcExample';
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Icons } from "@/components/icons";
+import { trpc } from "@/app/hooks/useTRPC";
+import { JournalEntryFeed } from "@/components/journal/journal-entry-feed";
+import { TrpcExample } from "@/components/TrpcExample";
 
 export default function JournalPage() {
   const { data: session, status } = useSession();
   // Example of using tRPC to fetch data
-  const { data: journalData, isLoading: isLoadingJournal } = trpc.getJournalEntries.useQuery();
+  const { data: journalData, isLoading: isLoadingJournal } =
+    trpc.getJournalEntries.useQuery();
 
-  if (status === 'loading' || isLoadingJournal) {
+  if (status === "loading" || isLoadingJournal) {
     return (
       <div className="container flex h-screen w-screen flex-col items-center justify-center">
         <Icons.spinner className="h-8 w-8 animate-spin" />
@@ -23,7 +24,7 @@ export default function JournalPage() {
   }
 
   if (!session) {
-    redirect('/login');
+    redirect("/login");
   }
 
   return (
@@ -48,4 +49,4 @@ export default function JournalPage() {
       </div>
     </div>
   );
-} 
+}

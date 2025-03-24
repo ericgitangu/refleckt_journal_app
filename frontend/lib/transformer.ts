@@ -3,7 +3,7 @@
  * This ensures consistent data serialization between client and server
  */
 
-import superjson from 'superjson';
+import superjson from "superjson";
 
 // Export the transformer for use in tRPC setup
-export const transformer = superjson; 
+export const transformer = superjson;

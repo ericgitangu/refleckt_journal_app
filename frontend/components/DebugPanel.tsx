@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { debugLogger, DebugLog } from '../utils/debug';
-import { isDevelopment } from '../utils/environment';
+import React, { useEffect, useState } from "react";
+import { debugLogger, DebugLog } from "../utils/debug";
+import { isDevelopment } from "../utils/environment";
 
 interface DebugPanelProps {
   className?: string;
 }
 
-export const DebugPanel: React.FC<DebugPanelProps> = ({ className = '' }) => {
+export const DebugPanel: React.FC<DebugPanelProps> = ({ className = "" }) => {
   const [logs, setLogs] = useState<DebugLog[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -31,14 +31,14 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ className = '' }) => {
   return (
     <div
       className={`fixed bottom-0 right-0 bg-gray-900 text-white p-4 rounded-tl-lg shadow-lg z-50 ${
-        isOpen ? 'w-96 h-96' : 'w-12 h-12'
+        isOpen ? "w-96 h-96" : "w-12 h-12"
       } ${className}`}
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="absolute top-2 right-2 text-white hover:text-gray-300"
       >
-        {isOpen ? '×' : 'D'}
+        {isOpen ? "×" : "D"}
       </button>
 
       {isOpen && (
@@ -66,11 +66,11 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ className = '' }) => {
               <div
                 key={index}
                 className={`mb-2 p-2 rounded ${
-                  log.type === 'error'
-                    ? 'bg-red-900'
-                    : log.type === 'warning'
-                    ? 'bg-yellow-900'
-                    : 'bg-gray-800'
+                  log.type === "error"
+                    ? "bg-red-900"
+                    : log.type === "warning"
+                      ? "bg-yellow-900"
+                      : "bg-gray-800"
                 }`}
               >
                 <div className="text-gray-400">{log.timestamp}</div>
@@ -92,4 +92,4 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ className = '' }) => {
       )}
     </div>
   );
-}; 
+};

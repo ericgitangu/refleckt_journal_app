@@ -1,9 +1,22 @@
 // File: components/insights/insights-sidebar.tsx
-'use client';
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowUp, ArrowDown, BarChart, PieChart, LineChart, TrendingUp } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ArrowUp,
+  ArrowDown,
+  BarChart,
+  PieChart,
+  LineChart,
+  TrendingUp,
+} from "lucide-react";
 
 export function InsightsSidebar() {
   return (
@@ -29,8 +42,8 @@ export function InsightsSidebar() {
               </div>
               <div className="h-[160px] flex items-end gap-1">
                 {[30, 45, 25, 60, 75, 45, 65].map((height, i) => (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className="flex-1 bg-primary/10 hover:bg-primary/20 rounded-t-sm"
                     style={{ height: `${height}%` }}
                   />
@@ -50,10 +63,34 @@ export function InsightsSidebar() {
           <TabsContent value="mood" className="pt-4 space-y-4">
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: 'Happy', value: '32%', change: '+5%', icon: ArrowUp, color: 'text-green-500' },
-                { label: 'Stressed', value: '18%', change: '-3%', icon: ArrowDown, color: 'text-green-500' },
-                { label: 'Relaxed', value: '24%', change: '+2%', icon: ArrowUp, color: 'text-green-500' },
-                { label: 'Anxious', value: '14%', change: '-1%', icon: ArrowDown, color: 'text-green-500' },
+                {
+                  label: "Happy",
+                  value: "32%",
+                  change: "+5%",
+                  icon: ArrowUp,
+                  color: "text-green-500",
+                },
+                {
+                  label: "Stressed",
+                  value: "18%",
+                  change: "-3%",
+                  icon: ArrowDown,
+                  color: "text-green-500",
+                },
+                {
+                  label: "Relaxed",
+                  value: "24%",
+                  change: "+2%",
+                  icon: ArrowUp,
+                  color: "text-green-500",
+                },
+                {
+                  label: "Anxious",
+                  value: "14%",
+                  change: "-1%",
+                  icon: ArrowDown,
+                  color: "text-green-500",
+                },
               ].map((item, i) => (
                 <Card key={i} className="p-3 border">
                   <div className="text-sm font-medium">{item.label}</div>
@@ -69,20 +106,27 @@ export function InsightsSidebar() {
           <TabsContent value="topics" className="pt-4 space-y-4">
             <div className="space-y-2">
               {[
-                { label: 'Work', value: '28%', color: '#3b82f6' },
-                { label: 'Personal', value: '42%', color: '#10b981' },
-                { label: 'Family', value: '18%', color: '#f59e0b' },
-                { label: 'Health', value: '12%', color: '#ef4444' },
+                { label: "Work", value: "28%", color: "#3b82f6" },
+                { label: "Personal", value: "42%", color: "#10b981" },
+                { label: "Family", value: "18%", color: "#f59e0b" },
+                { label: "Health", value: "12%", color: "#ef4444" },
               ].map((topic, i) => (
                 <div key={i} className="flex items-center">
-                  <div className="w-24 flex-shrink-0 text-sm">{topic.label}</div>
+                  <div className="w-24 flex-shrink-0 text-sm">
+                    {topic.label}
+                  </div>
                   <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="h-full rounded-full" 
-                      style={{ width: topic.value, backgroundColor: topic.color }}
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: topic.value,
+                        backgroundColor: topic.color,
+                      }}
                     />
                   </div>
-                  <div className="w-10 text-right text-sm ml-2">{topic.value}</div>
+                  <div className="w-10 text-right text-sm ml-2">
+                    {topic.value}
+                  </div>
                 </div>
               ))}
             </div>

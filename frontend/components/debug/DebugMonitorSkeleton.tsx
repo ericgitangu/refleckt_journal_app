@@ -1,11 +1,11 @@
-import { 
-  Card, 
-  CardContent, 
+import {
+  Card,
+  CardContent,
   CardHeader,
   CardTitle,
-  CardDescription
-} from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+  CardDescription,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function DebugMonitorSkeleton() {
   return (
@@ -24,7 +24,7 @@ export function DebugMonitorSkeleton() {
         </CardHeader>
         <CardContent>
           <Skeleton className="h-24 w-full mb-4" />
-          
+
           <div className="mt-4">
             <Skeleton className="h-5 w-[150px] mb-2" />
             <div className="space-y-2">
@@ -39,4 +39,4 @@ export function DebugMonitorSkeleton() {
       </Card>
     </div>
   );
-} 
+}

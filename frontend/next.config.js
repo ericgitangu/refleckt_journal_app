@@ -3,13 +3,13 @@ const nextConfig = {
   // Official Next.js configuration options
   reactStrictMode: true,
   swcMinify: true,
-  
+
   // Image optimization settings
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: '**',
+        protocol: "https",
+        hostname: "**",
       },
     ],
   },
@@ -20,18 +20,18 @@ const nextConfig = {
     // Prevent React server components optimization
     // This prevents hooks from being called during static generation
     optimizeServerReact: true,
-    
+
     // Explicitly mark these packages as external for server components
-    serverComponentsExternalPackages: ['react'],
+    serverComponentsExternalPackages: ["react"],
   },
-  
+
   // Output to standalone mode for production deployment
-  output: 'standalone',
+  output: "standalone",
 
   // Set all routes to use Server-Side Rendering (SSR) instead of static generation
   // This is the correct approach for pages with client components
-  distDir: '.next',
-  
+  distDir: ".next",
+
   // Add route options to prevent static generation
   // New in Next.js 14
   reactProductionProfiling: true,
@@ -46,9 +46,9 @@ const nextConfig = {
   },
 
   env: {
-    API_URL: process.env.API_URL || 'http://localhost:3000/api',
-    SITE_URL: process.env.SITE_URL || 'http://localhost:3000',
+    API_URL: process.env.API_URL || "http://localhost:3000/api",
+    SITE_URL: process.env.SITE_URL || "http://localhost:3000",
   },
 };
 
-module.exports = nextConfig; 
+module.exports = nextConfig;
