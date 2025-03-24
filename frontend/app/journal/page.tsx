@@ -1,45 +1,50 @@
 'use client';
 
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Icons } from '@/components/icons';
+import { trpc } from '@/app/hooks/useTRPC';
 import { JournalEntryFeed } from '@/components/journal/journal-entry-feed';
-import { CreateEntryButton } from '@/components/journal/create-entry-button';
-import { Suspense, lazy } from 'react';
-import { LoadingFeed } from '@/components/journal/loading-feed';
-
-// Lazy load client components
-const ThemeToggleClient = lazy(() => import('@/components/theme/theme-toggle-client'));
-
-// Loading fallback
-const LoadingFallback = () => <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>;
-
-// Set dynamic option for App Router
-export const dynamic = 'force-dynamic';
+import { TrpcExample } from '@/components/TrpcExample';
 
 export default function JournalPage() {
+  const { data: session, status } = useSession();
+  // Example of using tRPC to fetch data
+  const { data: journalData, isLoading: isLoadingJournal } = trpc.getJournalEntries.useQuery();
+
+  if (status === 'loading' || isLoadingJournal) {
+    return (
+      <div className="container flex h-screen w-screen flex-col items-center justify-center">
+        <Icons.spinner className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    redirect('/login');
+  }
+
   return (
-    <div className="min-h-screen bg-[hsl(var(--background))]">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-2">
-            <Link href="/" className="flex items-center text-muted-foreground hover:text-foreground transition">
-              <ChevronLeft className="h-4 w-4" />
-              <span>Home</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            <CreateEntryButton />
-            <Suspense fallback={<LoadingFallback />}>
-              <ThemeToggleClient />
-            </Suspense>
-          </div>
-        </div>
-
-        <h1 className="font-serif text-3xl font-bold mb-6">My Journal</h1>
-
-        <Suspense fallback={<LoadingFeed />}>
-          <JournalEntryFeed />
-        </Suspense>
+    <div className="container py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Journal</h1>
+        <Button>
+          <Icons.plus className="mr-2 h-4 w-4" />
+          New Entry
+        </Button>
+      </div>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Journal Entries</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Using our TrpcExample component to demonstrate tRPC usage */}
+            <TrpcExample />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

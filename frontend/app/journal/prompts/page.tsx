@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { promptsApi, Prompt } from '@/lib/api';
 import { DailyPrompt } from '@/components/DailyPrompt';
@@ -48,7 +48,7 @@ export default function PromptsPage() {
   const router = useRouter();
 
   // Fetch prompts based on active category
-  const fetchPrompts = async () => {
+  const fetchPrompts = useCallback(async () => {
     setIsLoading(true);
     try {
       let response;
@@ -65,12 +65,12 @@ export default function PromptsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeCategory]);
 
   // Fetch prompts when the active category changes
   useEffect(() => {
     fetchPrompts();
-  }, [activeCategory]);
+  }, [fetchPrompts]);
 
   // Handle using a prompt
   const handleUsePrompt = (prompt: Prompt) => {
@@ -95,7 +95,7 @@ export default function PromptsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Today's Prompt
+                Today&apos;s Prompt
               </CardTitle>
               <CardDescription>
                 A new prompt selected for you each day

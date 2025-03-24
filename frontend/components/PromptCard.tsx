@@ -46,7 +46,7 @@ export function PromptCard({ prompt, onUsePrompt, compact = false }: PromptCardP
       </CardHeader>
       <CardContent className="flex-grow">
         <p className={`${compact ? 'text-sm' : 'text-base'} italic text-muted-foreground font-medium leading-relaxed`}>
-          "{prompt.text}"
+          &ldquo;{prompt.text}&rdquo;
         </p>
         {!compact && prompt.tags && prompt.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-4">

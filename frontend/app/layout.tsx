@@ -2,6 +2,8 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import ClientProviders from '@/app/providers/ClientProviders';
+import { DebugPanel } from '@/components/DebugPanel';
+import { TopNavbar } from '@/components/TopNavbar';
 
 // Load fonts in server component
 const inter = Inter({ subsets: ['latin'] });
@@ -84,7 +86,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={montserrat.variable}>
       <body className={inter.className}>
-        <ClientProviders>{children}</ClientProviders>
+        <ClientProviders>
+          <TopNavbar />
+          <main className="min-h-screen">{children}</main>
+          <DebugPanel />
+        </ClientProviders>
       </body>
     </html>
   );

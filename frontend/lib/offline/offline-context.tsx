@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 type OfflineContextType = {
   isOnline: boolean;
@@ -22,6 +22,35 @@ export function useOffline() {
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingActions, setPendingActions] = useState<any[]>([]);
+
+  const processPendingActions = useCallback(async () => {
+    if (pendingActions.length === 0) return;
+
+    try {
+      // Process each pending action
+      // This would be implementation-specific based on your app's needs
+      const newPendingActions = [...pendingActions];
+      
+      for (let i = 0; i < newPendingActions.length; i++) {
+        const action = newPendingActions[i];
+        try {
+          // Example: if your action is a fetch request
+          // await fetch(action.url, action.options);
+          
+          // Remove the processed action
+          newPendingActions.splice(i, 1);
+          i--;
+        } catch (error) {
+          console.error('Failed to process action:', error);
+          // We'll keep the action in the queue to try again later
+        }
+      }
+      
+      setPendingActions(newPendingActions);
+    } catch (error) {
+      console.error('Error processing pending actions:', error);
+    }
+  }, [pendingActions]);
 
   useEffect(() => {
     // Set up listeners for online/offline status
@@ -64,39 +93,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     if (isOnline && pendingActions.length > 0) {
       processPendingActions();
     }
-  }, [isOnline]);
+  }, [isOnline, pendingActions.length, processPendingActions]);
 
   const addPendingAction = (action: any) => {
     setPendingActions((prev) => [...prev, action]);
-  };
-
-  const processPendingActions = async () => {
-    if (pendingActions.length === 0) return;
-
-    try {
-      // Process each pending action
-      // This would be implementation-specific based on your app's needs
-      const newPendingActions = [...pendingActions];
-      
-      for (let i = 0; i < newPendingActions.length; i++) {
-        const action = newPendingActions[i];
-        try {
-          // Example: if your action is a fetch request
-          // await fetch(action.url, action.options);
-          
-          // Remove the processed action
-          newPendingActions.splice(i, 1);
-          i--;
-        } catch (error) {
-          console.error('Failed to process action:', error);
-          // We'll keep the action in the queue to try again later
-        }
-      }
-      
-      setPendingActions(newPendingActions);
-    } catch (error) {
-      console.error('Error processing pending actions:', error);
-    }
   };
 
   return (

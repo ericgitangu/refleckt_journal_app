@@ -1,65 +1,113 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/dist/server/web/spec-extension/request';
 import { getToken } from 'next-auth/jwt';
 
 // Public routes that don't require authentication
 const publicRoutes = ['/api/health', '/api/config', '/login', '/signup', '/auth'];
 
-// Routes that should be accessible without authentication
-export async function middleware(request: Request & { nextUrl: URL }) {
+// AWS X-Ray headers
+const AWS_HEADERS = [
+  'x-amz-trace-id',
+  'x-amz-id-trace',
+  'x-amz-request-id',
+  'x-amz-id-2',
+  'x-amz-cf-id',
+  'x-amz-cloudfront-id',
+  'x-amz-cognito-identity-id',
+  'x-amz-user-id',
+  'x-amz-identity-id',
+];
+
+// CORS headers
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_FRONTEND_URL || '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': [
+    'Content-Type',
+    'Authorization',
+    'X-Amz-Date',
+    'X-Api-Key',
+    'X-Amz-Security-Token',
+    'X-Amz-User-Agent',
+    ...AWS_HEADERS,
+  ].join(','),
+  'Access-Control-Max-Age': '86400',
+};
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check if the path is a public route
-  const isPublicRoute = publicRoutes.some(route => 
-    pathname === route || pathname.startsWith(`${route}/`)
-  );
-
-  // Allow public assets
-  if (
-    pathname.startsWith('/_next') || 
-    pathname.startsWith('/static') || 
-    pathname.startsWith('/images') ||
-    pathname.startsWith('/fonts') ||
-    pathname.includes('.') // Files with extensions
-  ) {
-    return NextResponse.next();
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 204,
+      headers: CORS_HEADERS,
+    });
   }
 
-  // Allow public routes
-  if (isPublicRoute) {
-    return NextResponse.next();
+  // Check if the route is public
+  if (publicRoutes.includes(pathname)) {
+    const response = NextResponse.next();
+    Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
   }
 
-  // Check for authentication token
-  const token = await getToken({ 
-    req: request, 
-    secret: process.env.NEXTAUTH_SECRET 
+  // Verify authentication for protected routes
+  const token = await getToken({ req: request });
+  if (!token) {
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
+  }
+
+  // Get the response for authenticated routes
+  const response = NextResponse.next();
+
+  // Add CORS headers to all responses
+  Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
   });
 
-  // If on landing page (/) AND not authenticated, allow access to see marketing content
-  if (pathname === '/' && !token) {
-    return NextResponse.next();
+  // Forward AWS headers if present
+  AWS_HEADERS.forEach(header => {
+    const value = request.headers.get(header);
+    if (value) {
+      response.headers.set(header, value);
+    }
+  });
+
+  // Add security headers
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // Debug logging in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Request:', {
+      method: request.method,
+      url: request.url,
+      headers: Object.fromEntries(request.headers.entries()),
+    });
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
   }
 
-  // If not authenticated and accessing a protected route, redirect to login
-  if (!token) {
-    const url = new URL('/login', request.url);
-    url.searchParams.set('callbackUrl', encodeURI(request.url));
-    return NextResponse.redirect(url);
-  }
-
-  // User is authenticated, allow access to protected routes
-  return NextResponse.next();
+  return response;
 }
 
-// Configure which routes use this middleware
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 }; 

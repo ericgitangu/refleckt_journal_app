@@ -5,6 +5,9 @@ import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Icons } from '@/components/icons';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,61 +46,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-indigo-50 to-white">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
-        <div className="flex flex-col items-center justify-center">
-          <div className="mb-6 relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-300 dark:border-gray-600 shadow-md">
+    <div className="container flex h-screen w-screen flex-col items-center justify-center">
+      <Card className="w-[350px]">
+        <CardHeader className="space-y-1">
+          <div className="flex justify-center mb-4">
             <Image 
               src="/logo.jpg" 
-              alt="Reflekt Logo" 
-              fill
-              style={{ objectFit: 'cover' }}
-              priority
-              className="rounded-full"
+              alt="Refleckt Journal Logo" 
+              width={120} 
+              height={120} 
+              className="rounded-md"
             />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome to Reflekt</h1>
-          <p className="mt-2 text-gray-600">Your personal journaling companion</p>
-        </div>
-
-        {error && (
-          <div className="p-4 text-sm text-red-700 bg-red-100 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <button
-            onClick={() => handleLogin('cognito')}
-            disabled={isLoading}
-            className="w-full flex justify-center items-center gap-3 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-70"
+          <CardTitle className="text-2xl text-center">Welcome back</CardTitle>
+          <CardDescription className="text-center">
+            Sign in to your account to continue
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <Button
+            variant="outline"
+            onClick={() => signIn('google', { callbackUrl })}
+            className="w-full"
           >
-            {isLoading ? 'Logging in...' : 'Continue with Cognito'}
-          </button>
-          
-          <button
-            onClick={() => handleLogin('google')}
-            disabled={isLoading}
-            className="w-full flex justify-center items-center gap-3 py-3 px-4 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 rounded-lg font-medium transition-colors disabled:opacity-70"
-          >
-            <Image src="/images/google-logo.svg" alt="Google logo" width={20} height={20} />
-            {isLoading ? 'Logging in...' : 'Continue with Google'}
-          </button>
-        </div>
-
-        <div className="mt-6 text-center text-sm">
-          <p className="text-gray-600">
-            Don't have an account?{' '}
-            <Link href="/signup" className="text-blue-600 hover:text-blue-800 font-medium">
-              Sign up
-            </Link>
-          </p>
-        </div>
-        
-        <div className="mt-8 text-center text-xs text-gray-500">
-          <p>By logging in, you agree to our Terms of Service and Privacy Policy</p>
-        </div>
-      </div>
+            <Icons.google className="mr-2 h-4 w-4" />
+            Continue with Google
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

@@ -19,7 +19,7 @@ export default function NotFound() {
             404 - Page Not Found
           </h1>
           <p className="text-muted-foreground mt-2 mb-6">
-            The page you're looking for doesn't exist or has been moved.
+            The page you&apos;re looking for doesn&apos;t exist or has been moved.
           </p>
         </div>
         
@@ -27,7 +27,7 @@ export default function NotFound() {
         
         <div className="pt-4 pb-2">
           <p className="text-center text-sm italic text-muted-foreground">
-            "Journal pages are meant to be filled, not left blank."
+            &ldquo;Journal pages are meant to be filled, not left blank.&rdquo;
           </p>
         </div>
         
