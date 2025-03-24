@@ -59,7 +59,7 @@ export default function SignUpPage() {
             alt="Reflekt Journal Logo"
             width={120}
             height={120}
-            className="rounded-md"
+            className="rounded-md border-2 border-black dark:border-transparent"
           />
         </div>
 
