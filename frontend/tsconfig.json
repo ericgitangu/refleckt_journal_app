@@ -27,7 +27,6 @@
     "types": ["node", "jest"],
     "allowSyntheticDefaultImports": true,
     "noErrorTruncation": true,
-    "suppressImplicitAnyIndexErrors": true,
     "noImplicitAny": false,
     "strictNullChecks": true
   },
