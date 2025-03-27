@@ -4,14 +4,12 @@ use aws_sdk_s3::Client as S3Client;
 use aws_sdk_secretsmanager::Client as SecretsClient;
 use aws_sdk_eventbridge::Client as EventBridgeClient;
 use aws_lambda_events::encodings::Body;
-use aws_lambda_events::http::{HeaderMap, HeaderValue, Response};
+use aws_lambda_events::http::{HeaderMap, HeaderValue, Response, StatusCode};
 use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
 use std::error::Error;
 use std::fmt;
+use tokio::sync::OnceCell;
 
 // Singleton clients for AWS services
 static DYNAMO_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
@@ -58,17 +56,17 @@ pub struct JwtClaims {
 
 // API Response helper
 pub fn json_response<T: Serialize>(status_code: i32, body: &T) -> Response<Body> {
-    let mut headers = HeaderMap::new();
-    headers.insert("content-type", HeaderValue::from_static("application/json"));
-    
     let body_str = serde_json::to_string(body).unwrap_or_else(|_| "{}".to_string());
     
-    Response {
-        status_code,
-        headers,
-        body: Some(Body::Text(body_str)),
-        is_base64_encoded: false,
-    }
+    // Convert i32 to u16 for StatusCode
+    let status = StatusCode::from_u16(status_code as u16)
+        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    
+    Response::builder()
+        .status(status)
+        .header("content-type", "application/json")
+        .body(Body::Text(body_str))
+        .expect("Failed to build response")
 }
 
 // Error response helper
@@ -84,7 +82,10 @@ pub fn error_response(status_code: i32, error: &JournalError) -> Response<Body> 
 pub async fn get_dynamo_client() -> DynamoDbClient {
     DYNAMO_CLIENT.get_or_init(|| async {
         let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
-        let config = aws_config::from_env().region(region_provider).load().await;
+        let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
         DynamoDbClient::new(&config)
     }).await.clone()
 }
@@ -93,8 +94,23 @@ pub async fn get_dynamo_client() -> DynamoDbClient {
 pub async fn get_s3_client() -> S3Client {
     S3_CLIENT.get_or_init(|| async {
         let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
-        let config = aws_config::from_env().region(region_provider).load().await;
+        let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
         S3Client::new(&config)
+    }).await.clone()
+}
+
+// Initialize and get Secrets Manager client
+pub async fn get_secrets_client() -> SecretsClient {
+    SECRETS_CLIENT.get_or_init(|| async {
+        let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
+        let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+        SecretsClient::new(&config)
     }).await.clone()
 }
 
@@ -102,7 +118,10 @@ pub async fn get_s3_client() -> S3Client {
 pub async fn get_events_client() -> EventBridgeClient {
     EVENTS_CLIENT.get_or_init(|| async {
         let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
-        let config = aws_config::from_env().region(region_provider).load().await;
+        let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
         EventBridgeClient::new(&config)
     }).await.clone()
 }
@@ -140,9 +159,32 @@ pub async fn extract_tenant_context(
 ) -> Result<JwtClaims, JournalError> {
     let token = extract_jwt(headers)?;
     
-    // In production, we would get this from Secrets Manager
-    let jwt_secret = std::env::var("JWT_SECRET")
-        .map_err(|_| JournalError::InternalError("JWT_SECRET not set".into()))?;
+    // Try to get JWT secret from Secrets Manager first, fall back to environment variable
+    let jwt_secret = match std::env::var("USE_SECRETS_MANAGER").ok() {
+        Some(val) if val == "true" => {
+            let client = get_secrets_client().await;
+            let secret_name = std::env::var("JWT_SECRET_NAME")
+                .unwrap_or_else(|_| "reflekt/jwt-secret".to_string());
+            
+            match client.get_secret_value().secret_id(secret_name).send().await {
+                Ok(response) => {
+                    response.secret_string()
+                        .ok_or_else(|| JournalError::InternalError("JWT secret not found in Secrets Manager".into()))?
+                        .to_string()
+                },
+                Err(_) => {
+                    // Fall back to environment variable
+                    std::env::var("JWT_SECRET")
+                        .map_err(|_| JournalError::InternalError("JWT_SECRET not set".into()))?
+                }
+            }
+        },
+        _ => {
+            // Use environment variable directly
+            std::env::var("JWT_SECRET")
+                .map_err(|_| JournalError::InternalError("JWT_SECRET not set".into()))?
+        }
+    };
     
     let token_data = validate_token(&token, &jwt_secret)?;
     Ok(token_data.claims)
@@ -161,11 +203,11 @@ pub async fn publish_event(
     let result = client
         .put_events()
         .entries(
-            aws_sdk_eventbridge::model::PutEventsRequestEntry::builder()
+            aws_sdk_eventbridge::types::PutEventsRequestEntry::builder()
                 .event_bus_name(event_bus)
                 .source("reflekt.journal")
                 .detail_type(event_type)
-                .detail(aws_sdk_eventbridge::types::Blob::new(detail.to_string()))
+                .detail(serde_json::to_string(&detail).unwrap_or_default())
                 .build(),
         )
         .send()
@@ -173,10 +215,9 @@ pub async fn publish_event(
         .map_err(|e| JournalError::EventError(format!("Failed to publish event: {}", e)))?;
     
     // Check for failed entries
-    if let Some(failed) = result.failed_entry_count() {
-        if failed > 0 {
-            return Err(JournalError::EventError(format!("{} events failed to publish", failed)));
-        }
+    let failed = result.failed_entry_count();
+    if failed > 0 {
+        return Err(JournalError::EventError(format!("{} events failed to publish", failed)));
     }
     
     Ok(())

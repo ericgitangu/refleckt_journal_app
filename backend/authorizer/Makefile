@@ -1,19 +1,11 @@
-# Makefile for journal-authorizer-service Lambda function
-.PHONY: all build test clean release package verify-lambda
+# Makefile for journal-authorizer Lambda function
+.PHONY: all build test clean package verify-lambda deploy
 
 # Service name
-SERVICE_NAME := journal-authorizer-service
+SERVICE_NAME := journal-authorizer
 
-# Default target architecture for AWS Lambda
-ARCH ?= x86_64-unknown-linux-musl
-
-# Default build profile
-PROFILE ?= release
-
-# Build directory
-BUILD_DIR := ./target/$(ARCH)/$(PROFILE)
-
-# Deployment package directory
+# Build directories
+BUILD_DIR := ./target/lambda/$(SERVICE_NAME)
 PACKAGE_DIR := ./target/lambda
 
 # AWS Region for deployment
@@ -22,63 +14,63 @@ AWS_REGION ?= us-east-1
 # Common library path
 COMMON_PATH := ../common
 
-# Check for cargo-lambda
-CARGO_LAMBDA := $(shell command -v cargo lambda 2> /dev/null)
-
 # All encompasses build, package, and verify
 all: package verify-lambda
 
 # Ensure the common library is built first
 build-common:
 	@echo "Building common library..."
-	$(MAKE) -C $(COMMON_PATH) build-musl
+	$(MAKE) -C $(COMMON_PATH) build
 
 # Build the service
 build: build-common
 	@echo "Building $(SERVICE_NAME)..."
-ifdef CARGO_LAMBDA
-	cargo lambda build --release --arm64
-else
-	cargo build --target $(ARCH) --$(PROFILE)
-endif
+	@if command -v cargo lambda >/dev/null 2>&1; then \
+		echo "Using cargo-lambda for build..."; \
+		RUSTFLAGS="-C target-feature=+crt-static" cargo lambda build --release --output-format zip; \
+	else \
+		echo "cargo-lambda not found. Installing..."; \
+		cargo install cargo-lambda && \
+		RUSTFLAGS="-C target-feature=+crt-static" cargo lambda build --release --output-format zip; \
+	fi
+	@echo "✅ $(SERVICE_NAME) built successfully"
 
 # Run tests
 test:
+	@echo "Testing $(SERVICE_NAME)..."
 	cargo test
+	@echo "✅ Tests completed"
 
 # Clean build artifacts
 clean:
+	@echo "Cleaning $(SERVICE_NAME)..."
 	cargo clean
 	rm -rf $(PACKAGE_DIR)
+	@echo "✅ Clean completed"
 
 # Package Lambda function with bootstrap
 package: build
 	@echo "Packaging $(SERVICE_NAME) for AWS Lambda deployment..."
 	mkdir -p $(PACKAGE_DIR)
-ifdef CARGO_LAMBDA
-	cp ./target/lambda/$(SERVICE_NAME)/bootstrap $(PACKAGE_DIR)/bootstrap
-else
-	cp $(BUILD_DIR)/$(SERVICE_NAME) $(PACKAGE_DIR)/bootstrap
-endif
-	cd $(PACKAGE_DIR) && chmod +x bootstrap && zip -r ../$(SERVICE_NAME).zip bootstrap
-	@echo "Lambda deployment package created at target/$(SERVICE_NAME).zip"
+	cp target/lambda/$(SERVICE_NAME).zip $(PACKAGE_DIR)/$(SERVICE_NAME).zip
+	@echo "✅ Lambda deployment package created at $(PACKAGE_DIR)/$(SERVICE_NAME).zip"
 
 # Verify the Lambda package is valid
-verify-lambda: package
+verify-lambda:
 	@echo "Verifying Lambda package..."
-	@if [ -f "$(PACKAGE_DIR)/bootstrap" ] && [ -x "$(PACKAGE_DIR)/bootstrap" ]; then \
-		echo "✅ Bootstrap file exists and is executable"; \
+	@if [ -f "$(PACKAGE_DIR)/$(SERVICE_NAME).zip" ]; then \
+		echo "✅ Lambda package exists"; \
 	else \
-		echo "❌ Bootstrap file is missing or not executable"; \
+		echo "❌ Lambda package is missing"; \
 		exit 1; \
 	fi
 	@echo "✅ Lambda package verified successfully"
 
 # Deploy the Lambda function
-deploy: package
+deploy: package verify-lambda
 	@echo "Deploying $(SERVICE_NAME) to AWS Lambda..."
 	aws lambda update-function-code \
 		--function-name $(SERVICE_NAME) \
-		--zip-file fileb://target/$(SERVICE_NAME).zip \
+		--zip-file fileb://$(PACKAGE_DIR)/$(SERVICE_NAME).zip \
 		--region $(AWS_REGION)
-	@echo "Lambda function $(SERVICE_NAME) deployed successfully" 
+	@echo "✅ Lambda function $(SERVICE_NAME) deployed successfully" 

@@ -41,3 +41,13 @@ Thumbs.db
 prisma/.env
 cypress/videos/
 cypress/screenshots/
+
+
+# AWS
+.aws/
+
+# Rust
+target/
+
+# Cargo
+Cargo.lock

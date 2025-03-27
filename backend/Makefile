@@ -1,100 +1,135 @@
-# Root Makefile for the Reflekt Journal backend
-.PHONY: all build test clean release verify package deploy
+.PHONY: all build test clean deploy install-deps help setup-cross
 
-# List all services
-SERVICES := common ai-service analytics-service authorizer db-init entry-service prompts-service settings-service
+# Services to build (in dependency order)
+SERVICES := common authorizer analytics-service ai-service entry-service prompts-service settings-service
 
-# Default target architecture for AWS Lambda
-ARCH ?= x86_64-unknown-linux-musl
+# Default AWS region
+AWS_REGION ?= us-east-1
 
-# Default build profile
-PROFILE ?= release
+# Default target architecture
+TARGET := aarch64-unknown-linux-musl
+CROSS_TOOLCHAIN := /usr/local/opt/$(TARGET)
 
-# Target to build everything
-all:
-	@echo "Building all services..."
-	@for service in $(SERVICES); do \
-		echo "Building $$service..."; \
-		$(MAKE) -C $$service all || exit 1; \
-	done
-	@echo "All services built successfully!"
+# Default help target
+help:
+	@echo "Refleckt Journal App Backend Build System"
+	@echo "========================================"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  all             - Build and package all services"
+	@echo "  build           - Build all services"
+	@echo "  test            - Run tests for all services"
+	@echo "  clean           - Clean all services"
+	@echo "  deploy          - Deploy all services to AWS"
+	@echo "  setup-cross     - Set up cross-compilation environment"
+	@echo "  install-deps    - Install build dependencies"
+	@echo "  help            - Show this help message"
+	@echo ""
+	@echo "Individual service targets:"
+	@echo "  build-SERVICE      - Build a specific service"
+	@echo "  test-SERVICE       - Test a specific service"
+	@echo "  clean-SERVICE      - Clean a specific service"
+	@echo "  deploy-SERVICE     - Deploy a specific service"
 
-# Target to build all services
-build:
+# Set up cross-compilation environment
+setup-cross:
+	@echo "Setting up cross-compilation environment..."
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		echo "macOS system detected, setting up cross-compilation toolchain..."; \
+		if ! brew tap | grep -q "messense/macos-cross-toolchains"; then \
+			echo "Adding messense/macos-cross-toolchains tap..." && \
+			brew tap messense/macos-cross-toolchains; \
+		fi; \
+		if ! brew list messense/macos-cross-toolchains/$(TARGET) >/dev/null 2>&1; then \
+			echo "Installing cross-compilation toolchain..." && \
+			brew install messense/macos-cross-toolchains/$(TARGET); \
+		fi \
+	else \
+		echo "Linux system detected, using native toolchain..."; \
+	fi
+	@rustup target add $(TARGET)
+
+# Install dependencies
+install-deps: setup-cross
+	@echo "Installing build dependencies..."
+	cargo install cargo-lambda --force
+	@echo "✅ Dependencies installed"
+
+# Default target
+all: build
+
+# Build all services
+build: setup-cross
 	@echo "Building all services..."
 	@for service in $(SERVICES); do \
 		echo "Building $$service..."; \
 		$(MAKE) -C $$service build || exit 1; \
 	done
-	@echo "All services built successfully!"
+	@echo "✅ All services built successfully"
 
-# Target to run tests for all services
+# Test all services
 test:
-	@echo "Running tests for all services..."
+	@echo "Testing all services..."
 	@for service in $(SERVICES); do \
 		echo "Testing $$service..."; \
 		$(MAKE) -C $$service test || exit 1; \
 	done
-	@echo "All tests passed!"
+	@echo "✅ All tests passed"
 
-# Target to clean all build artifacts
+# Clean all services
 clean:
 	@echo "Cleaning all services..."
 	@for service in $(SERVICES); do \
-		echo "Cleaning $$service..."; \
-		$(MAKE) -C $$service clean || exit 1; \
+		$(MAKE) -C $$service clean; \
 	done
-	@echo "All services cleaned!"
+	@echo "✅ All services cleaned"
 
-# Target to package all Lambda functions
-package:
-	@echo "Packaging all services for Lambda deployment..."
-	@for service in $(SERVICES); do \
-		if [ "$$service" != "common" ]; then \
-			echo "Packaging $$service..."; \
-			$(MAKE) -C $$service package || exit 1; \
-		fi \
-	done
-	@echo "All services packaged successfully!"
-
-# Target to verify all Lambda packages
-verify:
-	@echo "Verifying all Lambda packages..."
-	@for service in $(SERVICES); do \
-		if [ "$$service" != "common" ]; then \
-			echo "Verifying $$service..."; \
-			$(MAKE) -C $$service verify-lambda || exit 1; \
-		fi \
-	done
-	@echo "All Lambda packages verified successfully!"
-
-# Target to deploy all services
+# Deploy all services
 deploy:
-	@echo "Deploying all services..."
+	@echo "Deploying all services to AWS..."
 	@for service in $(SERVICES); do \
 		if [ "$$service" != "common" ]; then \
 			echo "Deploying $$service..."; \
 			$(MAKE) -C $$service deploy || exit 1; \
 		fi \
 	done
-	@echo "All services deployed successfully!"
+	@echo "✅ All services deployed successfully"
 
-# Help documentation
-help:
-	@echo "Reflekt Journal Backend Build System"
-	@echo "==================================="
-	@echo "Available targets:"
-	@echo "  all       - Build, package, and verify all services"
-	@echo "  build     - Build all services"
-	@echo "  test      - Run tests for all services"
-	@echo "  clean     - Clean all build artifacts"
-	@echo "  package   - Package all Lambda functions"
-	@echo "  verify    - Verify all Lambda packages"
-	@echo "  deploy    - Deploy all services to AWS Lambda"
-	@echo ""
-	@echo "Configuration options:"
-	@echo "  ARCH      - Target architecture (default: $(ARCH))"
-	@echo "  PROFILE   - Build profile (default: $(PROFILE))"
-	@echo ""
-	@echo "Example usage:"
-	@echo "  make all ARCH=aarch64-unknown-linux-gnu PROFILE=release" 
+# Dynamic targets for individual services
+build-%:
+	@echo "Building $*..."
+	@if [ -d "$*" ]; then \
+		$(MAKE) -C $* build; \
+	else \
+		echo "❌ Service $* not found"; \
+		exit 1; \
+	fi
+
+test-%:
+	@echo "Testing $*..."
+	@if [ -d "$*" ]; then \
+		$(MAKE) -C $* test; \
+	else \
+		echo "❌ Service $* not found"; \
+		exit 1; \
+	fi
+
+clean-%:
+	@echo "Cleaning $*..."
+	@if [ -d "$*" ]; then \
+		$(MAKE) -C $* clean; \
+	else \
+		echo "❌ Service $* not found"; \
+		exit 1; \
+	fi
+
+deploy-%:
+	@echo "Deploying $*..."
+	@if [ -d "$*" ] && [ "$*" != "common" ]; then \
+		$(MAKE) -C $* deploy; \
+	elif [ "$*" = "common" ]; then \
+		echo "⚠️ Common library is not deployable"; \
+	else \
+		echo "❌ Service $* not found"; \
+		exit 1; \
+	fi
