@@ -63,7 +63,7 @@ export function Providers({ children }: ProvidersProps) {
                         title="Something went wrong"
                         showDetails={true}
                       >
-                        <DefaultSeo {...SEO} />
+                        {/* <DefaultSeo {...SEO} /> */}
                         {children}
                         <Toaster />
                       </TrueErrorBoundary>
