@@ -1,4 +1,5 @@
-.PHONY: all build test clean deploy install-deps help setup-cross
+# Root Makefile for Refleckt Journal App Backend
+.PHONY: all build test clean deploy install-deps help setup-lambda build-all verify-all package-all
 
 # Services to build (in dependency order)
 SERVICES := common authorizer analytics-service ai-service entry-service prompts-service settings-service
@@ -6,9 +7,9 @@ SERVICES := common authorizer analytics-service ai-service entry-service prompts
 # Default AWS region
 AWS_REGION ?= us-east-1
 
-# Default target architecture
-TARGET := aarch64-unknown-linux-musl
-CROSS_TOOLCHAIN := /usr/local/opt/$(TARGET)
+# Lambda compilation settings
+TARGET ?= aarch64-unknown-linux-musl
+LAMBDA_RUNTIME ?= provided.al2023
 
 # Default help target
 help:
@@ -16,63 +17,125 @@ help:
 	@echo "========================================"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  all             - Build and package all services"
-	@echo "  build           - Build all services"
+	@echo "  all             - Build, package and verify all services"
+	@echo "  build           - Build all services with standard build"
+	@echo "  build-all       - Build all services with cargo-lambda for Lambda compatibility"
 	@echo "  test            - Run tests for all services"
 	@echo "  clean           - Clean all services"
 	@echo "  deploy          - Deploy all services to AWS"
-	@echo "  setup-cross     - Set up cross-compilation environment"
+	@echo "  package-all     - Package all services for Lambda deployment"
+	@echo "  setup-lambda    - Set up Lambda build environment"
 	@echo "  install-deps    - Install build dependencies"
+	@echo "  verify-all      - Verify all Lambda packages"
 	@echo "  help            - Show this help message"
 	@echo ""
 	@echo "Individual service targets:"
 	@echo "  build-SERVICE      - Build a specific service"
+	@echo "  build-lambda-SERVICE - Build a specific service with cargo-lambda"
 	@echo "  test-SERVICE       - Test a specific service"
 	@echo "  clean-SERVICE      - Clean a specific service"
 	@echo "  deploy-SERVICE     - Deploy a specific service"
+	@echo ""
+	@echo "Environment variables:"
+	@echo "  TARGET           - Target architecture (default: $(TARGET))"
+	@echo "  AWS_REGION       - AWS region (default: $(AWS_REGION))"
+	@echo "  LAMBDA_RUNTIME   - Lambda runtime (default: $(LAMBDA_RUNTIME))"
 
-# Set up cross-compilation environment
-setup-cross:
-	@echo "Setting up cross-compilation environment..."
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		echo "macOS system detected, setting up cross-compilation toolchain..."; \
-		if ! brew tap | grep -q "messense/macos-cross-toolchains"; then \
-			echo "Adding messense/macos-cross-toolchains tap..." && \
-			brew tap messense/macos-cross-toolchains; \
-		fi; \
-		if ! brew list messense/macos-cross-toolchains/$(TARGET) >/dev/null 2>&1; then \
-			echo "Installing cross-compilation toolchain..." && \
-			brew install messense/macos-cross-toolchains/$(TARGET); \
-		fi \
-	else \
-		echo "Linux system detected, using native toolchain..."; \
+# Set up Lambda build environment
+setup-lambda:
+	@echo "Setting up Lambda build environment..."
+	@if ! command -v cargo-lambda &> /dev/null; then \
+		echo "Installing cargo-lambda..."; \
+		cargo install cargo-lambda; \
 	fi
 	@rustup target add $(TARGET)
+	@echo "Creating or updating Rust toolchain file for Lambda compatibility..."
+	@if [ ! -f rust-toolchain.toml ]; then \
+		cat > rust-toolchain.toml << EOF \
+[toolchain]\n\
+channel = "1.84.0"\n\
+components = ["rustfmt", "clippy"]\n\
+targets = ["aarch64-unknown-linux-musl"]\n\
+profile = "minimal"\n\
+EOF \
+	fi
+	@echo "✅ Lambda build environment set up successfully"
 
 # Install dependencies
-install-deps: setup-cross
+install-deps: setup-lambda
 	@echo "Installing build dependencies..."
-	cargo install cargo-lambda --force
+	@if ! command -v cargo-lambda &> /dev/null; then \
+		echo "Installing cargo-lambda..."; \
+		cargo install cargo-lambda; \
+	fi
 	@echo "✅ Dependencies installed"
 
 # Default target
-all: build
+all: build-all package-all verify-all
 
 # Build all services
-build: setup-cross
+build:
 	@echo "Building all services..."
-	@for service in $(SERVICES); do \
-		echo "Building $$service..."; \
-		$(MAKE) -C $$service build || exit 1; \
-	done
+	@./scripts/build-all.sh
 	@echo "✅ All services built successfully"
+
+# Build all services with cargo-lambda for Lambda
+build-all: setup-lambda
+	@echo "Building all services with cargo-lambda for Lambda compatibility..."
+	@TARGET=$(TARGET) LAMBDA_RUNTIME=$(LAMBDA_RUNTIME) ./scripts/build-all.sh
+	@echo "✅ All services built successfully with cargo-lambda"
+
+# Package all services
+package-all:
+	@echo "Packaging all services for Lambda deployment..."
+	@for service in $(filter-out common,$(SERVICES)); do \
+		if [ -f "$$service/Makefile" ]; then \
+			echo "Packaging $$service..."; \
+			$(MAKE) -C $$service package TARGET=$(TARGET) || exit 1; \
+		else \
+			echo "No Makefile for $$service, using default packaging..."; \
+			if [ -d "$$service/target/lambda/$$service" ]; then \
+				echo "Lambda artifact already exists for $$service"; \
+			else \
+				echo "Creating Lambda deployment package for $$service..."; \
+				mkdir -p $$service/target/lambda; \
+				cp $$service/target/$(TARGET)/release/$$service $$service/target/lambda/bootstrap; \
+				chmod +x $$service/target/lambda/bootstrap; \
+				cd $$service/target/lambda && zip -j ../$$service.zip bootstrap && cd ../../../; \
+			fi; \
+		fi; \
+	done
+	@echo "✅ All services packaged successfully"
+
+# Verify all Lambda packages
+verify-all:
+	@echo "Verifying all Lambda packages..."
+	@for service in $(filter-out common,$(SERVICES)); do \
+		if [ -f "$$service/target/$$service.zip" ]; then \
+			echo "Verifying $$service..."; \
+			./scripts/verify-lambda.sh "$$service/target/$$service.zip" || exit 1; \
+		elif [ -f "$$service/target/lambda/$$service.zip" ]; then \
+			echo "Verifying $$service..."; \
+			./scripts/verify-lambda.sh "$$service/target/lambda/$$service.zip" || exit 1; \
+		elif [ -d "$$service/target/lambda/$$service" ]; then \
+			echo "Verifying cargo-lambda build for $$service..."; \
+			./scripts/verify-lambda.sh "$$service/target/lambda/$$service" || exit 1; \
+		else \
+			echo "No Lambda package found for $$service, skipping verification"; \
+		fi; \
+	done
+	@echo "✅ All Lambda packages verified successfully"
 
 # Test all services
 test:
 	@echo "Testing all services..."
 	@for service in $(SERVICES); do \
 		echo "Testing $$service..."; \
-		$(MAKE) -C $$service test || exit 1; \
+		if [ -f "$$service/Makefile" ]; then \
+			$(MAKE) -C $$service test || exit 1; \
+		else \
+			cd $$service && cargo test && cd ..; \
+		fi; \
 	done
 	@echo "✅ All tests passed"
 
@@ -80,26 +143,55 @@ test:
 clean:
 	@echo "Cleaning all services..."
 	@for service in $(SERVICES); do \
-		$(MAKE) -C $$service clean; \
+		if [ -f "$$service/Makefile" ]; then \
+			$(MAKE) -C $$service clean; \
+		else \
+			cd $$service && cargo clean && cd ..; \
+		fi; \
 	done
 	@echo "✅ All services cleaned"
 
 # Deploy all services
 deploy:
 	@echo "Deploying all services to AWS..."
-	@for service in $(SERVICES); do \
-		if [ "$$service" != "common" ]; then \
+	@for service in $(filter-out common,$(SERVICES)); do \
+		if [ -f "$$service/Makefile" ]; then \
 			echo "Deploying $$service..."; \
-			$(MAKE) -C $$service deploy || exit 1; \
-		fi \
+			$(MAKE) -C $$service deploy AWS_REGION=$(AWS_REGION) || exit 1; \
+		else \
+			echo "No Makefile for $$service, skipping deployment"; \
+		fi; \
 	done
 	@echo "✅ All services deployed successfully"
+
+# Initialize the project
+init: all
+	@echo "Initializing the project..."
+	@./scripts/init.sh
+	@echo "✅ Project initialized successfully"
 
 # Dynamic targets for individual services
 build-%:
 	@echo "Building $*..."
 	@if [ -d "$*" ]; then \
-		$(MAKE) -C $* build; \
+		if [ -f "$*/Makefile" ]; then \
+			$(MAKE) -C $* build; \
+		else \
+			cd $* && cargo build --release && cd ..; \
+		fi; \
+	else \
+		echo "❌ Service $* not found"; \
+		exit 1; \
+	fi
+
+build-lambda-%: setup-lambda
+	@echo "Building $* with cargo-lambda..."
+	@if [ -d "$*" ]; then \
+		if [ -f "$*/Makefile" ]; then \
+			$(MAKE) -C $* build-lambda TARGET=$(TARGET) LAMBDA_RUNTIME=$(LAMBDA_RUNTIME); \
+		else \
+			cd $* && cargo lambda build --release --target $(TARGET) --lambda-runtime $(LAMBDA_RUNTIME) && cd ..; \
+		fi; \
 	else \
 		echo "❌ Service $* not found"; \
 		exit 1; \
@@ -108,7 +200,11 @@ build-%:
 test-%:
 	@echo "Testing $*..."
 	@if [ -d "$*" ]; then \
-		$(MAKE) -C $* test; \
+		if [ -f "$*/Makefile" ]; then \
+			$(MAKE) -C $* test; \
+		else \
+			cd $* && cargo test && cd ..; \
+		fi; \
 	else \
 		echo "❌ Service $* not found"; \
 		exit 1; \
@@ -117,7 +213,11 @@ test-%:
 clean-%:
 	@echo "Cleaning $*..."
 	@if [ -d "$*" ]; then \
-		$(MAKE) -C $* clean; \
+		if [ -f "$*/Makefile" ]; then \
+			$(MAKE) -C $* clean; \
+		else \
+			cd $* && cargo clean && cd ..; \
+		fi; \
 	else \
 		echo "❌ Service $* not found"; \
 		exit 1; \
@@ -126,9 +226,56 @@ clean-%:
 deploy-%:
 	@echo "Deploying $*..."
 	@if [ -d "$*" ] && [ "$*" != "common" ]; then \
-		$(MAKE) -C $* deploy; \
+		if [ -f "$*/Makefile" ]; then \
+			$(MAKE) -C $* deploy AWS_REGION=$(AWS_REGION); \
+		else \
+			echo "No Makefile for $*, skipping deployment"; \
+		fi; \
 	elif [ "$*" = "common" ]; then \
 		echo "⚠️ Common library is not deployable"; \
+	else \
+		echo "❌ Service $* not found"; \
+		exit 1; \
+	fi
+
+package-%:
+	@echo "Packaging $*..."
+	@if [ -d "$*" ] && [ "$*" != "common" ]; then \
+		if [ -f "$*/Makefile" ]; then \
+			$(MAKE) -C $* package TARGET=$(TARGET); \
+		else \
+			if [ -d "$*/target/lambda/$*" ]; then \
+				echo "cargo-lambda artifact already exists for $*"; \
+			else \
+				echo "Creating Lambda deployment package for $*..."; \
+				mkdir -p $*/target/lambda; \
+				cp $*/target/$(TARGET)/release/$* $*/target/lambda/bootstrap; \
+				chmod +x $*/target/lambda/bootstrap; \
+				cd $*/target/lambda && zip -j ../$*.zip bootstrap && cd ../../../; \
+			fi; \
+		fi; \
+	elif [ "$*" = "common" ]; then \
+		echo "⚠️ Common library does not need packaging"; \
+	else \
+		echo "❌ Service $* not found"; \
+		exit 1; \
+	fi
+
+verify-%:
+	@echo "Verifying $*..."
+	@if [ -d "$*" ] && [ "$*" != "common" ]; then \
+		if [ -f "$*/target/$*.zip" ]; then \
+			./scripts/verify-lambda.sh "$*/target/$*.zip"; \
+		elif [ -f "$*/target/lambda/$*.zip" ]; then \
+			./scripts/verify-lambda.sh "$*/target/lambda/$*.zip"; \
+		elif [ -d "$*/target/lambda/$*" ]; then \
+			./scripts/verify-lambda.sh "$*/target/lambda/$*"; \
+		else \
+			echo "No Lambda package found for $*"; \
+			exit 1; \
+		fi; \
+	elif [ "$*" = "common" ]; then \
+		echo "⚠️ Common library does not need verification"; \
 	else \
 		echo "❌ Service $* not found"; \
 		exit 1; \

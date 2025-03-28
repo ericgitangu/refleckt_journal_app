@@ -1,0 +1,16 @@
+[build]
+rustflags = []
+
+[env]
+# Empty default environment
+
+# ARM specific settings for WSL2 Ubuntu
+[target.aarch64-unknown-linux-musl]
+rustflags = []
+# ARM-specific compiler config - use system tools in WSL
+linker = "aarch64-linux-gnu-gcc"
+
+# x86_64 specific settings - disable AVX512
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=-avx512f"]
+env = { "CFLAGS" = "-mno-avx512f" }

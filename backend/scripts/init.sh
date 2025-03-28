@@ -11,6 +11,22 @@ TOKEN_FILE="$BACKEND_DIR/.token"
 STACK_NAME=${STACK_NAME:-reflekt-journal}
 STAGE=${STAGE:-dev}
 REGION=${AWS_REGION:-us-east-1}
+# Default target for Lambda compilation
+TARGET=${TARGET:-"aarch64-unknown-linux-musl"}
+# Lambda runtime
+LAMBDA_RUNTIME=${LAMBDA_RUNTIME:-"provided.al2023"}
+# Local bin directory
+LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
+
+# Add local bin to PATH if it exists
+if [ -d "$LOCAL_BIN_DIR" ]; then
+    export PATH="$LOCAL_BIN_DIR:$PATH"
+fi
+
+# Source setup-env.sh if it exists
+if [ -f "$BACKEND_DIR/setup-env.sh" ]; then
+    source "$BACKEND_DIR/setup-env.sh"
+fi
 
 # Include utility functions from scripts directory
 source "$SCRIPTS_DIR/utils.sh"
@@ -60,6 +76,30 @@ check_prerequisites() {
         exit 1
     fi
     
+    # Check for cargo-lambda
+    if ! command -v cargo-lambda &> /dev/null; then
+        log_warning "cargo-lambda is not installed. Installing now..."
+        cargo install cargo-lambda
+        if [ $? -ne 0 ]; then
+            log_error "Failed to install cargo-lambda. Please install it manually."
+            exit 1
+        fi
+        log_success "cargo-lambda installed successfully."
+    fi
+    
+    # Check for ARM compilation tools if targeting aarch64
+    if [[ "$TARGET" == *"aarch64"* ]] && ! command -v clang &> /dev/null; then
+        log_warning "clang is recommended for ARM builds but not found."
+        log_warning "Running setup-aarch64-tools.sh to install required tools locally..."
+        bash "$SCRIPTS_DIR/setup-aarch64-tools.sh"
+        
+        # Re-source the environment if setup script created it
+        if [ -f "$BACKEND_DIR/setup-env.sh" ]; then
+            source "$BACKEND_DIR/setup-env.sh"
+            log_success "Environment updated from setup-env.sh"
+        fi
+    fi
+    
     # Verify AWS credentials are configured
     if ! aws sts get-caller-identity >/dev/null 2>&1; then
         log_error "AWS credentials not configured. Please run 'aws configure' or set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables."
@@ -90,20 +130,143 @@ setup_aws_credentials() {
     exit 1
 }
 
+setup_lambda_build() {
+    log_info "Setting up Lambda build environment..."
+    
+    # Detect system
+    local os_type
+    os_type=$(uname -s)
+    
+    log_info "$os_type system detected, setting up Lambda build toolchain..."
+    
+    # Ensure Rust target is installed
+    rustup target add "$TARGET"
+    
+    # Create cargo config directory if it doesn't exist
+    mkdir -p "$BACKEND_DIR/.cargo"
+    
+    # Set target-specific environment variables
+    if [[ "$TARGET" == *"aarch64"* ]]; then
+        log_info "Configuring for ARM64 target"
+        
+        # ARM doesn't need AVX512 flags
+        cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+[build]
+rustflags = []
+
+[env]
+# Empty default environment
+
+# ARM specific settings
+[target.aarch64-unknown-linux-musl]
+rustflags = []
+# ARM-specific compiler config
+env = { "CC_aarch64_unknown_linux_musl" = "clang", "AR_aarch64_unknown_linux_musl" = "llvm-ar", "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
+
+# x86_64 specific settings - disable AVX512
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=-avx512f"]
+env = { "CFLAGS" = "-mno-avx512f" }
+EOF
+
+        # Set environment variables for the build
+        export CC_aarch64_unknown_linux_musl=clang
+        export AR_aarch64_unknown_linux_musl=llvm-ar
+        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-Clink-self-contained=yes -Clinker=rust-lld"
+        
+    elif [[ "$TARGET" == *"x86_64"* ]]; then
+        log_info "Configuring for x86_64 target"
+        
+        # Need to disable AVX512 for x86_64 targets
+        cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+[build]
+rustflags = []
+
+[env]
+# Empty default environment
+
+# x86_64 specific settings - disable AVX512
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=-avx512f"]
+env = { "CFLAGS" = "-mno-avx512f" }
+
+# ARM specific settings (for completeness)
+[target.aarch64-unknown-linux-musl]
+rustflags = []
+env = { "CC_aarch64_unknown_linux_musl" = "clang", "AR_aarch64_unknown_linux_musl" = "llvm-ar", "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
+EOF
+        
+        # Set environment variables for the build
+        export CFLAGS="-mno-avx512f"
+        export RUSTFLAGS="-C target-feature=-avx512f"
+    fi
+    
+    # Set up consistent rust-toolchain.toml files
+    bash "$SCRIPTS_DIR/setup-toolchain.sh"
+    
+    log_success "Lambda build environment set up for $TARGET"
+}
+
+build_common_library() {
+    log_info "Building common library..."
+    
+    cd "$BACKEND_DIR/common"
+    
+    log_info "Building journal-common for Lambda compatibility..."
+    log_info "Using cargo build for library..."
+    
+    # Build common library with cargo (not cargo-lambda as it's a library)
+    cargo build --release --target "$TARGET" 2>&1 | tee "$LOG_DIR/common-build.log"
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        log_error "Common library build failed. Check $LOG_DIR/common-build.log for details."
+        exit 1
+    fi
+    
+    log_success "journal-common built successfully for Lambda"
+    
+    cd "$BACKEND_DIR"
+}
+
+build_service() {
+    local service_dir="$1"
+    local service_name="$(basename "$service_dir")"
+    
+    log_info "Building $service_name..."
+    
+    # Only proceed if directory exists and contains Cargo.toml
+    if [ ! -d "$service_dir" ] || [ ! -f "$service_dir/Cargo.toml" ]; then
+        log_warning "Skipping $service_name: not a valid Rust project"
+        return 0
+    fi
+    
+    cd "$service_dir"
+    
+    # Use cargo-lambda to build the service
+    log_info "Building $service_name with cargo-lambda for $TARGET..."
+    cargo lambda build --release --target "$TARGET" --lambda-runtime "$LAMBDA_RUNTIME" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
+    
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        log_error "$service_name build failed. Check $LOG_DIR/$service_name-build.log for details."
+        exit 1
+    fi
+    
+    log_success "$service_name built successfully"
+    
+    cd "$BACKEND_DIR"
+}
+
 build_services() {
     log_info "Building all services..."
     
-    # Run the build-all.sh script
-    if [ -f "$SCRIPTS_DIR/build-all.sh" ]; then
-        bash "$SCRIPTS_DIR/build-all.sh" 2>&1 | tee "$LOG_DIR/build-all.log"
-        if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            log_error "Service build failed. Check $LOG_DIR/build-all.log for details."
-            exit 1
+    # First, build the common library
+    build_common_library
+    
+    # Find all service directories (directories with Cargo.toml that aren't 'common')
+    for service_dir in "$BACKEND_DIR"/*; do
+        if [ -d "$service_dir" ] && [ -f "$service_dir/Cargo.toml" ] && [ "$(basename "$service_dir")" != "common" ]; then
+            build_service "$service_dir"
         fi
-    else
-        log_error "build-all.sh script not found in $SCRIPTS_DIR"
-        exit 1
-    fi
+    done
     
     log_success "All services built successfully."
 }
@@ -374,7 +537,10 @@ main() {
     # Setup AWS credentials
     setup_aws_credentials
     
-    # Build all services
+    # Setup Lambda build environment
+    setup_lambda_build
+    
+    # Build all services with cargo-lambda
     build_services
     
     # Deploy the stack

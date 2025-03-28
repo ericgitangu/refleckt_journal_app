@@ -1,13 +1,11 @@
-# Makefile for journal-ai-service Lambda function
-.PHONY: all build test clean package verify-lambda deploy setup-cross
+# Makefile for journal ai-service Lambda functions
+.PHONY: all build test clean package verify-lambda deploy setup-cross build-musl
 
-# Service name
+# Service name - customize for each service
 SERVICE_NAME := journal-ai-service
 
-# Variables for ARM64 Lambda build
-TARGET := aarch64-unknown-linux-musl
-CROSS_TOOLCHAIN := /usr/local/opt/$(TARGET)
-BUILD_DIR := ./target/$(TARGET)/release
+# Build directories
+BUILD_DIR := ./target/lambda/$(SERVICE_NAME)
 PACKAGE_DIR := ./target/lambda
 
 # AWS Region for deployment
@@ -16,46 +14,59 @@ AWS_REGION ?= us-east-1
 # Common library path
 COMMON_PATH := ../common
 
-# Setup cross-compilation environment
-setup-cross:
-	@echo "Setting up cross-compilation environment..."
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		echo "macOS system detected, setting up cross-compilation toolchain..."; \
-		if ! brew tap | grep -q "messense/macos-cross-toolchains"; then \
-			echo "Adding messense/macos-cross-toolchains tap..." && \
-			brew tap messense/macos-cross-toolchains; \
-		fi; \
-		if ! brew list messense/macos-cross-toolchains/$(TARGET) >/dev/null 2>&1; then \
-			echo "Installing cross-compilation toolchain..." && \
-			brew install messense/macos-cross-toolchains/$(TARGET); \
-		fi \
-	else \
-		echo "Linux system detected, using native toolchain..."; \
-	fi
-	@rustup target add $(TARGET)
+# Cross-compilation settings
+TARGET ?= aarch64-unknown-linux-musl
+
+# Build profile
+PROFILE ?= release
 
 # All encompasses build, package, and verify
 all: package verify-lambda
 
+# Setup cross-compilation environment
+setup-cross:
+	@echo "Setting up cross-compilation environment..."
+	@rustup target add $(TARGET)
+	@echo "✅ Cross-compilation environment set up for $(TARGET)"
+
 # Ensure the common library is built first
 build-common:
 	@echo "Building common library..."
-	$(MAKE) -C $(COMMON_PATH) build-musl
+	@if [ -f "$(COMMON_PATH)/Makefile" ]; then \
+		$(MAKE) -C $(COMMON_PATH) build-musl TARGET=$(TARGET); \
+	else \
+		cd $(COMMON_PATH) && cargo zigbuild --target $(TARGET) --release && cd -; \
+	fi
 
 # Build the service
-build: setup-cross build-common
+build: build-common
 	@echo "Building $(SERVICE_NAME)..."
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		echo "Using macOS cross-compilation toolchain..."; \
-		RUSTFLAGS="-C linker=$(CROSS_TOOLCHAIN)/bin/aarch64-unknown-linux-musl-gcc" \
-		CC_aarch64_unknown_linux_musl=$(CROSS_TOOLCHAIN)/bin/aarch64-unknown-linux-musl-gcc \
-		CXX_aarch64_unknown_linux_musl=$(CROSS_TOOLCHAIN)/bin/aarch64-unknown-linux-musl-g++ \
-		cargo build --target $(TARGET) --release; \
+	@if command -v cargo-lambda &> /dev/null; then \
+		echo "Using cargo-lambda for build..."; \
+		cargo lambda build --release --output-format zip; \
+	elif command -v cargo-zigbuild &> /dev/null; then \
+		echo "Using cargo-zigbuild for build..."; \
+		cargo zigbuild --release; \
 	else \
-		echo "Using direct build on Linux..."; \
-		cargo build --target $(TARGET) --release; \
+		echo "Using standard cargo for build..."; \
+		cargo build --release; \
 	fi
 	@echo "✅ $(SERVICE_NAME) built successfully"
+
+# Build with musl for Lambda compatibility
+build-musl: setup-cross build-common
+	@echo "Building $(SERVICE_NAME) for Lambda compatibility with target $(TARGET)..."
+	@if command -v cross &> /dev/null; then \
+		echo "Using cross for cross-compilation..."; \
+		cross build --target $(TARGET) --release; \
+	elif command -v cargo-lambda &> /dev/null; then \
+		echo "Using cargo-lambda for cross-compilation..."; \
+		cargo lambda build --target $(TARGET) --release --output-format zip; \
+	else \
+		echo "Using standard cargo for cross-compilation..."; \
+		cargo build --target $(TARGET) --release; \
+	fi
+	@echo "✅ $(SERVICE_NAME) built successfully for Lambda"
 
 # Run tests
 test:
@@ -71,21 +82,33 @@ clean:
 	@echo "✅ Clean completed"
 
 # Package Lambda function
-package: build
+package: build-musl
 	@echo "Packaging $(SERVICE_NAME) for AWS Lambda deployment..."
-	mkdir -p $(PACKAGE_DIR)
-	cp $(BUILD_DIR)/$(SERVICE_NAME) $(PACKAGE_DIR)/bootstrap
-	chmod +x $(PACKAGE_DIR)/bootstrap
-	cd $(PACKAGE_DIR) && zip -r ../$(SERVICE_NAME).zip bootstrap
+	@mkdir -p $(PACKAGE_DIR)
+	@if command -v cargo-lambda &> /dev/null && [ -f "target/lambda/$(SERVICE_NAME).zip" ]; then \
+		echo "Using cargo-lambda zip package..."; \
+		cp target/lambda/$(SERVICE_NAME).zip $(PACKAGE_DIR)/$(SERVICE_NAME).zip; \
+	else \
+		echo "Creating bootstrap package..."; \
+		cp target/$(TARGET)/release/$(SERVICE_NAME) $(PACKAGE_DIR)/bootstrap || cp target/release/$(SERVICE_NAME) $(PACKAGE_DIR)/bootstrap; \
+		chmod +x $(PACKAGE_DIR)/bootstrap; \
+		cd $(PACKAGE_DIR) && zip -j ../$(SERVICE_NAME).zip bootstrap; \
+	fi
 	@echo "✅ Lambda deployment package created at target/$(SERVICE_NAME).zip"
 
 # Verify the Lambda package is valid
 verify-lambda:
 	@echo "Verifying Lambda package..."
-	@if [ -f "$(PACKAGE_DIR)/bootstrap" ] && [ -x "$(PACKAGE_DIR)/bootstrap" ]; then \
+	@if [ -f "target/$(SERVICE_NAME).zip" ]; then \
+		echo "✅ Lambda package exists"; \
+	elif [ -f "$(PACKAGE_DIR)/$(SERVICE_NAME).zip" ]; then \
+		echo "✅ Lambda package exists in package directory"; \
+	elif [ -f "$(PACKAGE_DIR)/bootstrap" ] && [ -x "$(PACKAGE_DIR)/bootstrap" ]; then \
 		echo "✅ Bootstrap file exists and is executable"; \
+		cd $(PACKAGE_DIR) && zip -j ../$(SERVICE_NAME).zip bootstrap; \
+		echo "✅ Created Lambda package from bootstrap"; \
 	else \
-		echo "❌ Bootstrap file is missing or not executable"; \
+		echo "❌ Lambda package or bootstrap is missing"; \
 		exit 1; \
 	fi
 	@echo "✅ Lambda package verified successfully"
@@ -93,8 +116,18 @@ verify-lambda:
 # Deploy the Lambda function
 deploy: package verify-lambda
 	@echo "Deploying $(SERVICE_NAME) to AWS Lambda..."
-	aws lambda update-function-code \
-		--function-name $(SERVICE_NAME) \
-		--zip-file fileb://target/$(SERVICE_NAME).zip \
-		--region $(AWS_REGION)
-	@echo "✅ Lambda function $(SERVICE_NAME) deployed successfully" 
+	@if [ -f "target/$(SERVICE_NAME).zip" ]; then \
+		aws lambda update-function-code \
+			--function-name $(SERVICE_NAME) \
+			--zip-file fileb://target/$(SERVICE_NAME).zip \
+			--region $(AWS_REGION); \
+	elif [ -f "$(PACKAGE_DIR)/$(SERVICE_NAME).zip" ]; then \
+		aws lambda update-function-code \
+			--function-name $(SERVICE_NAME) \
+			--zip-file fileb://$(PACKAGE_DIR)/$(SERVICE_NAME).zip \
+			--region $(AWS_REGION); \
+	else \
+		echo "❌ Lambda package not found for deployment"; \
+		exit 1; \
+	fi
+	@echo "✅ Lambda function $(SERVICE_NAME) deployed successfully"

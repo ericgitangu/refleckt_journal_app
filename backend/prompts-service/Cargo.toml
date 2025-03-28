@@ -1,18 +1,14 @@
 [package]
-name = "prompts-service"
+name = "journal-prompts-service"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-aws-config = { version = "1.6.0", features = ["rustls"] }
-aws_lambda_events = "0.16.0"
-aws-sdk-dynamodb = "1.6.0"
-common = { path = "../common" }
-lambda_http = "0.14.0"
-lambda_runtime = "0.13.0"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tokio = { version = "1.28.1", features = ["macros"] }
-tracing = { version = "0.1", features = ["log"] }
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"] }
-uuid = { version = "1.4.1", features = ["v4", "serde"] } 
+# Use the consolidated common package
+journal-common = { path = "../common" }
+
+# Service-specific dependencies not in common
+base64 = "0.22.1"
+
+# Override tokio version if needed for compatibility
+# tokio = { version = "1.28.2", features = ["full"] }
