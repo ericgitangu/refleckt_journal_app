@@ -16,7 +16,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function AuthErrorPage() {
   const searchParams = useSearchParams();
-  const error = searchParams?.get("error");
+  const [error, setError] = useState<string | null>(null);
   const [errorInfo, setErrorInfo] = useState({
     title: "Authentication Error",
     message: "An error occurred during authentication.",
@@ -24,8 +24,12 @@ export default function AuthErrorPage() {
   });
 
   useEffect(() => {
+    // Get error from URL safely
+    const errorParam = searchParams ? searchParams.get('error') : null;
+    setError(errorParam);
+
     // Set error details based on the error code from NextAuth
-    switch (error) {
+    switch (errorParam) {
       case "Configuration":
         setErrorInfo({
           title: "Server Configuration Error",
@@ -81,7 +85,7 @@ export default function AuthErrorPage() {
           ),
         });
     }
-  }, [error]);
+  }, [searchParams]);
 
   return (
     <div className="container relative flex h-screen w-screen flex-col items-center justify-center">

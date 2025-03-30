@@ -7,8 +7,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ClientOnly } from "@/components/ClientOnly";
 
-export default function LoginPage() {
+const LoginContent = () => {
   const router = useRouter();
   const { data: session } = useSession();
   const searchParams = useSearchParams();
@@ -127,5 +128,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+};
+
+export default function LoginPage() {
+  return (
+    <ClientOnly>
+      <LoginContent />
+    </ClientOnly>
   );
 }

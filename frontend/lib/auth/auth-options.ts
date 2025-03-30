@@ -18,6 +18,13 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_ID || "",
       clientSecret: process.env.GOOGLE_SECRET || "",
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code"
+        }
+      }
     }),
   ],
   pages: {
@@ -43,8 +50,38 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      // Implement token refresh logic here if needed for Cognito
-      // This would use the refresh token to get a new access token
+      // Implement token refresh for Cognito
+      if (token.provider === 'cognito' && token.refreshToken) {
+        try {
+          const response = await fetch(`${process.env.COGNITO_ISSUER}/oauth2/token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              grant_type: 'refresh_token',
+              client_id: process.env.COGNITO_CLIENT_ID || '',
+              refresh_token: token.refreshToken as string,
+            }),
+          });
+          
+          const refreshedTokens = await response.json();
+          
+          if (!response.ok) {
+            throw refreshedTokens;
+          }
+          
+          return {
+            ...token,
+            accessToken: refreshedTokens.access_token,
+            expiresAt: Math.floor(Date.now() / 1000 + refreshedTokens.expires_in),
+          };
+        } catch (error) {
+          console.error('Error refreshing access token', error);
+          // Return existing token even if expired as fallback
+          return token;
+        }
+      }
 
       return token;
     },
@@ -58,12 +95,22 @@ export const authOptions: NextAuthOptions = {
       };
       return session;
     },
-    redirect: async (url: string, baseUrl: string) => {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      // Default fallback is the baseUrl
+    redirect(url: string, baseUrl: string) {
+      // Ensure url is always a string
+      if (!url || typeof url !== 'string') {
+        return baseUrl; // Default to baseUrl if url is not a valid string
+      }
+      
+      // Now safely use startsWith
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`; // Handle relative URLs
+      }
+      
+      // Only allow redirects to trusted domains
+      if (new URL(url).origin === baseUrl) {
+        return url;
+      }
+      
       return baseUrl;
     },
   },
