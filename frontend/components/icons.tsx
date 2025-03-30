@@ -15,6 +15,8 @@ import {
   BarChart,
   BookOpen,
   Home,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 
 export type Icon = LucideProps;
@@ -35,4 +37,6 @@ export const Icons = {
   barChart: BarChart,
   bookOpen: BookOpen,
   home: Home,
+  refresh: RefreshCw,
+  alertTriangle: AlertTriangle,
 };

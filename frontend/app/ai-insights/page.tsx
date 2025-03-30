@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Icons } from "@/components/icons";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Insight {
   id: string;
@@ -18,6 +19,26 @@ interface Insight {
   insight_type: string;
 }
 
+// Mock data for fallback if API fails
+const FALLBACK_INSIGHTS: Insight[] = [
+  {
+    id: "fallback-1",
+    entry_id: "fallback",
+    title: "Journaling Benefits",
+    content: "Regular journaling has been shown to reduce stress and improve mental clarity. Try to maintain consistency in your writing practice.",
+    created_at: new Date().toISOString(),
+    insight_type: "suggestions",
+  },
+  {
+    id: "fallback-2",
+    entry_id: "fallback",
+    title: "Reflection Time",
+    content: "Consider setting aside 5 minutes after journaling to reflect on what you\'ve written. This can help deepen the benefits of your practice.",
+    created_at: new Date().toISOString(),
+    insight_type: "suggestions",
+  }
+];
+
 // AI Insights content component that uses React hooks
 function AIInsightsContent() {
   const { data: session, status } = useSession();
@@ -25,26 +46,32 @@ function AIInsightsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [insightType, setInsightType] = useState("all");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchInsights(insightType);
     }
-  }, [status, insightType]);
+  }, [status, insightType, retryCount]);
 
   const fetchInsights = async (type: string) => {
     setLoading(true);
     try {
       const response = await fetch(`/api/ai-insights?type=${type}`);
       if (!response.ok) {
-        throw new Error("Failed to fetch AI insights");
+        throw new Error(`API error: ${response.status}`);
       }
       const data = await response.json();
       setInsights(data);
       setError(null);
     } catch (err) {
       console.error("Error fetching insights:", err);
-      setError("Failed to load AI insights. Please try again later.");
+      
+      // Still show fallback data even when there&apos;s an error
+      setInsights(FALLBACK_INSIGHTS);
+      
+      // But also show error message so user knows data is fallback
+      setError("Failed to load AI insights. Showing generic insights instead.");
     } finally {
       setLoading(false);
     }
@@ -61,7 +88,8 @@ function AIInsightsContent() {
         throw new Error("Failed to generate insights");
       }
       
-      await fetchInsights(insightType);
+      // Force a refresh of insights by updating retry count
+      setRetryCount(prev => prev + 1);
     } catch (err) {
       console.error("Error generating insights:", err);
       setError("Failed to generate AI insights. Please try again later.");
@@ -69,7 +97,11 @@ function AIInsightsContent() {
     }
   };
 
-  if (status === "loading" || loading) {
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
+
+  if (status === "loading") {
     return (
       <div className="container flex h-screen w-screen flex-col items-center justify-center">
         <Icons.spinner className="h-8 w-8 animate-spin" />
@@ -85,10 +117,18 @@ function AIInsightsContent() {
     <div className="container py-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">AI Insights</h1>
-        <Button onClick={generateNewInsights}>
-          <Icons.brain className="mr-2 h-4 w-4" />
-          Generate New Insights
-        </Button>
+        <div className="flex gap-2">
+          {error && (
+            <Button variant="outline" onClick={handleRetry}>
+              <Icons.refresh className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          )}
+          <Button onClick={generateNewInsights} disabled={loading}>
+            <Icons.brain className="mr-2 h-4 w-4" />
+            Generate New Insights
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="all" className="mb-6">
@@ -108,12 +148,33 @@ function AIInsightsContent() {
         </TabsList>
       </Tabs>
 
-      {error ? (
-        <Card>
+      {error && (
+        <Card className="mb-6">
           <CardContent className="pt-6">
-            <div className="text-destructive">{error}</div>
+            <div className="text-amber-500 mb-4 flex items-center">
+              <Icons.alertTriangle className="h-4 w-4 mr-2" />
+              {error}
+            </div>
           </CardContent>
         </Card>
+      )}
+
+      {loading ? (
+        <div className="grid gap-6 grid-cols-1">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-1/3 mb-2" />
+                <Skeleton className="h-4 w-1/4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-4/5 mb-2" />
+                <Skeleton className="h-4 w-2/3" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : insights.length === 0 ? (
         <Card className="mb-6">
           <CardContent className="pt-6">

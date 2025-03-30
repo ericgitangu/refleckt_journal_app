@@ -1,28 +1,19 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MOOD_EMOJIS } from '@/lib/mood-utils';
 
 interface MoodSelectorProps {
   value: string | undefined;
   onChange: (value: string) => void;
 }
 
-const moods = [
-  { value: 'happy', label: '😊 Happy' },
-  { value: 'content', label: '🙂 Content' },
-  { value: 'grateful', label: '🙏 Grateful' },
-  { value: 'excited', label: '😃 Excited' },
-  { value: 'hopeful', label: '🌱 Hopeful' },
-  { value: 'anxious', label: '😰 Anxious' },
-  { value: 'stressed', label: '😫 Stressed' },
-  { value: 'sad', label: '😢 Sad' },
-  { value: 'frustrated', label: '😤 Frustrated' },
-  { value: 'reflective', label: '🤔 Reflective' },
-  { value: 'peaceful', label: '😌 Peaceful' },
-  { value: 'tired', label: '😴 Tired' },
-  { value: 'energized', label: '⚡ Energized' },
-  { value: 'inspired', label: '✨ Inspired' },
-  { value: 'proud', label: '🦋 Proud' },
-  { value: 'neutral', label: '😐 Neutral' },
-];
+// Create mood options using the shared MOOD_EMOJIS definitions
+const moods = Object.entries(MOOD_EMOJIS).map(([value, emoji]) => ({
+  value,
+  label: `${emoji} ${value.charAt(0).toUpperCase() + value.slice(1)}`
+}));
+
+// Sort moods alphabetically
+moods.sort((a, b) => a.value.localeCompare(b.value));
 
 export default function MoodSelector({ value, onChange }: MoodSelectorProps) {
   return (

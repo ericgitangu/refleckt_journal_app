@@ -11,6 +11,7 @@ import { trpc } from "@/app/hooks/useTRPC";
 import { JournalEntryFeed } from "@/components/journal/journal-entry-feed";
 import { TrpcExample } from "@/components/TrpcExample";
 import { ClientOnly } from "@/components/ClientOnly";
+import { formatMoodWithEmoji } from "@/lib/mood-utils";
 
 // Define the journal entry type
 interface JournalEntry {
@@ -131,7 +132,7 @@ function JournalContent() {
                   </div>
                   {entry.mood && (
                     <div className="text-sm px-2 py-0.5 rounded-full bg-muted">
-                      Mood: {entry.mood}
+                      {formatMoodWithEmoji(entry.mood)}
                     </div>
                   )}
                 </div>

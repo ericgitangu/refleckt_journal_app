@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, Save, X, MessageSquareText, Smile } from "lucide-react";
 import { RandomPrompt } from "@/components/RandomPrompt";
 import { Prompt } from "@/lib/api";
+import { MOOD_EMOJIS } from "@/lib/mood-utils";
 
 // Lazy load client components
 const ThemeToggleClient = lazy(
@@ -18,11 +19,7 @@ const LoadingFallback = () => (
 );
 
 // Common mood options for journaling
-const MOOD_OPTIONS = [
-  "happy", "content", "grateful", "excited", "hopeful", 
-  "anxious", "stressed", "sad", "frustrated", "reflective",
-  "peaceful", "tired", "energized", "inspired", "proud"
-];
+const MOOD_OPTIONS = Object.keys(MOOD_EMOJIS);
 
 // Force dynamic rendering for this page
 export const dynamic = "force-dynamic";
@@ -204,7 +201,11 @@ export default function NewJournalEntryPage() {
                       mood ? 'border-primary' : 'border-[rgba(0,0,0,0.1)]'
                     }`}
                   >
-                    {mood || "Select mood"}
+                    {mood ? (
+                      <>
+                        {MOOD_EMOJIS[mood]} {mood}
+                      </>
+                    ) : "Select mood"}
                   </button>
                   
                   {showMoodSelector && (
@@ -218,7 +219,7 @@ export default function NewJournalEntryPage() {
                               mood === moodOption ? 'bg-primary/10 text-primary' : ''
                             }`}
                           >
-                            {moodOption}
+                            {MOOD_EMOJIS[moodOption]} {moodOption}
                           </button>
                         ))}
                       </div>
