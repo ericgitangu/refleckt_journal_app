@@ -9,6 +9,12 @@ import {
   ChevronRight,
   Command,
   Plus,
+  Brain,
+  MessageSquare,
+  Settings,
+  BarChart,
+  BookOpen,
+  Home,
 } from "lucide-react";
 
 export type Icon = LucideProps;
@@ -23,4 +29,10 @@ export const Icons = {
   chevronRight: ChevronRight,
   command: Command,
   plus: Plus,
+  brain: Brain,
+  messageSquare: MessageSquare,
+  settings: Settings,
+  barChart: BarChart,
+  bookOpen: BookOpen,
+  home: Home,
 };

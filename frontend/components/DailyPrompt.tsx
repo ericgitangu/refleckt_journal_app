@@ -37,7 +37,7 @@ export function DailyPrompt({
       setError(null);
     } catch (err) {
       console.error("Error fetching daily prompt:", err);
-      setError("Could not load today's prompt");
+      setError("Could not load today&apos;s prompt");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

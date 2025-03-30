@@ -13,8 +13,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ClientOnly } from "@/components/ClientOnly";
 
-export default function AuthErrorPage() {
+// Separate component with React hooks
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [errorInfo, setErrorInfo] = useState({
@@ -133,5 +135,14 @@ export default function AuthErrorPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Page component that uses ClientOnly wrapper
+export default function AuthErrorPage() {
+  return (
+    <ClientOnly>
+      <AuthErrorContent />
+    </ClientOnly>
   );
 }

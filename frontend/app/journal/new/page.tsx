@@ -3,7 +3,7 @@
 import { useState, Suspense, lazy, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, Save, X, MessageSquareText } from "lucide-react";
+import { ChevronLeft, Save, X, MessageSquareText, Smile } from "lucide-react";
 import { RandomPrompt } from "@/components/RandomPrompt";
 import { Prompt } from "@/lib/api";
 
@@ -17,6 +17,13 @@ const LoadingFallback = () => (
   <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>
 );
 
+// Common mood options for journaling
+const MOOD_OPTIONS = [
+  "happy", "content", "grateful", "excited", "hopeful", 
+  "anxious", "stressed", "sad", "frustrated", "reflective",
+  "peaceful", "tired", "energized", "inspired", "proud"
+];
+
 // Force dynamic rendering for this page
 export const dynamic = "force-dynamic";
 
@@ -27,7 +34,9 @@ export default function NewJournalEntryPage() {
   const [content, setContent] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [mood, setMood] = useState<string>("");
   const [showPrompts, setShowPrompts] = useState(false);
+  const [showMoodSelector, setShowMoodSelector] = useState(false);
 
   // Check for prompt in URL parameters
   useEffect(() => {
@@ -55,12 +64,33 @@ export default function NewJournalEntryPage() {
     }
   };
 
-  const handleSave = () => {
-    // In a real app, you would save to a database or API
-    console.log({ title, content, tags });
+  const handleSave = async () => {
+    try {
+      // Save the entry via the API
+      const response = await fetch('/api/journal-entries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          content,
+          tags,
+          mood,
+        }),
+      });
 
-    // Redirect back to journal page
-    router.push("/journal");
+      if (!response.ok) {
+        throw new Error(`Failed to save: ${response.status}`);
+      }
+
+      // Success - redirect back to journal page
+      router.push('/journal');
+    } catch (error) {
+      console.error('Error saving journal entry:', error);
+      // In a real app, you would show an error message to the user
+      alert('Failed to save your journal entry. Please try again.');
+    }
   };
 
   const handleUsePrompt = (prompt: Prompt) => {
@@ -72,6 +102,11 @@ export default function NewJournalEntryPage() {
     }
     // Hide the prompts panel
     setShowPrompts(false);
+  };
+
+  const selectMood = (selectedMood: string) => {
+    setMood(selectedMood);
+    setShowMoodSelector(false);
   };
 
   return (
@@ -143,7 +178,7 @@ export default function NewJournalEntryPage() {
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="What's on your mind today?"
+                placeholder="What&apos;s on your mind today?"
                 className="w-full bg-transparent border-0 p-0 min-h-[300px] text-lg font-serif leading-relaxed focus:outline-none"
                 style={{
                   backgroundImage:
@@ -155,6 +190,43 @@ export default function NewJournalEntryPage() {
             </div>
 
             <div className="border-t border-[rgba(0,0,0,0.1)] pt-4">
+              {/* Mood Selector */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Smile className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">How are you feeling?</span>
+                </div>
+                
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMoodSelector(!showMoodSelector)}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                      mood ? 'border-primary' : 'border-[rgba(0,0,0,0.1)]'
+                    }`}
+                  >
+                    {mood || "Select mood"}
+                  </button>
+                  
+                  {showMoodSelector && (
+                    <div className="absolute top-full left-0 mt-1 p-2 bg-background rounded-lg border shadow-lg z-10 w-56">
+                      <div className="grid grid-cols-3 gap-1">
+                        {MOOD_OPTIONS.map((moodOption) => (
+                          <button
+                            key={moodOption}
+                            onClick={() => selectMood(moodOption)}
+                            className={`px-2 py-1 rounded text-xs capitalize transition hover:bg-muted ${
+                              mood === moodOption ? 'bg-primary/10 text-primary' : ''
+                            }`}
+                          >
+                            {moodOption}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex flex-wrap gap-2 mb-3">
                 {tags.map((tag) => (
                   <div

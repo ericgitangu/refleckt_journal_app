@@ -22,6 +22,8 @@ export interface JournalEntry {
   title: string;
   content: string;
   createdAt: Date;
+  mood?: string;
+  tags?: string[];
 }
 
 // Create your app router
@@ -42,15 +44,27 @@ export const appRouter = router({
         items: [
           {
             id: "1",
-            title: "First Entry",
-            content: "This is my first journal entry",
-            createdAt: new Date(),
+            title: "Finding Peace in Chaos",
+            content: "Today was overwhelming. Work deadlines piling up, and my apartment is a mess. I took 10 minutes to meditate this morning though, and it helped center me.",
+            createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+            mood: "anxious",
+            tags: ["work", "self-care", "meditation"]
           },
           {
             id: "2",
-            title: "Second Entry",
-            content: "This is my second journal entry",
-            createdAt: new Date(),
+            title: "Unexpected Connection",
+            content: "Ran into Sam at the coffee shop today. We haven&apos;t spoken since college, but it felt like no time had passed.",
+            createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+            mood: "reflective",
+            tags: ["friendship", "connection", "nostalgia"]
+          },
+          {
+            id: "3",
+            title: "Morning Walk Revelations",
+            content: "Woke up early and took a long walk through the park as the sun was rising. The world feels different at that hour - quieter, full of possibility.",
+            createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+            mood: "hopeful",
+            tags: ["nature", "decisions", "career"]
           },
         ],
         nextCursor: null,
@@ -63,6 +77,8 @@ export const appRouter = router({
       z.object({
         title: z.string().min(1),
         content: z.string().min(1),
+        mood: z.string().optional(),
+        tags: z.array(z.string()).optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
