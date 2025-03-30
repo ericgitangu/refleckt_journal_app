@@ -1,70 +1,29 @@
-"use client";
-
-import React, { useEffect, useState } from "react";
-import { signIn, useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { ClientOnly } from "@/components/ClientOnly";
+import { LoginContent } from "@/components/auth/LoginContent";
 
-const LoginContent = () => {
-  const router = useRouter();
-  const { data: session } = useSession();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams?.get("callbackUrl") || "/journal";
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+// Metadata for the page
+export const metadata = {
+  title: "Login - Reflekt Journal",
+  description: "Sign in to your Reflekt Journal account",
+};
 
-  // Redirect if already logged in
-  useEffect(() => {
-    if (session?.user) {
-      router.push(callbackUrl);
-    }
-  }, [session, router, callbackUrl]);
-
-  const handleLogin = async (provider: string) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await signIn(provider, {
-        callbackUrl,
-        redirect: true,
-      });
-
-      if (!result?.ok) {
-        setError("Authentication failed. Please try again.");
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("An unexpected error occurred. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+// Main login page - server component
+export default function LoginPage() {
   return (
-    <div className="container relative flex h-screen w-screen flex-col items-center justify-center">
-      {/* Theme toggle in top right corner */}
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
-
+    <div className="container relative min-h-screen flex flex-col items-center justify-center">
       <div className="w-full max-w-[350px] space-y-6 text-center">
-        {/* Logo (circular) */}
-        <div className="mx-auto rounded-full border-2 w-24 h-24 flex items-center justify-center">
-          <Image
+        {/* Logo */}
+        <div className="mx-auto rounded-full border-2 w-24 h-24 flex items-center justify-center p-2">
+          <img
             src="/logo.jpg"
             alt="Reflekt Journal Logo"
-            width={120}
-            height={120}
-            className="rounded-md border-2 border-black dark:border-transparent"
+            className="rounded-full w-20 h-20"
           />
         </div>
 
-        {/* Heading and subheading */}
+        {/* Heading */}
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">
             Welcome to Reflekt
@@ -77,43 +36,18 @@ const LoginContent = () => {
           </p>
         </div>
 
-        {/* Auth buttons */}
-        <div className="flex flex-col space-y-3">
-          <Button
-            onClick={() => handleLogin("cognito")}
-            className="w-full border border-gray-800 dark:border-transparent"
-            disabled={isLoading}
-          >
-            Continue with Cognito
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => handleLogin("google")}
-            className="w-full"
-            disabled={isLoading}
-          >
-            <Image
-              src="/images/google-logo.svg"
-              alt="Google"
-              width={16}
-              height={16}
-              className="mr-2"
-            />
-            Continue with Google
-          </Button>
-        </div>
-
-        {/* Error display */}
-        {error && <p className="text-destructive text-sm">{error}</p>}
-
-        {/* Sign up link */}
-        <div className="text-sm">
-          Don&rsquo;t have an account?{" "}
-          <Link href="/signup" className="text-primary hover:underline">
-            Sign up
-          </Link>
-        </div>
+        {/* Auth component - client only */}
+        <ClientOnly
+          fallback={
+            <div className="flex flex-col space-y-3 animate-pulse">
+              <div className="w-full h-10 bg-muted rounded-md" />
+              <div className="w-full h-10 bg-muted rounded-md" />
+              <div className="w-full h-5 bg-muted rounded-md" />
+            </div>
+          }
+        >
+          <LoginContent />
+        </ClientOnly>
 
         {/* Terms and privacy notice */}
         <p className="text-xs text-muted-foreground px-6">
@@ -128,13 +62,5 @@ const LoginContent = () => {
         </p>
       </div>
     </div>
-  );
-};
-
-export default function LoginPage() {
-  return (
-    <ClientOnly>
-      <LoginContent />
-    </ClientOnly>
   );
 }

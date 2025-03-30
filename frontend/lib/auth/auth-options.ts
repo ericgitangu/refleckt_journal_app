@@ -2,12 +2,6 @@ import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CognitoProvider from "next-auth/providers/cognito";
 
-// Define a redirect options interface to match NextAuth's expected params
-interface RedirectParams {
-  url: string;
-  baseUrl: string;
-}
-
 export const authOptions: NextAuthOptions = {
   providers: [
     CognitoProvider({
@@ -95,24 +89,35 @@ export const authOptions: NextAuthOptions = {
       };
       return session;
     },
-    redirect(url: string, baseUrl: string) {
-      // Ensure url is always a string
-      if (!url || typeof url !== 'string') {
-        return baseUrl; // Default to baseUrl if url is not a valid string
+    async redirect({ url, baseUrl }) {
+      // Handle relative URLs
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
       }
       
-      // Now safely use startsWith
-      if (url.startsWith('/')) {
-        return `${baseUrl}${url}`; // Handle relative URLs
-      }
-      
-      // Only allow redirects to trusted domains
-      if (new URL(url).origin === baseUrl) {
-        return url;
+      // Handle same-origin URLs
+      try {
+        const urlObj = new URL(url);
+        if (urlObj.origin === new URL(baseUrl).origin) {
+          return url;
+        }
+        
+        // Allow additional trusted origins
+        const trustedHosts = [
+          new URL(baseUrl).host,
+          process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).host : null,
+          process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).host : null,
+        ].filter(Boolean) as string[];
+        
+        if (trustedHosts.includes(urlObj.host)) {
+          return url;
+        }
+      } catch (e) {
+        console.error('Error parsing redirect URL:', e);
       }
       
       return baseUrl;
-    },
+    }
   },
   secret: process.env.NEXTAUTH_SECRET,
-};
+}; 

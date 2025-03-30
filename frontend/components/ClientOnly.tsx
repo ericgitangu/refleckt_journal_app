@@ -1,24 +1,52 @@
 'use client';
 
-import { useEffect, useState, ReactNode } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ClientOnlyProps {
-  children: ReactNode;
-  fallback?: ReactNode;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
+/**
+ * A wrapper component that ensures its children are only rendered on the client-side.
+ * This prevents "Cannot read properties of null (reading 'useState')" errors
+ * that occur when React hooks are executed during server-side rendering.
+ */
 export function ClientOnly({ children, fallback }: ClientOnlyProps) {
-  const [mounted, setMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   useEffect(() => {
-    setMounted(true);
+    setIsMounted(true);
   }, []);
   
-  if (!mounted) {
-    // Return the provided fallback or a default skeleton
-    return fallback || <Skeleton className="w-full h-full min-h-[200px] rounded-md" />;
+  if (!isMounted) {
+    return fallback ? 
+      <>{fallback}</> : 
+      <div className="animate-pulse bg-muted/30 w-full h-24 rounded-md" />;
   }
   
   return <>{children}</>;
+}
+
+// HOC version for dynamic imports
+export function withClientOnly<P extends object>(
+  Component: React.ComponentType<P>
+): React.FC<P> {
+  function WithClientOnly(props: P) {
+    return (
+      <ClientOnly>
+        <Component {...props} />
+      </ClientOnly>
+    );
+  }
+  
+  const displayName = 
+    Component.displayName || 
+    Component.name || 
+    'Component';
+    
+  WithClientOnly.displayName = `withClientOnly(${displayName})`;
+  
+  return WithClientOnly;
 }

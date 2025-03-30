@@ -22,7 +22,7 @@ const allPrompts = {
     },
     {
       id: 'prompt3',
-      text: "If you could have a conversation with yourself from five years ago, what would surprise them most about who you&apos;ve become? What advice would you give them about the journey ahead?",
+      text: "If you could have a conversation with yourself from five years ago, what would surprise them most about who you've become? What advice would you give them about the journey ahead?",
       category: 'reflective',
       created_at: '2023-03-03T00:00:00Z',
       tags: ['growth', 'self-awareness', 'perspective']
@@ -70,7 +70,7 @@ const allPrompts = {
   growth: [
     {
       id: 'prompt4',
-      text: "Think about a challenge you\'re currently facing. Write about it from the perspective of someone ten years in the future looking back. What wisdom does that future self offer?",
+      text: "Think about a challenge you're currently facing. Write about it from the perspective of someone ten years in the future looking back. What wisdom does that future self offer?",
       category: 'growth',
       created_at: '2023-03-04T00:00:00Z',
       tags: ['problem-solving', 'perspective', 'future-self']
@@ -93,7 +93,7 @@ const allPrompts = {
   mindfulness: [
     {
       id: 'prompt11',
-      text: "Describe your surroundings right now in detail, using all five senses. What do you notice that you hadn&apos;t been aware of before this moment of attention?",
+      text: "Describe your surroundings right now in detail, using all five senses. What do you notice that you hadn't been aware of before this moment of attention?",
       category: 'mindfulness',
       created_at: '2023-03-11T00:00:00Z',
       tags: ['presence', 'observation', 'awareness']

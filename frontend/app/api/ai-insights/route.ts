@@ -27,12 +27,11 @@ export async function GET(request: Request) {
     },
     {
       id: "3",
-      entry_id: "general",
-      title: "Project Progress",
-      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      content: "You\'ve been consistently writing about your mobile app project. There&apos;s a positive trend in your descriptions, suggesting good progress.",
+      entry_id: entryId,
+      created_at: new Date().toISOString(),
+      content: "You've been consistently writing about your mobile app project. There's a positive trend in your descriptions, suggesting good progress.",
       source: "topic-tracking",
-      insight_type: "patterns",
+      insight_type: "observations",
     },
     {
       id: "4",

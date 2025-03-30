@@ -3,8 +3,10 @@
 import { useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { ClientOnly } from "@/components/ClientOnly";
 
-export default function LogoutPage() {
+// Client component with hooks
+function LogoutContent() {
   const router = useRouter();
 
   useEffect(() => {
@@ -20,5 +22,20 @@ export default function LogoutPage() {
         <p className="text-muted-foreground">You will be redirected shortly.</p>
       </div>
     </div>
+  );
+}
+
+// Page component that wraps the client component
+export default function LogoutPage() {
+  return (
+    <ClientOnly fallback={
+      <div className="container flex h-screen w-screen flex-col items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold">Preparing to sign out...</h1>
+        </div>
+      </div>
+    }>
+      <LogoutContent />
+    </ClientOnly>
   );
 }

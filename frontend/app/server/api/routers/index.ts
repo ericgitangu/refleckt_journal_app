@@ -53,7 +53,7 @@ export const appRouter = router({
           {
             id: "2",
             title: "Unexpected Connection",
-            content: "Ran into Sam at the coffee shop today. We haven&apos;t spoken since college, but it felt like no time had passed.",
+            content: "Ran into Sam at the coffee shop today. We haven't spoken since college, but it felt like no time had passed.",
             createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
             mood: "reflective",
             tags: ["friendship", "connection", "nostalgia"]

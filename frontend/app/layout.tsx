@@ -4,21 +4,31 @@ import { Inter, Montserrat } from "next/font/google";
 import ClientProviders from "@/app/providers/ClientProviders";
 import { DebugPanel } from "@/components/DebugPanel";
 import { TopNavbar } from "@/components/TopNavbar";
+import { ClientFooter } from "@/components/ClientFooter";
 
 // Load fonts in server component
-const inter = Inter({ subsets: ["latin"] });
-const montserrat = Montserrat({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-montserrat",
   display: "swap",
+  variable: "--font-inter",
 });
 
-// Absolute URL with domain verification
-const baseUrl = "https://refleckt.vercel.app";
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-montserrat",
+});
+
+// Get base URL for metadata
+const baseUrl =
+  process.env.NEXT_PUBLIC_APP_URL || "https://reflekt-journal.vercel.app";
 
 // Static metadata that doesn't depend on contexts or hooks
 export const metadata: Metadata = {
-  title: "Reflekt - A Personal Journaling App",
+  title: {
+    default: "Reflekt - A Personal Journaling App",
+    template: "%s | Reflekt Journal",
+  },
   description:
     "Capture your thoughts and gain AI-powered insights with this beautiful journaling app",
   icons: {
@@ -55,7 +65,7 @@ export const metadata: Metadata = {
       "Capture your thoughts and gain AI-powered insights with this beautiful journaling app",
     images: [
       {
-        url: `${baseUrl}/og-image.jpg`,
+        url: new URL('/og-image.jpg', baseUrl).toString(),
         width: 1200,
         height: 630,
         alt: "Reflekt Journal App",
@@ -69,7 +79,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Reflekt Journal",
     description: "Your personal journaling space with AI-powered insights",
-    images: [`/og-image.jpg`], // Relative path works with metadataBase
+    images: [new URL('/og-image.jpg', baseUrl).toString()], // Use absolute URL
   },
 
   // LinkedIn specific (they use OpenGraph)
@@ -102,10 +112,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={montserrat.variable}>
-      <body className={inter.className}>
+      <head />
+      <body className={`${inter.className} flex flex-col min-h-screen`}>
         <ClientProviders>
           <TopNavbar />
-          <main className="min-h-screen">{children}</main>
+          <main className="flex-grow">{children}</main>
+          <ClientFooter />
           <DebugPanel />
         </ClientProviders>
       </body>

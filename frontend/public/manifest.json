@@ -1,36 +1,38 @@
 {
-  "name": "Reflekt - A Personal Journaling App",
+  "name": "Reflekt Journal",
   "short_name": "Reflekt",
-  "description": "Reflect on your thoughts with AI-powered insights",
+  "description": "Your personal journaling companion",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
-  "orientation": "portrait-primary",
+  "theme_color": "#4f46e5",
   "icons": [
     {
-      "src": "/icons/icon.svg",
-      "sizes": "192x192 384x384 512x512",
-      "type": "image/svg+xml",
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-  "scope": "/",
-  "shortcuts": [
-    {
-      "name": "New Journal Entry",
-      "short_name": "New Entry",
-      "description": "Create a new journal entry",
-      "url": "/journal/new",
-      "icons": [{ "src": "/icons/compose.svg", "sizes": "192x192" }]
-    },
-    {
-      "name": "View Journal",
-      "short_name": "Journal",
-      "description": "View your journal entries",
-      "url": "/journal",
-      "icons": [{ "src": "/icons/journal.svg", "sizes": "192x192" }]
-    }
-  ],
-  "categories": ["productivity", "lifestyle", "health"]
+  "orientation": "portrait"
 }

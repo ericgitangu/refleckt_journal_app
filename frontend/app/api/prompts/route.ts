@@ -24,7 +24,7 @@ const mockPrompts = {
     },
     {
       id: 'prompt3',
-      text: "If you could have a conversation with yourself from five years ago, what would surprise them most about who you&apos;ve become? What advice would you give them about the journey ahead?",
+      text: "If you could have a conversation with yourself from five years ago, what would surprise them most about who you've become? What advice would you give them about the journey ahead?",
       category: 'reflective',
       created_at: '2023-03-03T00:00:00Z',
       tags: ['growth', 'self-awareness', 'perspective']

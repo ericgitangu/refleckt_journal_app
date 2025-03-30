@@ -104,20 +104,29 @@ declare module "next-auth" {
   export interface NextAuthOptions {
     providers: any[];
     callbacks?: {
-      signIn?: (
-        user: any,
-        account: any,
-        profile: any,
-      ) => Promise<boolean> | boolean;
-      redirect?: (url: string, baseUrl: string) => Promise<string> | string;
-      session?: (session: any, user: any) => Promise<any> | any;
-      jwt?: (
-        token: any,
-        user: any,
-        account: any,
-        profile: any,
-        isNewUser: boolean,
-      ) => Promise<any> | any;
+      signIn?: (params: {
+        user: any;
+        account: any;
+        profile: any;
+        email?: any;
+        credentials?: any;
+      }) => Promise<boolean | string> | boolean | string;
+      redirect?: (params: {
+        url: string;
+        baseUrl: string;
+      }) => Promise<string> | string;
+      session?: (params: {
+        session: any;
+        user?: any;
+        token?: any;
+      }) => Promise<any> | any;
+      jwt?: (params: {
+        token: any;
+        user?: any;
+        account?: any;
+        profile?: any;
+        isNewUser?: boolean;
+      }) => Promise<any> | any;
     };
     pages?: {
       signIn?: string;

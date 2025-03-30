@@ -10,6 +10,8 @@ const publicRoutes = [
   "/login",
   "/signup",
   "/auth",
+  "/privacy",
+  "/terms",
 ];
 
 // Static assets that should be publicly accessible
@@ -19,7 +21,35 @@ const staticAssets = [
   "/manifest.json",
   "/site.webmanifest",
   "/favicon.ico",
+  "/favicon-16x16.png",
+  "/favicon-32x32.png", 
+  "/apple-touch-icon.png",
+  "/android-chrome-192x192.png",
+  "/android-chrome-512x512.png",
   "/robots.txt",
+];
+
+// API routes that need special handling
+const apiRoutes = [
+  "/api/auth",
+  "/api/trpc",
+];
+
+// Social media crawler bot user agents to allow
+const socialBots = [
+  'facebookexternalhit',
+  'linkedinbot',
+  'twitterbot',
+  'whatsapp',
+  'telegrambot',
+  'pinterest',
+  'vkshare',
+  'facebot',
+  'outbrain',
+  'w3c_validator',
+  'slackbot',
+  'embedly',
+  'snapchat',
 ];
 
 // AWS X-Ray headers
@@ -46,13 +76,29 @@ const CORS_HEADERS = {
     "X-Api-Key",
     "X-Amz-Security-Token",
     "X-Amz-User-Agent",
-    ...AWS_HEADERS,
   ].join(","),
   "Access-Control-Max-Age": "86400",
 };
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  
+  // Log the request in development for debugging
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Middleware] Processing ${request.method} ${pathname}`);
+  }
+
+  // FIRST - Check for social media bots and allow them through with caching
+  const userAgent = request.headers.get('user-agent')?.toLowerCase() || '';
+  const isSocialBot = socialBots.some(bot => userAgent.includes(bot));
+
+  if (isSocialBot) {
+    console.log(`[Middleware] Allowing social bot: ${userAgent}`);
+    const response = NextResponse.next();
+    // Add cache headers for good SEO
+    response.headers.set('Cache-Control', 'public, max-age=3600');
+    return response;
+  }
 
   // Handle preflight requests
   if (request.method === "OPTIONS") {
@@ -62,89 +108,88 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // Check if the path is a static asset or starts with /images/
-  if (
-    staticAssets.includes(pathname) ||
-    pathname.startsWith("/images/") ||
-    pathname.startsWith("/icons/")
-  ) {
-    // Allow access to static assets without authentication
-    console.log(`Allowing static asset: ${pathname}`);
+  // Check if this is a NextAuth callback route
+  if (pathname.startsWith("/api/auth/callback") || pathname.startsWith("/auth/callback")) {
+    console.log(`[Middleware] Allowing auth callback: ${pathname}`);
     return NextResponse.next();
   }
 
-  // Check if the route is public
+  // Check if the path is a static asset or starts with specific directories
   if (
-    publicRoutes.includes(pathname) ||
-    publicRoutes.some((route) => pathname.startsWith(route + "/"))
+    staticAssets.includes(pathname) ||
+    pathname.startsWith("/images/") ||
+    pathname.startsWith("/icons/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".svg") ||
+    pathname.endsWith(".jpg") ||
+    pathname.endsWith(".jpeg")
   ) {
-    console.log(`Allowing public route: ${pathname}`);
+    // Add cache headers for static assets
     const response = NextResponse.next();
+    response.headers.set('Cache-Control', 'public, max-age=86400');
+    return response;
+  }
+
+  // Check if the route is public or API
+  const isPublicRoute = 
+    publicRoutes.includes(pathname) || 
+    publicRoutes.some(route => pathname.startsWith(route + "/"));
+  
+  const isApiRoute = 
+    apiRoutes.some(route => pathname.startsWith(route));
+
+  if (isPublicRoute || isApiRoute) {
+    console.log(`[Middleware] Allowing public/API route: ${pathname}`);
+    const response = NextResponse.next();
+    
+    // Add CORS headers
     Object.entries(CORS_HEADERS).forEach(([key, value]) => {
       response.headers.set(key, value);
     });
+    
     return response;
   }
 
   // Verify authentication for protected routes
-  const token = await getToken({ req: request });
-  if (!token) {
-    console.log(`Redirecting to login: ${pathname}`);
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    Object.entries(CORS_HEADERS).forEach(([key, value]) => {
-      response.headers.set(key, value);
-    });
-    return response;
-  }
-
-  // Get the response for authenticated routes
-  const response = NextResponse.next();
-
-  // Add CORS headers to all responses
-  Object.entries(CORS_HEADERS).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
-
-  // Forward AWS headers if present
-  AWS_HEADERS.forEach((header) => {
-    const value = request.headers.get(header);
-    if (value) {
-      response.headers.set(header, value);
+  try {
+    const token = await getToken({ req: request });
+    
+    if (!token) {
+      console.log(`[Middleware] No token found, redirecting to login: ${pathname}`);
+      
+      // Construct login URL with callback
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      
+      return NextResponse.redirect(loginUrl);
     }
-  });
-
-  // Add security headers
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-XSS-Protection", "1; mode=block");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-
-  // Debug logging in development
-  if (process.env.NODE_ENV === "development") {
-    console.log("Request:", {
-      method: request.method,
-      url: request.url,
-      headers: Object.fromEntries(request.headers.entries()),
-    });
-    console.log(
-      "Response headers:",
-      Object.fromEntries(response.headers.entries()),
-    );
+    
+    // Get the response for authenticated routes
+    const response = NextResponse.next();
+    
+    // Add security headers
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("X-XSS-Protection", "1; mode=block");
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    
+    return response;
+  } catch (error) {
+    console.error("[Middleware] Auth error:", error);
+    
+    // Redirect to login with error on auth failure
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "AuthError");
+    
+    return NextResponse.redirect(loginUrl);
   }
-
-  return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public directory files (logo.jpg, images/, icons/, etc.)
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|logo.jpg|images|icons|manifest.json|site.webmanifest|robots.txt).*)",
+    // Apply middleware to all routes except static assets and API routes
+    "/((?!_next/static|_next/image).*)",
   ],
 };

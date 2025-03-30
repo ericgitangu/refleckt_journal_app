@@ -4,25 +4,15 @@ import { Suspense } from "react";
 import { BookOpen, PenLine, Archive, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ClientOnly } from "@/components/ClientOnly";
 
 // Force dynamic rendering to prevent hook errors during static generation
 export const dynamic = "force-dynamic";
 
-// Fallback for client components when loading
-const LoadingFallback = () => (
-  <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>
-);
-
-export default function Home() {
+// Client component that uses hooks and client-side only features
+function HomeContent() {
   return (
     <div className="min-h-[90vh] flex flex-col items-center justify-center">
-      <div className="absolute top-4 right-4">
-        <Suspense fallback={<LoadingFallback />}>
-          <ThemeToggle />
-        </Suspense>
-      </div>
-
       <div className="max-w-3xl w-full px-4">
         <div className="journal-paper p-8 rounded-lg">
           <div className="text-center mb-10">
@@ -85,6 +75,21 @@ export default function Home() {
   );
 }
 
+// Server component that doesn't use hooks directly
+export default function Home() {
+  return (
+    <ClientOnly
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-pulse h-16 w-16 rounded-full bg-muted"></div>
+        </div>
+      }
+    >
+      <HomeContent />
+    </ClientOnly>
+  );
+}
+
 function FeatureCard({
   icon,
   title,
@@ -106,3 +111,8 @@ function FeatureCard({
     </div>
   );
 }
+
+// Fallback for client components when loading
+const LoadingFallback = () => (
+  <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>
+);

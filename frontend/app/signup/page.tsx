@@ -1,120 +1,51 @@
-"use client";
-
-import React, { useEffect, useState } from "react";
-import { signIn, useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
+import Link from "next/link";
+import { ClientOnly } from "@/components/ClientOnly";
+import { SignupContent } from "@/components/auth/SignupContent";
 
-export default function SignUpPage() {
-  const router = useRouter();
-  const { data: session } = useSession();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams?.get("callbackUrl") || "/journal";
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (session?.user) {
-      router.push(callbackUrl);
-    }
-  }, [session, router, callbackUrl]);
-
-  const handleSignup = async (provider: string) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await signIn(provider, {
-        callbackUrl,
-        redirect: true,
-      });
-
-      if (!result?.ok) {
-        setError("Registration failed. Please try again.");
-      }
-    } catch (err) {
-      console.error("Signup error:", err);
-      setError("An unexpected error occurred. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+// Main signup page - server component
+export default function SignupPage() {
   return (
-    <div className="container relative flex h-screen w-screen flex-col items-center justify-center">
-      {/* Theme toggle in top right corner */}
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
-
+    <div className="container relative min-h-screen flex flex-col items-center justify-center">
       <div className="w-full max-w-[350px] space-y-6 text-center">
-        {/* Logo (circular) */}
+        {/* Logo (can be rendered server-side) */}
         <div className="mx-auto rounded-full border-2 w-24 h-24 flex items-center justify-center">
           <Image
             src="/logo.jpg"
             alt="Reflekt Journal Logo"
             width={120}
             height={120}
+            priority
             className="rounded-md border-2 border-black dark:border-transparent"
           />
         </div>
 
-        {/* Heading and subheading */}
+        {/* Heading */}
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">
-            Welcome to Reflekt
+            Create Your Account
           </h1>
+          <p className="text-muted-foreground">
+            Join Reflekt Journal and start your reflective journey
+          </p>
           <p className="text-xs text-muted-foreground mt-1">
             © {new Date().getFullYear()} Reflekt Journal. All rights reserved.
           </p>
-          <p className="text-muted-foreground">
-            Your personal journaling companion
-          </p>
         </div>
 
-        {/* Auth buttons */}
-        <div className="flex flex-col space-y-3">
-          <Button
-            onClick={() => handleSignup("cognito")}
-            className="w-full border border-gray-800 dark:border-transparent"
-            disabled={isLoading}
-          >
-            Continue with Cognito
-          </Button>
+        {/* Client-side authentication component */}
+        <ClientOnly
+          fallback={
+            <div className="flex flex-col space-y-3 animate-pulse">
+              <div className="w-full h-10 bg-muted rounded-md" />
+              <div className="w-full h-10 bg-muted rounded-md" />
+            </div>
+          }
+        >
+          <SignupContent />
+        </ClientOnly>
 
-          <Button
-            variant="outline"
-            onClick={() => handleSignup("google")}
-            className="w-full"
-            disabled={isLoading}
-          >
-            <Image
-              src="/images/google-logo.svg"
-              alt="Google"
-              width={16}
-              height={16}
-              className="mr-2"
-            />
-            Continue with Google
-          </Button>
-        </div>
-
-        {/* Error display */}
-        {error && <p className="text-destructive text-sm">{error}</p>}
-
-        {/* Login link */}
-        <div className="text-sm">
-          Already have an account?{" "}
-          <Link href="/login" className="text-primary hover:underline">
-            Sign in
-          </Link>
-        </div>
-
-        {/* Terms and privacy notice */}
+        {/* Terms and privacy notice - server-side renderable */}
         <p className="text-xs text-muted-foreground px-6">
           By signing up, you agree to our{" "}
           <Link href="/terms" className="text-primary hover:underline">
