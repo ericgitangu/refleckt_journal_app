@@ -76,7 +76,7 @@ export const metadata: Metadata = {
       "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences. With a clean, minimalist interface, powerful AI-driven insights, and a scalable serverless architecture, Reflekt makes journaling a pleasure while providing meaningful reflection opportunities.",
     images: [
       {
-        url: "/opengraph-image.jpg",
+        url: "https://refleckt.vercel.app/_next/image?url=%2Flogo.jpg&w=1200&q=75",
         width: 1200,
         height: 630,
         alt: "Reflekt Journal App",
