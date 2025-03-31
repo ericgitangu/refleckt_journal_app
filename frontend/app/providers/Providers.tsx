@@ -6,7 +6,6 @@ import { Provider as JotaiProvider } from 'jotai';
 import { SWRConfig } from 'swr';
 import { SessionProvider } from 'next-auth/react';
 import { TrpcProvider } from '@/app/providers/TrpcProvider';
-import { ApolloProvider } from '@apollo/client';
 import { client } from '@/lib/apollo';
 import { AuthProvider } from '@/lib/auth/auth-context';
 import { OfflineProvider } from '@/lib/offline/offline-context';
@@ -33,7 +32,6 @@ export function Providers({ children }: ProvidersProps) {
           >
             <SessionProvider>
               <TrpcProvider>
-                <ApolloProvider client={client}>
                   <AuthProvider>
                     <OfflineProvider>
                       <TrueErrorBoundary
@@ -46,7 +44,6 @@ export function Providers({ children }: ProvidersProps) {
                       </TrueErrorBoundary>
                     </OfflineProvider>
                   </AuthProvider>
-                </ApolloProvider>
               </TrpcProvider>
             </SessionProvider>
           </SWRConfig>

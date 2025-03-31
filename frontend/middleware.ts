@@ -17,7 +17,7 @@ const publicRoutes = [
 // Static assets that should be publicly accessible
 const staticAssets = [
   "/logo.jpg",
-  "/og-image.jpg",
+  "/opengraph-image.jpg",
   "/manifest.json",
   "/site.webmanifest",
   "/favicon.ico",

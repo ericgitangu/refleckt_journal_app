@@ -112,7 +112,3 @@ function FeatureCard({
   );
 }
 
-// Fallback for client components when loading
-const LoadingFallback = () => (
-  <div className="animate-pulse h-8 w-8 rounded-md bg-muted"></div>
-);

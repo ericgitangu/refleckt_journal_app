@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   return new Response(null, {
     status: 302,
     headers: {
-      Location: "/og-image.jpg",
+      Location: "/opengraph-image.jpg",
       "Cache-Control": "public, max-age=31536000, immutable",
     },
   });

@@ -65,7 +65,7 @@ export const metadata: Metadata = {
       "Capture your thoughts and gain AI-powered insights with this beautiful journaling app",
     images: [
       {
-        url: new URL('/og-image.jpg', baseUrl).toString(),
+        url: new URL('/opengraph-image.jpg', baseUrl).toString(),
         width: 1200,
         height: 630,
         alt: "Reflekt Journal App",
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Reflekt Journal",
     description: "Your personal journaling space with AI-powered insights",
-    images: [new URL('/og-image.jpg', baseUrl).toString()], // Use absolute URL
+    images: [new URL('/opengraph-image.jpg', baseUrl).toString()], // Use absolute URL
   },
 
   // LinkedIn specific (they use OpenGraph)
