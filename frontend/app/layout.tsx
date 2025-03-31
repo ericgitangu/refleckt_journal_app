@@ -67,13 +67,13 @@ export const metadata: Metadata = {
 
   // OpenGraph metadata for social sharing
   openGraph: {
-    type: "website",
+    type: "article",
     locale: "en_US",
     url: baseUrl,
     siteName: "Reflekt Journal",
     title: "Reflekt - A Personal Journaling App",
     description:
-      "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences. With a clean, minimalist interface, powerful AI-driven insights, and a scalable serverless architecture, Reflekt makes journaling a pleasure while providing meaningful reflection opportunities.",
+      "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences. Reflekt makes journaling a pleasure while providing meaningful reflection opportunities.",
     images: [
       {
         url: "https://refleckt.vercel.app/_next/image?url=%2Flogo.jpg&w=1200&q=75",
@@ -83,6 +83,7 @@ export const metadata: Metadata = {
         type: "image/jpeg",
       },
     ],
+    publishedTime: "2023-03-31T00:00:00Z",
   },
 
   // Twitter/X card metadata
@@ -101,7 +102,8 @@ export const metadata: Metadata = {
     "insights",
     "personal growth",
   ],
-  authors: [{ name: "Eric Gitangul" }],
+  authors: [{ name: "Eric Gitangu" }],
+  
 };
 
 // Separate viewport configuration
@@ -124,6 +126,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={montserrat.variable}>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta property="og:image" content="https://refleckt.vercel.app/_next/image?url=%2Flogo.jpg&w=1200&q=75" />
       </head>
       <body className={`${inter.className} flex flex-col min-h-screen`}>
         <ClientProviders>
