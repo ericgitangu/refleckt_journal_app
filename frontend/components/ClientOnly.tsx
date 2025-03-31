@@ -12,13 +12,13 @@ interface ClientOnlyProps {
 }
 
 export function ClientOnly({ children, fallback = null }: ClientOnlyProps) {
-  return React.createElement(ClientOnlyImpl, { children, fallback });
+  return React.createElement(ClientOnlyImpl, { fallback }, children);
 }
 
 // Props for the ClientOnlyImpl class component
 interface ClientOnlyImplProps {
-  children: React.ReactNode;
   fallback: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 // Using class component to avoid hooks during server rendering

@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s | Reflekt Journal",
   },
   description:
-    "Capture your thoughts and gain AI-powered insights with this beautiful journaling app",
+    "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences. With a clean, minimalist interface, powerful AI-driven insights, and a scalable serverless architecture, Reflekt makes journaling a pleasure while providing meaningful reflection opportunities.",
   
   // PWA specific metadata
   applicationName: "Reflekt Journal",
@@ -73,10 +73,10 @@ export const metadata: Metadata = {
     siteName: "Reflekt Journal",
     title: "Reflekt - A Personal Journaling App",
     description:
-      "Capture your thoughts and gain AI-powered insights with this beautiful journaling app",
+      "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences. With a clean, minimalist interface, powerful AI-driven insights, and a scalable serverless architecture, Reflekt makes journaling a pleasure while providing meaningful reflection opportunities.",
     images: [
       {
-        url: new URL('/opengraph-image.jpg', baseUrl).toString(),
+        url: "/opengraph-image.jpg",
         width: 1200,
         height: 630,
         alt: "Reflekt Journal App",
@@ -89,8 +89,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Reflekt Journal",
-    description: "Your personal journaling space with AI-powered insights",
-    images: [new URL('/opengraph-image.jpg', baseUrl).toString()],
+    description: "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences with powerful AI-driven insights.",
+    images: ["/opengraph-image.jpg"],
   },
 
   keywords: [

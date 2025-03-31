@@ -16,10 +16,12 @@ export default function LoginPage() {
       <div className="w-full max-w-[350px] space-y-6 text-center">
         {/* Logo */}
         <div className="mx-auto rounded-full border-2 w-24 h-24 flex items-center justify-center p-2">
-          <img
+          <Image
             src="/logo.jpg"
             alt="Reflekt Journal Logo"
             className="rounded-full w-20 h-20"
+            width={80}
+            height={80}
           />
         </div>
 
