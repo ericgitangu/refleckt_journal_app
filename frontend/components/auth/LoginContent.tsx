@@ -5,6 +5,7 @@ import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 
 export function LoginContent() {
   const router = useRouter();
@@ -61,10 +62,12 @@ export function LoginContent() {
           disabled={isLoading}
         >
           <span className="mr-2">
-            <img 
-              src="/images/google-logo.svg" 
+            <Image
+              src="/google-logo.svg" 
               alt="Google" 
               className="w-4 h-4"
+              width={16}
+              height={16}
             />
           </span>
           Continue with Google
