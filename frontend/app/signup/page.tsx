@@ -1,7 +1,7 @@
 import Image from "next/image";
-import Link from "next/link";
-import { ClientOnly } from "@/components/ClientOnly";
+import Link from "next/link"; 
 import { SignupContent } from "@/components/auth/SignupContent";
+import { Suspense } from "react";
 
 // Main signup page - server component
 export default function SignupPage() {
@@ -34,7 +34,7 @@ export default function SignupPage() {
         </div>
 
         {/* Client-side authentication component */}
-        <ClientOnly
+        <Suspense
           fallback={
             <div className="flex flex-col space-y-3 animate-pulse">
               <div className="w-full h-10 bg-muted rounded-md" />
@@ -43,7 +43,7 @@ export default function SignupPage() {
           }
         >
           <SignupContent />
-        </ClientOnly>
+        </Suspense>
 
         {/* Terms and privacy notice - server-side renderable */}
         <p className="text-xs text-muted-foreground px-6">

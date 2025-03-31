@@ -1,0 +1,18 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Allow all crawlers to access PWA and static assets
+Allow: /manifest.json
+Allow: /site.webmanifest
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.svg$
+Allow: /*.ico$
+
+# Block API routes from being indexed
+Disallow: /api/
+Disallow: /_next/
+
+# Sitemap location
+Sitemap: https://reflekt-journal.vercel.app/sitemap.xml 

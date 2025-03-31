@@ -2,9 +2,6 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter, Montserrat } from "next/font/google";
 import ClientProviders from "@/app/providers/ClientProviders";
-import { DebugPanel } from "@/components/DebugPanel";
-import { TopNavbar } from "@/components/TopNavbar";
-import { ClientFooter } from "@/components/ClientFooter";
 
 // Load fonts in server component
 const inter = Inter({
@@ -31,6 +28,20 @@ export const metadata: Metadata = {
   },
   description:
     "Capture your thoughts and gain AI-powered insights with this beautiful journaling app",
+  
+  // PWA specific metadata
+  applicationName: "Reflekt Journal",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Reflekt",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  manifest: "/manifest.json",
+  
+  // Icons (favicon, etc)
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -51,7 +62,7 @@ export const metadata: Metadata = {
       },
     ],
   },
-  manifest: "/site.webmanifest",
+  
   metadataBase: new URL(baseUrl),
 
   // OpenGraph metadata for social sharing
@@ -79,11 +90,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Reflekt Journal",
     description: "Your personal journaling space with AI-powered insights",
-    images: [new URL('/opengraph-image.jpg', baseUrl).toString()], // Use absolute URL
+    images: [new URL('/opengraph-image.jpg', baseUrl).toString()],
   },
 
-  // LinkedIn specific (they use OpenGraph)
-  // Adding content type and author for better LinkedIn preview
   keywords: [
     "journal",
     "journaling",
@@ -100,10 +109,11 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  themeColor: "#4f46e5", // Match theme color from manifest
+  // Add the following for better PWA support
+  minimumScale: 1,
+  userScalable: false,
 };
-
-// Force dynamic rendering for root layout
-export const dynamic = "force-dynamic";
 
 export default function RootLayout({
   children,
@@ -112,13 +122,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={montserrat.variable}>
-      <head />
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <body className={`${inter.className} flex flex-col min-h-screen`}>
         <ClientProviders>
-          <TopNavbar />
-          <main className="flex-grow">{children}</main>
-          <ClientFooter />
-          <DebugPanel />
+          {children}
         </ClientProviders>
       </body>
     </html>

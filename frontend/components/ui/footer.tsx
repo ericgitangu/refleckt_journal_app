@@ -18,8 +18,9 @@ export function Footer() {
               <Image 
                 src="/logo.jpg" 
                 alt="Refleckt Journal" 
-                fill
                 className="rounded-md"
+                width={32}
+                height={32}
                 priority
               />
             </div>

@@ -1,19 +1,59 @@
 {
   "name": "Reflekt Journal",
   "short_name": "Reflekt",
+  "description": "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences. With a clean, minimalist interface, powerful AI-driven insights, and a scalable serverless architecture, Reflekt makes journaling a pleasure while providing meaningful reflection opportunities.",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
     {
       "src": "/android-chrome-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/android-chrome-512x512.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#4f46e5",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "categories": ["productivity", "lifestyle", "journaling"],
+  "screenshots": [
+    {
+      "src": "/screenshots/journal.png",
+      "sizes": "1280x720",
       "type": "image/png"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
-  "display": "standalone"
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "New Journal Entry",
+      "short_name": "New Entry",
+      "description": "Create a new journal entry",
+      "url": "/journal/new",
+      "icons": [{ "src": "/android-chrome-192x192.png", "sizes": "192x192" }]
+    }
+  ]
 }

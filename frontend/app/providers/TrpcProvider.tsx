@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { transformer } from "@/lib/transformer";
 import { trpc } from "@/app/hooks/useTRPC";
-import { ClientOnly } from "@/components/ClientOnly";
 
-// Client-side only TrpcProvider implementation
-function TrpcProviderImpl({ children }: { children: React.ReactNode }) {
+export function TrpcProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -36,14 +34,5 @@ function TrpcProviderImpl({ children }: { children: React.ReactNode }) {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </trpc.Provider>
-  );
-}
-
-// Wrapper that ensures TrpcProvider is only rendered client-side
-export function TrpcProvider({ children }: { children: React.ReactNode }) {
-  return (
-    <ClientOnly fallback={<div className="trpc-loading-placeholder" />}>
-      <TrpcProviderImpl>{children}</TrpcProviderImpl>
-    </ClientOnly>
   );
 }

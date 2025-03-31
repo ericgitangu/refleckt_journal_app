@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
@@ -21,10 +25,18 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     },
-    "typeRoots": ["./node_modules/@types", "./types"],
-    "types": ["node", "jest"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types"
+    ],
+    "types": [
+      "node",
+      "jest"
+    ],
     "allowSyntheticDefaultImports": true,
     "noErrorTruncation": true,
     "noImplicitAny": false,
@@ -37,6 +49,10 @@
     ".next/types/**/*.ts",
     "types/**/*.d.ts"
   ],
-  "exclude": ["node_modules"],
-  "files": ["types/global.d.ts"]
+  "exclude": [
+    "node_modules"
+  ],
+  "files": [
+    "types/global.d.ts"
+  ]
 }

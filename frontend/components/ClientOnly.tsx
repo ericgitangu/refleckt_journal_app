@@ -1,52 +1,37 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+import React from 'react';
 
+/**
+ * A component that ensures its children are only rendered on the client.
+ * Uses class component approach to avoid hook issues during server rendering.
+ */
 interface ClientOnlyProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
 
-/**
- * A wrapper component that ensures its children are only rendered on the client-side.
- * This prevents "Cannot read properties of null (reading 'useState')" errors
- * that occur when React hooks are executed during server-side rendering.
- */
-export function ClientOnly({ children, fallback }: ClientOnlyProps) {
-  const [isMounted, setIsMounted] = useState(false);
-  
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-  
-  if (!isMounted) {
-    return fallback ? 
-      <>{fallback}</> : 
-      <div className="animate-pulse bg-muted/30 w-full h-24 rounded-md" />;
-  }
-  
-  return <>{children}</>;
+export function ClientOnly({ children, fallback = null }: ClientOnlyProps) {
+  return React.createElement(ClientOnlyImpl, { children, fallback });
 }
 
-// HOC version for dynamic imports
-export function withClientOnly<P extends object>(
-  Component: React.ComponentType<P>
-): React.FC<P> {
-  function WithClientOnly(props: P) {
-    return (
-      <ClientOnly>
-        <Component {...props} />
-      </ClientOnly>
-    );
+// Props for the ClientOnlyImpl class component
+interface ClientOnlyImplProps {
+  children: React.ReactNode;
+  fallback: React.ReactNode;
+}
+
+// Using class component to avoid hooks during server rendering
+class ClientOnlyImpl extends React.Component<ClientOnlyImplProps, { isMounted: boolean }> {
+  state = { isMounted: false };
+
+  componentDidMount() {
+    this.setState({ isMounted: true });
   }
-  
-  const displayName = 
-    Component.displayName || 
-    Component.name || 
-    'Component';
-    
-  WithClientOnly.displayName = `withClientOnly(${displayName})`;
-  
-  return WithClientOnly;
+
+  render() {
+    const { children, fallback } = this.props;
+    const { isMounted } = this.state;
+    return isMounted ? children : fallback;
+  }
 }

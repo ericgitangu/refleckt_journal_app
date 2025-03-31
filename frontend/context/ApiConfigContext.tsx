@@ -21,6 +21,7 @@ interface ApiConfig {
   error?: string;
 }
 
+// Initial config state
 const initialConfig: ApiConfig = {
   apiUrl: "",
   services: {
@@ -41,24 +42,19 @@ const initialConfig: ApiConfig = {
 // Create context
 const ApiConfigContext = createContext<ApiConfig>(initialConfig);
 
-// Server-safe provider that doesn't use hooks conditionally
-class ConfigLoader extends React.Component<
+// Use a class component to avoid hook-based issues during SSR
+class ApiConfigProviderClass extends React.Component<
   { children: React.ReactNode },
-  { config: ApiConfig; mounted: boolean }
+  { config: ApiConfig }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = {
       config: initialConfig,
-      mounted: false,
     };
   }
 
   componentDidMount() {
-    // Set mounted flag
-    this.setState({ mounted: true });
-
-    // Fetch configuration
     this.fetchConfig();
   }
 
@@ -94,7 +90,6 @@ class ConfigLoader extends React.Component<
   };
 
   render() {
-    // Always render children with context
     return (
       <ApiConfigContext.Provider value={this.state.config}>
         {this.props.children}
@@ -103,12 +98,12 @@ class ConfigLoader extends React.Component<
   }
 }
 
-// Provider component that uses the class component internally
+// Wrapper function component for the class-based provider
 export function ApiConfigProvider({ children }: { children: React.ReactNode }) {
-  return <ConfigLoader>{children}</ConfigLoader>;
+  return <ApiConfigProviderClass>{children}</ApiConfigProviderClass>;
 }
 
-// Hook for using the API configuration
+// Hook for using the API configuration (use only in client components)
 export function useApiConfig() {
   const context = useContext(ApiConfigContext);
 

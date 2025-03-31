@@ -1,4 +1,8 @@
-/** @type {import('next').NextConfig} */
+// @ts-check
+
+/**
+ * @type {import('next').NextConfig}
+ */
 const nextConfig = {
   // Official Next.js configuration options
   reactStrictMode: true,
@@ -17,12 +21,8 @@ const nextConfig = {
   // Next.js 14 no longer requires appDir in experimental
   // It's now the default behavior
   experimental: {
-    // Prevent React server components optimization
-    // This prevents hooks from being called during static generation
-    optimizeServerReact: true,
-
     // Explicitly mark these packages as external for server components
-    serverComponentsExternalPackages: ["react"],
+    serverComponentsExternalPackages: ["react", "react-dom", "next-auth"],
   },
 
   // Output to standalone mode for production deployment
@@ -37,11 +37,8 @@ const nextConfig = {
   reactProductionProfiling: true,
 
   // Temporarily ignore TypeScript errors during build
-  // This is necessary due to a known issue with Radix UI components and React's ElementType constraints
-  // Each component uses a documented 'as any' type assertion to work around this issue
   typescript: {
-    // NOTE: This allows builds to succeed while we implement a complete type system fix
-    // We're documenting the issue in each component for transparency
+    // Allow build to proceed despite TypeScript errors
     ignoreBuildErrors: true,
   },
 
@@ -51,4 +48,24 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+// Simplified PWA configuration with better error handling
+let finalConfig = nextConfig;
+try {
+  const NextPWA = require('@ducanh2912/next-pwa');
+  
+  // Get the default export regardless of how it's exported
+  const withPWA = NextPWA.default || NextPWA;
+  
+  // Apply PWA config with minimal options
+  finalConfig = withPWA({
+    dest: 'public',
+    disable: process.env.NODE_ENV === 'development', 
+    register: true
+  })(nextConfig);
+  
+  console.log('PWA support enabled');
+} catch (e) {
+  console.warn('PWA support disabled:', e.message);
+}
+
+module.exports = finalConfig;
