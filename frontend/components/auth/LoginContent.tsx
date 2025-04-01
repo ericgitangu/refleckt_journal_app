@@ -63,11 +63,12 @@ export function LoginContent() {
         >
           <span className="mr-2">
             <Image
-              src="/google-logo.svg" 
+              src="/images/google-logo.svg" 
               alt="Google" 
               className="w-4 h-4"
               width={16}
               height={16}
+              priority
             />
           </span>
           Continue with Google
