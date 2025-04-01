@@ -29,7 +29,7 @@ export function generateMetadata({
   ).replace(/\/$/, "");
 
   // Default OG image if none provided - use the actual image filename
-  const defaultOgImage = new URL('/opengraph-image.jpg', baseUrl).toString();
+  const defaultOgImage = new URL("/opengraph-image.jpg", baseUrl).toString();
   const ogImageUrl = ogImage || defaultOgImage;
 
   // The full title with site name suffix

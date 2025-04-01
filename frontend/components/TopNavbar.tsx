@@ -91,7 +91,7 @@ export function TopNavbar() {
                             "flex items-center w-full",
                             pathname === item.href
                               ? "bg-accent text-accent-foreground"
-                              : ""
+                              : "",
                           )}
                         >
                           <item.icon className="h-4 w-4 mr-2" />

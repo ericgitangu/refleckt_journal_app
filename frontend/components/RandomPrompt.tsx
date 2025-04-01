@@ -13,7 +13,7 @@ const FALLBACK_PROMPT: Prompt = {
   text: "What would you like to explore in your journal today? Consider a challenge you're facing, a joy you've experienced, or a hope for tomorrow.",
   category: "reflective",
   created_at: new Date().toISOString(),
-  tags: ["general", "reflection", "open-ended"]
+  tags: ["general", "reflection", "open-ended"],
 };
 
 interface RandomPromptProps {

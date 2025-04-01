@@ -1,7 +1,7 @@
-import axios from 'axios';
+import axios from "axios";
 // Use the internal axios types directly
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { getAuthSession, getAccessToken } from '@/lib/auth-utils';
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
+import { getAuthSession, getAccessToken } from "@/lib/auth-utils";
 
 // Create a custom type that includes interceptors
 interface EnhancedAxiosInstance extends AxiosInstance {
@@ -15,7 +15,7 @@ interface EnhancedAxiosInstance extends AxiosInstance {
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 }) as EnhancedAxiosInstance;
 
@@ -37,10 +37,10 @@ apiClient.interceptors.response.use(
     // Handle 401 unauthorized errors (refresh token or redirect to login)
     if (error.response?.status === 401) {
       // Redirect to login page or refresh token
-      window.location.href = '/login';
+      window.location.href = "/login";
     }
     return Promise.reject(error);
-  }
+  },
 );
 
-export default apiClient; 
+export default apiClient;

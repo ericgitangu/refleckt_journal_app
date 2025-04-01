@@ -27,7 +27,7 @@ function AuthErrorContent() {
 
   useEffect(() => {
     // Get error from URL safely
-    const errorParam = searchParams ? searchParams.get('error') : null;
+    const errorParam = searchParams ? searchParams.get("error") : null;
     setError(errorParam);
 
     // Set error details based on the error code from NextAuth

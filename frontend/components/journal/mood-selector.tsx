@@ -1,5 +1,11 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MOOD_EMOJIS } from '@/lib/mood-utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { MOOD_EMOJIS } from "@/lib/mood-utils";
 
 interface MoodSelectorProps {
   value: string | undefined;
@@ -9,7 +15,7 @@ interface MoodSelectorProps {
 // Create mood options using the shared MOOD_EMOJIS definitions
 const moods = Object.entries(MOOD_EMOJIS).map(([value, emoji]) => ({
   value,
-  label: `${emoji} ${value.charAt(0).toUpperCase() + value.slice(1)}`
+  label: `${emoji} ${value.charAt(0).toUpperCase() + value.slice(1)}`,
 }));
 
 // Sort moods alphabetically
@@ -18,7 +24,10 @@ moods.sort((a, b) => a.value.localeCompare(b.value));
 export default function MoodSelector({ value, onChange }: MoodSelectorProps) {
   return (
     <div className="flex flex-col">
-      <label htmlFor="mood-select" className="text-sm text-muted-foreground mb-1">
+      <label
+        htmlFor="mood-select"
+        className="text-sm text-muted-foreground mb-1"
+      >
         Mood
       </label>
       <Select value={value} onValueChange={onChange}>
@@ -35,4 +44,4 @@ export default function MoodSelector({ value, onChange }: MoodSelectorProps) {
       </Select>
     </div>
   );
-} 
+}

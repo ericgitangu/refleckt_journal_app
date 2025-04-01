@@ -23,26 +23,26 @@ const mockJournalEntries = [
   {
     id: "1",
     title: "Finding Peace in Chaos",
-    content: 
+    content:
       "Today was completely overwhelming. My deadline at work got moved up by a week, and my inbox is overflowing with messages I haven't had time to answer. I felt that familiar tightness in my chest all day.\n\n" +
       "I did manage to take 10 minutes this morning to meditate though. Just sitting and breathing helped center me a bit. I need to remember that even small moments of mindfulness make a difference.\n\n" +
       "Tomorrow I'll try to wake up 30 minutes earlier to plan my day better. One day at a time.",
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
     mood: "anxious",
-    tags: ["work", "self-care", "meditation"]
+    tags: ["work", "self-care", "meditation"],
   },
   {
     id: "2",
     title: "Unexpected Connection",
-    content: 
+    content:
       "I ran into Sam at the coffee shop today. We haven't spoken since college graduation four years ago, but it felt like no time had passed at all. We ended up talking for almost two hours.\n\n" +
       "It's strange how some friendships can pick up exactly where they left off. Sam mentioned they've been going through a tough time with their family lately. I'm glad I was there to listen.\n\n" +
       "We exchanged numbers and promised to meet up again soon. I hope we actually follow through this time. These chance encounters remind me how small the world can be sometimes.",
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
     mood: "grateful",
-    tags: ["friendship", "connection", "nostalgia"]
+    tags: ["friendship", "connection", "nostalgia"],
   },
   {
     id: "3",
@@ -54,7 +54,7 @@ const mockJournalEntries = [
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
     mood: "contemplative",
-    tags: ["future", "career", "nature"]
+    tags: ["future", "career", "nature"],
   },
   {
     id: "4",
@@ -66,7 +66,7 @@ const mockJournalEntries = [
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
     mood: "accomplished",
-    tags: ["home", "organization", "family"]
+    tags: ["home", "organization", "family"],
   },
   {
     id: "5",
@@ -78,24 +78,24 @@ const mockJournalEntries = [
     createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
     updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
     mood: "reflective",
-    tags: ["weather", "books", "introspection"]
-  }
+    tags: ["weather", "books", "introspection"],
+  },
 ];
 
 // Define the app router with procedures
 export const appRouter = router({
   hello: publicProcedure.query(() => "Hello tRPC"),
-  
+
   getJournalEntries: publicProcedure.query(async () => {
     // In a real app, this would query a database
     return mockJournalEntries;
   }),
-  
+
   getJournalEntry: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       // In a real app, this would query a database
-      return mockJournalEntries.find(entry => entry.id === input.id);
+      return mockJournalEntries.find((entry) => entry.id === input.id);
     }),
 });
 

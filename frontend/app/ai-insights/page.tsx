@@ -25,7 +25,8 @@ const FALLBACK_INSIGHTS: Insight[] = [
     id: "fallback-1",
     entry_id: "fallback",
     title: "Journaling Benefits",
-    content: "Regular journaling has been shown to reduce stress and improve mental clarity. Try to maintain consistency in your writing practice.",
+    content:
+      "Regular journaling has been shown to reduce stress and improve mental clarity. Try to maintain consistency in your writing practice.",
     created_at: new Date().toISOString(),
     insight_type: "suggestions",
   },
@@ -33,10 +34,11 @@ const FALLBACK_INSIGHTS: Insight[] = [
     id: "fallback-2",
     entry_id: "fallback",
     title: "Reflection Time",
-    content: "Consider setting aside 5 minutes after journaling to reflect on what you\'ve written. This can help deepen the benefits of your practice.",
+    content:
+      "Consider setting aside 5 minutes after journaling to reflect on what you\'ve written. This can help deepen the benefits of your practice.",
     created_at: new Date().toISOString(),
     insight_type: "suggestions",
-  }
+  },
 ];
 
 // AI Insights content component that uses React hooks
@@ -66,10 +68,10 @@ function AIInsightsContent() {
       setError(null);
     } catch (err) {
       console.error("Error fetching insights:", err);
-      
+
       // Still show fallback data even when there&apos;s an error
       setInsights(FALLBACK_INSIGHTS);
-      
+
       // But also show error message so user knows data is fallback
       setError("Failed to load AI insights. Showing generic insights instead.");
     } finally {
@@ -80,16 +82,16 @@ function AIInsightsContent() {
   const generateNewInsights = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/ai-insights/generate', {
-        method: 'POST',
+      const response = await fetch("/api/ai-insights/generate", {
+        method: "POST",
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to generate insights");
       }
-      
+
       // Force a refresh of insights by updating retry count
-      setRetryCount(prev => prev + 1);
+      setRetryCount((prev) => prev + 1);
     } catch (err) {
       console.error("Error generating insights:", err);
       setError("Failed to generate AI insights. Please try again later.");
@@ -98,7 +100,7 @@ function AIInsightsContent() {
   };
 
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
+    setRetryCount((prev) => prev + 1);
   };
 
   if (status === "loading") {
@@ -136,13 +138,22 @@ function AIInsightsContent() {
           <TabsTrigger value="all" onClick={() => setInsightType("all")}>
             All Insights
           </TabsTrigger>
-          <TabsTrigger value="patterns" onClick={() => setInsightType("patterns")}>
+          <TabsTrigger
+            value="patterns"
+            onClick={() => setInsightType("patterns")}
+          >
             Patterns
           </TabsTrigger>
-          <TabsTrigger value="suggestions" onClick={() => setInsightType("suggestions")}>
+          <TabsTrigger
+            value="suggestions"
+            onClick={() => setInsightType("suggestions")}
+          >
             Suggestions
           </TabsTrigger>
-          <TabsTrigger value="reflections" onClick={() => setInsightType("reflections")}>
+          <TabsTrigger
+            value="reflections"
+            onClick={() => setInsightType("reflections")}
+          >
             Reflections
           </TabsTrigger>
         </TabsList>
@@ -182,11 +193,10 @@ function AIInsightsContent() {
               <Icons.brain className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No insights yet</h3>
               <p className="text-muted-foreground mb-4">
-                Write more journal entries to get AI-powered insights and recommendations.
+                Write more journal entries to get AI-powered insights and
+                recommendations.
               </p>
-              <Button onClick={generateNewInsights}>
-                Generate Insights
-              </Button>
+              <Button onClick={generateNewInsights}>Generate Insights</Button>
             </div>
           </CardContent>
         </Card>
@@ -218,4 +228,4 @@ export default function AIInsightsPage() {
       <AIInsightsContent />
     </ClientOnly>
   );
-} 
+}

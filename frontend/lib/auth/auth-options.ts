@@ -16,9 +16,9 @@ export const authOptions: NextAuthOptions = {
         params: {
           prompt: "consent",
           access_type: "offline",
-          response_type: "code"
-        }
-      }
+          response_type: "code",
+        },
+      },
     }),
   ],
   pages: {
@@ -45,33 +45,38 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Implement token refresh for Cognito
-      if (token.provider === 'cognito' && token.refreshToken) {
+      if (token.provider === "cognito" && token.refreshToken) {
         try {
-          const response = await fetch(`${process.env.COGNITO_ISSUER}/oauth2/token`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
+          const response = await fetch(
+            `${process.env.COGNITO_ISSUER}/oauth2/token`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                grant_type: "refresh_token",
+                client_id: process.env.COGNITO_CLIENT_ID || "",
+                refresh_token: token.refreshToken as string,
+              }),
             },
-            body: new URLSearchParams({
-              grant_type: 'refresh_token',
-              client_id: process.env.COGNITO_CLIENT_ID || '',
-              refresh_token: token.refreshToken as string,
-            }),
-          });
-          
+          );
+
           const refreshedTokens = await response.json();
-          
+
           if (!response.ok) {
             throw refreshedTokens;
           }
-          
+
           return {
             ...token,
             accessToken: refreshedTokens.access_token,
-            expiresAt: Math.floor(Date.now() / 1000 + refreshedTokens.expires_in),
+            expiresAt: Math.floor(
+              Date.now() / 1000 + refreshedTokens.expires_in,
+            ),
           };
         } catch (error) {
-          console.error('Error refreshing access token', error);
+          console.error("Error refreshing access token", error);
           // Return existing token even if expired as fallback
           return token;
         }
@@ -94,30 +99,34 @@ export const authOptions: NextAuthOptions = {
       if (url.startsWith("/")) {
         return `${baseUrl}${url}`;
       }
-      
+
       // Handle same-origin URLs
       try {
         const urlObj = new URL(url);
         if (urlObj.origin === new URL(baseUrl).origin) {
           return url;
         }
-        
+
         // Allow additional trusted origins
         const trustedHosts = [
           new URL(baseUrl).host,
-          process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).host : null,
-          process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).host : null,
+          process.env.NEXTAUTH_URL
+            ? new URL(process.env.NEXTAUTH_URL).host
+            : null,
+          process.env.NEXT_PUBLIC_APP_URL
+            ? new URL(process.env.NEXT_PUBLIC_APP_URL).host
+            : null,
         ].filter(Boolean) as string[];
-        
+
         if (trustedHosts.includes(urlObj.host)) {
           return url;
         }
       } catch (e) {
-        console.error('Error parsing redirect URL:', e);
+        console.error("Error parsing redirect URL:", e);
       }
-      
+
       return baseUrl;
-    }
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
-}; 
+};

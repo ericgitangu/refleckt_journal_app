@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React from "react";
 
 /**
  * A component that ensures its children are only rendered on the client.
@@ -22,7 +22,10 @@ interface ClientOnlyImplProps {
 }
 
 // Using class component to avoid hooks during server rendering
-class ClientOnlyImpl extends React.Component<ClientOnlyImplProps, { isMounted: boolean }> {
+class ClientOnlyImpl extends React.Component<
+  ClientOnlyImplProps,
+  { isMounted: boolean }
+> {
   state = { isMounted: false };
 
   componentDidMount() {

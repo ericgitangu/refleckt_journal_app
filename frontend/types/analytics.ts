@@ -11,9 +11,9 @@ export interface WritingStats {
 }
 
 export interface MoodDistribution {
-  period: 'week' | 'month' | 'year';
+  period: "week" | "month" | "year";
   distribution: {
     date: string;
     moods: Record<string, number>;
   }[];
-} 
+}

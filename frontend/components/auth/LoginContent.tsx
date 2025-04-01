@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import Image from 'next/image';
+import React, { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 export function LoginContent() {
   const router = useRouter();
   const { data: session } = useSession();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams?.get('callbackUrl') || '/journal';
+  const callbackUrl = searchParams?.get("callbackUrl") || "/journal";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -33,11 +33,11 @@ export function LoginContent() {
       });
 
       if (!result?.ok) {
-        setError('Authentication failed. Please try again.');
+        setError("Authentication failed. Please try again.");
       }
     } catch (err) {
-      console.error('Login error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      console.error("Login error:", err);
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +48,7 @@ export function LoginContent() {
       {/* Auth buttons */}
       <div className="flex flex-col space-y-3">
         <Button
-          onClick={() => handleLogin('cognito')}
+          onClick={() => handleLogin("cognito")}
           className="w-full border border-gray-800 dark:border-transparent"
           disabled={isLoading}
         >
@@ -57,14 +57,14 @@ export function LoginContent() {
 
         <Button
           variant="outline"
-          onClick={() => handleLogin('google')}
+          onClick={() => handleLogin("google")}
           className="w-full"
           disabled={isLoading}
         >
           <span className="mr-2">
             <Image
-              src="/images/google-logo.svg" 
-              alt="Google" 
+              src="/images/google-logo.svg"
+              alt="Google"
               className="w-4 h-4"
               width={16}
               height={16}
@@ -80,11 +80,11 @@ export function LoginContent() {
 
       {/* Sign up link */}
       <div className="text-sm">
-        Don&apos;t have an account?{' '}
+        Don&apos;t have an account?{" "}
         <Link href="/signup" className="text-primary hover:underline">
           Sign up
         </Link>
       </div>
     </>
   );
-} 
+}

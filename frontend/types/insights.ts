@@ -1,4 +1,9 @@
-export type InsightType = 'theme' | 'pattern' | 'mood' | 'suggestion' | 'summary';
+export type InsightType =
+  | "theme"
+  | "pattern"
+  | "mood"
+  | "suggestion"
+  | "summary";
 
 export interface Insight {
   id: string;
@@ -11,9 +16,9 @@ export interface Insight {
 }
 
 export interface InsightSummary {
-  period: 'week' | 'month' | 'year';
+  period: "week" | "month" | "year";
   themes: string[];
   mood_trend: string;
   highlights: Insight[];
   generated_at: string;
-} 
+}

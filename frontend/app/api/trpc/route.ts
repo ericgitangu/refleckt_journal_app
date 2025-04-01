@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 const createContext = async (req: Request) => {
   return {
     session: null,
-    req
+    req,
   };
 };
 
@@ -31,7 +31,7 @@ const handler = async (req: Request) => {
       process.env.NODE_ENV === "development"
         ? ({ path, error }) => {
             console.error(
-              `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`
+              `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`,
             );
           }
         : undefined,

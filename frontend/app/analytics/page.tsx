@@ -8,7 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Icons } from "@/components/icons";
-import { AnalyticsData, getAnalyticsSummary } from "@/lib/services/analytics-service";
+import {
+  AnalyticsData,
+  getAnalyticsSummary,
+} from "@/lib/services/analytics-service";
 
 // Analytics content component that uses React hooks
 function AnalyticsContent() {
@@ -84,11 +87,9 @@ function AnalyticsContent() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                {analytics ? (
-                  `You've written ${analytics.entry_count || 0} entries in this period.`
-                ) : (
-                  "Start writing to see your analytics!"
-                )}
+                {analytics
+                  ? `You've written ${analytics.entry_count || 0} entries in this period.`
+                  : "Start writing to see your analytics!"}
               </p>
             </CardContent>
           </Card>
@@ -138,4 +139,4 @@ export default function AnalyticsPage() {
       <AnalyticsContent />
     </ClientOnly>
   );
-} 
+}

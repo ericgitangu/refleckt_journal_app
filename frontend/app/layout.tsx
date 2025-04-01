@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   },
   description:
     "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences. With a clean, minimalist interface, powerful AI-driven insights, and a scalable serverless architecture, Reflekt makes journaling a pleasure while providing meaningful reflection opportunities.",
-  
+
   // PWA specific metadata
   applicationName: "Reflekt Journal",
   appleWebApp: {
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   manifest: "/manifest.json",
-  
+
   // Icons (favicon, etc)
   icons: {
     icon: [
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
       },
     ],
   },
-  
+
   metadataBase: new URL(baseUrl),
 
   // OpenGraph metadata for social sharing
@@ -90,7 +90,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Reflekt Journal",
-    description: "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences with powerful AI-driven insights.",
+    description:
+      "Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences with powerful AI-driven insights.",
     images: ["/opengraph-image.jpg"],
   },
 
@@ -103,7 +104,6 @@ export const metadata: Metadata = {
     "personal growth",
   ],
   authors: [{ name: "Eric Gitangu" }],
-  
 };
 
 // Separate viewport configuration
@@ -126,12 +126,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={montserrat.variable}>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta property="og:image" content="https://refleckt.vercel.app/_next/image?url=%2Flogo.jpg&w=1200&q=75" />
+        <meta
+          property="og:image"
+          content="https://refleckt.vercel.app/_next/image?url=%2Flogo.jpg&w=1200&q=75"
+        />
       </head>
       <body className={`${inter.className} flex flex-col min-h-screen`}>
-        <ClientProviders>
-          {children}
-        </ClientProviders>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   );

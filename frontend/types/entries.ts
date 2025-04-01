@@ -33,7 +33,7 @@ export interface SearchEntryParams {
   from_date?: string;
   to_date?: string;
   mood?: string;
-  sort_by?: 'date_asc' | 'date_desc' | 'title_asc' | 'title_desc';
+  sort_by?: "date_asc" | "date_desc" | "title_asc" | "title_desc";
   limit?: number;
   page?: number;
 }
@@ -41,4 +41,4 @@ export interface SearchEntryParams {
 export interface TagCount {
   tag: string;
   count: number;
-} 
+}

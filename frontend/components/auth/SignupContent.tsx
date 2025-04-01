@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
 
 export function SignupContent() {
   const router = useRouter();
   const { data: session } = useSession();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams?.get('callbackUrl') || '/journal';
+  const callbackUrl = searchParams?.get("callbackUrl") || "/journal";
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -33,11 +33,11 @@ export function SignupContent() {
       });
 
       if (!result?.ok) {
-        setError('Registration failed. Please try again.');
+        setError("Registration failed. Please try again.");
       }
     } catch (err) {
-      console.error('Signup error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      console.error("Signup error:", err);
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +48,7 @@ export function SignupContent() {
       {/* Auth buttons */}
       <div className="flex flex-col space-y-3">
         <Button
-          onClick={() => handleSignup('cognito')}
+          onClick={() => handleSignup("cognito")}
           className="w-full border border-gray-800 dark:border-transparent"
           disabled={isLoading}
         >
@@ -57,7 +57,7 @@ export function SignupContent() {
 
         <Button
           variant="outline"
-          onClick={() => handleSignup('google')}
+          onClick={() => handleSignup("google")}
           className="w-full"
           disabled={isLoading}
         >
@@ -77,11 +77,11 @@ export function SignupContent() {
 
       {/* Login link */}
       <div className="text-sm">
-        Already have an account?{' '}
+        Already have an account?{" "}
         <Link href="/login" className="text-primary hover:underline">
           Sign in
         </Link>
       </div>
     </>
   );
-} 
+}

@@ -1,5 +1,5 @@
 // frontend/components/journal/EntryEditor.tsx
-import React from 'react';
+import React from "react";
 
 interface EntryEditorProps {
   value: string;
@@ -8,11 +8,11 @@ interface EntryEditorProps {
   placeholder?: string;
 }
 
-export default function EntryEditor({ 
-  value, 
-  onChange, 
-  fontSize = 16, 
-  placeholder = 'Start writing...' 
+export default function EntryEditor({
+  value,
+  onChange,
+  fontSize = 16,
+  placeholder = "Start writing...",
 }: EntryEditorProps) {
   return (
     <textarea

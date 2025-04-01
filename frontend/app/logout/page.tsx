@@ -28,13 +28,15 @@ function LogoutContent() {
 // Page component that wraps the client component
 export default function LogoutPage() {
   return (
-    <ClientOnly fallback={
-      <div className="container flex h-screen w-screen flex-col items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold">Preparing to sign out...</h1>
+    <ClientOnly
+      fallback={
+        <div className="container flex h-screen w-screen flex-col items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-semibold">Preparing to sign out...</h1>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <LogoutContent />
     </ClientOnly>
   );

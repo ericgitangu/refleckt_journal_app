@@ -64,10 +64,10 @@ export default function NewJournalEntryPage() {
   const handleSave = async () => {
     try {
       // Save the entry via the API
-      const response = await fetch('/api/journal-entries', {
-        method: 'POST',
+      const response = await fetch("/api/journal-entries", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           title,
@@ -82,11 +82,11 @@ export default function NewJournalEntryPage() {
       }
 
       // Success - redirect back to journal page
-      router.push('/journal');
+      router.push("/journal");
     } catch (error) {
-      console.error('Error saving journal entry:', error);
+      console.error("Error saving journal entry:", error);
       // In a real app, you would show an error message to the user
-      alert('Failed to save your journal entry. Please try again.');
+      alert("Failed to save your journal entry. Please try again.");
     }
   };
 
@@ -175,7 +175,7 @@ export default function NewJournalEntryPage() {
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="What&apos;s on your mind today?"
+                placeholder="What's on your mind today?"
                 className="w-full bg-transparent border-0 p-0 min-h-[300px] text-lg font-serif leading-relaxed focus:outline-none"
                 style={{
                   backgroundImage:
@@ -191,23 +191,27 @@ export default function NewJournalEntryPage() {
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Smile className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">How are you feeling?</span>
+                  <span className="text-sm font-medium">
+                    How are you feeling?
+                  </span>
                 </div>
-                
+
                 <div className="relative">
                   <button
                     onClick={() => setShowMoodSelector(!showMoodSelector)}
                     className={`px-3 py-1.5 rounded-full text-sm border transition ${
-                      mood ? 'border-primary' : 'border-[rgba(0,0,0,0.1)]'
+                      mood ? "border-primary" : "border-[rgba(0,0,0,0.1)]"
                     }`}
                   >
                     {mood ? (
                       <>
                         {MOOD_EMOJIS[mood]} {mood}
                       </>
-                    ) : "Select mood"}
+                    ) : (
+                      "Select mood"
+                    )}
                   </button>
-                  
+
                   {showMoodSelector && (
                     <div className="absolute top-full left-0 mt-1 p-2 bg-background rounded-lg border shadow-lg z-10 w-56">
                       <div className="grid grid-cols-3 gap-1">
@@ -216,7 +220,9 @@ export default function NewJournalEntryPage() {
                             key={moodOption}
                             onClick={() => selectMood(moodOption)}
                             className={`px-2 py-1 rounded text-xs capitalize transition hover:bg-muted ${
-                              mood === moodOption ? 'bg-primary/10 text-primary' : ''
+                              mood === moodOption
+                                ? "bg-primary/10 text-primary"
+                                : ""
                             }`}
                           >
                             {MOOD_EMOJIS[moodOption]} {moodOption}

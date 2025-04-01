@@ -20,4 +20,4 @@ export interface PromptHistory {
   recently_shown: string[];
   last_shown_date: string;
   favorite_categories: string[];
-} 
+}

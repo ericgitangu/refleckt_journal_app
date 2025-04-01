@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Footer } from './ui/footer';
+import { Footer } from "./ui/footer";
 
 export const ClientFooter = () => {
   return <Footer />;
-}; 
+};

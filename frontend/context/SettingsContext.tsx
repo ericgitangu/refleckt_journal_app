@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { settingsApi } from '@/lib/api/settings';
-import { UserSettings } from '@/types/settings';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { settingsApi } from "@/lib/api/settings";
+import { UserSettings } from "@/types/settings";
 
 interface SettingsContextType {
   settings: UserSettings | null;
@@ -10,7 +10,9 @@ interface SettingsContextType {
   refetchSettings: () => Promise<void>;
 }
 
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
+const SettingsContext = createContext<SettingsContextType | undefined>(
+  undefined,
+);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -67,7 +69,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 export function useSettings() {
   const context = useContext(SettingsContext);
   if (context === undefined) {
-    throw new Error('useSettings must be used within a SettingsProvider');
+    throw new Error("useSettings must be used within a SettingsProvider");
   }
   return context;
-} 
+}

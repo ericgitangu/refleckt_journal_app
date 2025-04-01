@@ -4,7 +4,14 @@ import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { ClientOnly } from "@/components/ClientOnly";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Icons } from "@/components/icons";
@@ -22,47 +29,47 @@ interface Prompt {
 // Mock data for fallback if API fails
 const FALLBACK_PROMPTS: Prompt[] = [
   {
-    id: 'fallback-reflective-1',
+    id: "fallback-reflective-1",
     text: "What was the most meaningful moment of your day, and why did it stand out to you?",
-    category: 'reflective',
+    category: "reflective",
     created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    tags: ['daily-reflection', 'meaning']
+    tags: ["daily-reflection", "meaning"],
   },
   {
-    id: 'fallback-growth-1',
+    id: "fallback-growth-1",
     text: "What are you learning about yourself during this current chapter of your life?",
-    category: 'growth',
+    category: "growth",
     created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    tags: ['self-discovery', 'life-lessons']
+    tags: ["self-discovery", "life-lessons"],
   },
   {
-    id: 'fallback-creative-1',
+    id: "fallback-creative-1",
     text: "If you could design your ideal living space with no limitations, what would it include and why?",
-    category: 'creative',
+    category: "creative",
     created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    tags: ['imagination', 'dreams']
+    tags: ["imagination", "dreams"],
   },
   {
-    id: 'fallback-gratitude-1',
+    id: "fallback-gratitude-1",
     text: "What small, everyday comfort are you most grateful for that you might take for granted?",
-    category: 'gratitude',
+    category: "gratitude",
     created_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-    tags: ['appreciation', 'mindfulness']
+    tags: ["appreciation", "mindfulness"],
   },
   {
-    id: 'fallback-mindfulness-1',
+    id: "fallback-mindfulness-1",
     text: "Take a moment to notice your breathing. How does focusing on your breath for a minute shift your perspective?",
-    category: 'mindfulness',
+    category: "mindfulness",
     created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    tags: ['breath', 'awareness']
+    tags: ["breath", "awareness"],
   },
   {
-    id: 'fallback-reflective-2',
+    id: "fallback-reflective-2",
     text: "What advice would you give to yourself one year ago, and how have your priorities shifted since then?",
-    category: 'reflective',
+    category: "reflective",
     created_at: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
-    tags: ['growth', 'perspective']
-  }
+    tags: ["growth", "perspective"],
+  },
 ];
 
 // Prompts content component that uses React hooks
@@ -94,7 +101,7 @@ function PromptsContent() {
   const fetchPrompts = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/prompts');
+      const response = await fetch("/api/prompts");
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
@@ -103,41 +110,50 @@ function PromptsContent() {
       setError(null);
     } catch (err) {
       console.error("Error fetching prompts:", err);
-      
+
       // Ensure we have prompts from all categories in the fallbacks
-      const categorySet = new Set(FALLBACK_PROMPTS.map(prompt => prompt.category));
-      const allCategories = ["reflective", "gratitude", "creative", "growth", "mindfulness"];
-      
+      const categorySet = new Set(
+        FALLBACK_PROMPTS.map((prompt) => prompt.category),
+      );
+      const allCategories = [
+        "reflective",
+        "gratitude",
+        "creative",
+        "growth",
+        "mindfulness",
+      ];
+
       // For any missing categories, add a default prompt
       let enhancedFallbacks = [...FALLBACK_PROMPTS];
-      
-      allCategories.forEach(category => {
+
+      allCategories.forEach((category) => {
         if (!categorySet.has(category)) {
           enhancedFallbacks.push({
             id: `fallback-${category}-auto`,
             text: `Take a moment to reflect on ${category} in your life. What patterns do you notice, and what might you want to explore further?`,
             category: category,
             created_at: new Date().toISOString(),
-            tags: [category, 'reflection']
+            tags: [category, "reflection"],
           });
         }
       });
-      
+
       // Ensure we have at least 6 prompts for a good grid display
       if (enhancedFallbacks.length < 6) {
         const additionalNeeded = 6 - enhancedFallbacks.length;
         for (let i = 0; i < additionalNeeded; i++) {
-          const randomCategory = allCategories[Math.floor(Math.random() * allCategories.length)];
+          const randomCategory =
+            allCategories[Math.floor(Math.random() * allCategories.length)];
           enhancedFallbacks.push({
             id: `fallback-additional-${i}`,
             text: `What does ${randomCategory} mean to you personally? How has your understanding of it evolved over time?`,
             category: randomCategory,
             created_at: new Date().toISOString(),
-            tags: [randomCategory, 'personal-meaning']
+            tags: [randomCategory, "personal-meaning"],
           });
         }
       }
-      
+
       // Use the enhanced fallbacks
       setPrompts(enhancedFallbacks);
       setError("Failed to load prompts. Showing generic prompts instead.");
@@ -149,12 +165,12 @@ function PromptsContent() {
   const fetchDailyPrompt = async () => {
     setDailyPromptLoading(true);
     try {
-      const response = await fetch('/api/prompts/daily');
+      const response = await fetch("/api/prompts/daily");
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
       const data = await response.json();
-      
+
       if (data.prompt) {
         setDailyPrompt(data.prompt);
         setDailyPromptError(null);
@@ -164,12 +180,20 @@ function PromptsContent() {
       }
     } catch (err) {
       console.error("Error fetching daily prompt:", err);
-      
+
       // Create a high-quality fallback prompt based on current day
       const today = new Date();
-      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayNames = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
       const dayName = dayNames[today.getDay()];
-      
+
       // Generate a different prompt based on the day of the week
       // This ensures variety even if the API consistently fails
       const weekdayPrompts = [
@@ -179,21 +203,21 @@ function PromptsContent() {
         `Take a moment this ${dayName} to notice your surroundings. What beauty have you been overlooking?`,
         `On this ${dayName}, reflect on a goal you've been working toward. What progress have you made?`,
         `For today's ${dayName}, consider how you might bring more joy into your routine.`,
-        `This ${dayName}, reflect on someone who has positively influenced your life recently.`
+        `This ${dayName}, reflect on someone who has positively influenced your life recently.`,
       ];
-      
+
       // Use the day of the week to pick a prompt
       const promptText = weekdayPrompts[today.getDay()];
-      
+
       // Set a quietly fail fallback - user sees a normal prompt but we know it's a fallback
       setDailyPrompt({
-        id: 'fallback-daily',
+        id: "fallback-daily",
         text: promptText,
-        category: 'daily',
+        category: "daily",
         created_at: new Date().toISOString(),
-        tags: ['reflection', dayName.toLowerCase()]
+        tags: ["reflection", dayName.toLowerCase()],
       });
-      
+
       // Set a subtle error flag but don't make it disruptive
       setDailyPromptError("Using offline prompt");
     } finally {
@@ -213,28 +237,32 @@ function PromptsContent() {
       setError(null);
     } catch (err) {
       console.error(`Error fetching ${categoryName} prompts:`, err);
-      
+
       // Filter fallback prompts by selected category
       let filteredPrompts = FALLBACK_PROMPTS;
-      if (categoryName !== 'all') {
-        filteredPrompts = FALLBACK_PROMPTS.filter(prompt => 
-          prompt.category === categoryName
+      if (categoryName !== "all") {
+        filteredPrompts = FALLBACK_PROMPTS.filter(
+          (prompt) => prompt.category === categoryName,
         );
-        
+
         // If no fallbacks for this category, show at least one general fallback
         if (filteredPrompts.length === 0) {
-          filteredPrompts = [{
-            id: `fallback-${categoryName}-empty`,
-            text: `What experiences in your life relate to ${categoryName}? Take a moment to reflect on how this theme appears in your daily life.`,
-            category: categoryName,
-            created_at: new Date().toISOString(),
-            tags: [categoryName, 'reflection']
-          }];
+          filteredPrompts = [
+            {
+              id: `fallback-${categoryName}-empty`,
+              text: `What experiences in your life relate to ${categoryName}? Take a moment to reflect on how this theme appears in your daily life.`,
+              category: categoryName,
+              created_at: new Date().toISOString(),
+              tags: [categoryName, "reflection"],
+            },
+          ];
         }
       }
-      
+
       setPrompts(filteredPrompts);
-      setError(`Failed to load ${categoryName} prompts. Showing generic prompts instead.`);
+      setError(
+        `Failed to load ${categoryName} prompts. Showing generic prompts instead.`,
+      );
     } finally {
       setLoading(false);
     }
@@ -243,9 +271,9 @@ function PromptsContent() {
   const applyPrompt = (promptText: string) => {
     window.location.href = `/journal/new?prompt=${encodeURIComponent(promptText)}`;
   };
-  
+
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
+    setRetryCount((prev) => prev + 1);
     // Also retry fetching the daily prompt
     fetchDailyPrompt();
   };
@@ -262,7 +290,14 @@ function PromptsContent() {
     redirect("/login");
   }
 
-  const categories = ["all", "reflective", "gratitude", "creative", "growth", "mindfulness"];
+  const categories = [
+    "all",
+    "reflective",
+    "gratitude",
+    "creative",
+    "growth",
+    "mindfulness",
+  ];
 
   return (
     <div className="container py-6">
@@ -297,13 +332,15 @@ function PromptsContent() {
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle>Today&apos;s Prompt</CardTitle>
-                  <CardDescription>A fresh prompt to inspire your daily journaling</CardDescription>
+                  <CardDescription>
+                    A fresh prompt to inspire your daily journaling
+                  </CardDescription>
                 </div>
                 {dailyPromptError && (
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => fetchDailyPrompt()} 
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => fetchDailyPrompt()}
                     className="h-8 w-8"
                     title="Try again"
                   >
@@ -336,9 +373,9 @@ function PromptsContent() {
       <Tabs defaultValue="all" className="mb-6">
         <TabsList className="mb-4">
           {categories.map((cat) => (
-            <TabsTrigger 
-              key={cat} 
-              value={cat} 
+            <TabsTrigger
+              key={cat}
+              value={cat}
               onClick={() => setCategory(cat)}
               className="capitalize"
             >
@@ -413,7 +450,11 @@ function PromptsContent() {
                 )}
               </CardContent>
               <CardFooter className="border-t bg-muted/50 pt-4">
-                <Button variant="secondary" onClick={() => applyPrompt(prompt.text)} className="w-full">
+                <Button
+                  variant="secondary"
+                  onClick={() => applyPrompt(prompt.text)}
+                  className="w-full"
+                >
                   Use Prompt
                 </Button>
               </CardFooter>
@@ -432,4 +473,4 @@ export default function PromptsPage() {
       <PromptsContent />
     </ClientOnly>
   );
-} 
+}

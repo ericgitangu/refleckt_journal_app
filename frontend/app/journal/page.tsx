@@ -29,17 +29,20 @@ function JournalContent() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // First try tRPC, fallback to REST API if needed
-  const { data: journalData, isLoading: isLoadingJournal, error: trpcError } =
-    trpc.getJournalEntries.useQuery(undefined, {
-      // Don't retry on error, we'll fallback to our REST API
-      retry: false,
-      onError: (err) => {
-        console.error("tRPC error, falling back to REST API:", err);
-        // We'll handle the fallback in the useEffect
-      }
-    });
+  const {
+    data: journalData,
+    isLoading: isLoadingJournal,
+    error: trpcError,
+  } = trpc.getJournalEntries.useQuery(undefined, {
+    // Don't retry on error, we'll fallback to our REST API
+    retry: false,
+    onError: (err) => {
+      console.error("tRPC error, falling back to REST API:", err);
+      // We'll handle the fallback in the useEffect
+    },
+  });
 
   // Fallback to REST API if tRPC fails
   useEffect(() => {
@@ -49,17 +52,17 @@ function JournalContent() {
       setLoading(false);
       return;
     }
-    
+
     // If tRPC is still loading and hasn't errored, wait
     if (isLoadingJournal && !trpcError) {
       return;
     }
-    
+
     // If we get here, tRPC has either errored or finished loading without data
     // Fetch from our fallback REST API
     const fetchEntries = async () => {
       try {
-        const response = await fetch('/api/journal-entries');
+        const response = await fetch("/api/journal-entries");
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
@@ -73,7 +76,7 @@ function JournalContent() {
         setLoading(false);
       }
     };
-    
+
     fetchEntries();
   }, [journalData, isLoadingJournal, trpcError]);
 
@@ -101,7 +104,7 @@ function JournalContent() {
           </Link>
         </Button>
       </div>
-      
+
       {error ? (
         <Card>
           <CardContent className="pt-6">
@@ -111,7 +114,9 @@ function JournalContent() {
       ) : entries.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground mb-4">No journal entries yet. Start writing!</p>
+            <p className="text-muted-foreground mb-4">
+              No journal entries yet. Start writing!
+            </p>
             <Button asChild>
               <Link href="/journal/new">
                 <Icons.plus className="mr-2 h-4 w-4" />
@@ -142,7 +147,10 @@ function JournalContent() {
                 {entry.tags && entry.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {entry.tags.map((tag, idx) => (
-                      <span key={idx} className="text-xs px-2 py-1 bg-secondary rounded-full">
+                      <span
+                        key={idx}
+                        className="text-xs px-2 py-1 bg-secondary rounded-full"
+                      >
                         #{tag}
                       </span>
                     ))}

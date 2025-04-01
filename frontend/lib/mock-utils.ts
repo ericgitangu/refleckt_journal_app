@@ -7,16 +7,16 @@
  */
 export function shouldUseMockData(): boolean {
   // Default to true in development and false in production
-  const defaultValue = process.env.NODE_ENV === 'development';
-  
+  const defaultValue = process.env.NODE_ENV === "development";
+
   // Use environment variable if set
   const envValue = process.env.NEXT_PUBLIC_USE_MOCK_DATA;
-  
+
   // If env var is set, parse it as boolean
   if (envValue !== undefined) {
-    return envValue === 'true';
+    return envValue === "true";
   }
-  
+
   return defaultValue;
 }
 
@@ -34,20 +34,22 @@ export interface WithMockFallback<T> {
  * @param options Configuration for fetching with mock fallback
  * @returns The data from backend or mock data if backend fails
  */
-export async function fetchWithMockFallback<T>(options: WithMockFallback<T>): Promise<T> {
+export async function fetchWithMockFallback<T>(
+  options: WithMockFallback<T>,
+): Promise<T> {
   // If using mock data explicitly, return it immediately
   if (options.useMock || shouldUseMockData()) {
-    console.info('Using mock data as configured');
+    console.info("Using mock data as configured");
     return options.mockData;
   }
-  
+
   try {
     // Try to fetch real data
     const data = await options.fetch();
     return data;
   } catch (error) {
     // Log error and fall back to mock data
-    console.warn('Backend fetch failed, falling back to mock data:', error);
+    console.warn("Backend fetch failed, falling back to mock data:", error);
     return options.mockData;
   }
-} 
+}
