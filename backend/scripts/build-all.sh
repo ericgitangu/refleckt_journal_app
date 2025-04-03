@@ -1,161 +1,211 @@
 #!/bin/bash
 # Script to build all Lambda services in the backend for WSL2 Ubuntu environment
 
-set -e
+set -eo pipefail
 
 # Directory containing this script
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+SCRIPT_DIR="$(dirname "$0")"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Source utils.sh for helper functions
-source "$SCRIPT_DIR/utils.sh"
+# Source common helper functions
+source "$SCRIPT_DIR/common.sh"
 
-# Make sure the build directory exists
-mkdir -p "$BACKEND_DIR/build-logs"
+# Script constants
+LOG_DIR="$BACKEND_DIR/build-logs"
+REQUIRED_SPACE_MB=500
+LOCAL_BIN="$BACKEND_DIR/.local/bin"
+RUST_VERSION="1.85.0"
+RUSTUP_TOOLCHAIN_BIN="$HOME/.rustup/toolchains/${RUST_VERSION}-x86_64-apple-darwin/bin"
 
-# Target architecture based on environment variable or default
-TARGET=${TARGET:-"aarch64-unknown-linux-musl"}
-LAMBDA_RUNTIME=${LAMBDA_RUNTIME:-"provided.al2023"}
+# Create directories
+mkdir -p "$LOG_DIR"
+mkdir -p "$LOCAL_BIN"
 
-# Services to build in order (common must be first)
-SERVICES=(
-    "common"
-    "authorizer"
-    "analytics-service"
-    "ai-service"
-    "entry-service"
-    "settings-service"
-    "prompts-service"
-)
-
-# Setup Lambda build environment
-setup_lambda_build() {
-    log_info "Setting up Lambda build environment for WSL2 Ubuntu..."
+# Verify the Rust version is correct
+verify_rust_version() {
+    log_info "Verifying Rust version..."
     
-    # Install cargo-lambda if not already installed
+    # Try using environment variable 
+    export RUSTUP_TOOLCHAIN="${RUST_VERSION}"
+    
+    # Check if the right version is being used
+    ACTUAL_VERSION=$("$RUSTUP_TOOLCHAIN_BIN/rustc" --version)
+    if [[ "$ACTUAL_VERSION" == *"$RUST_VERSION"* ]]; then
+        log_success "Confirmed using Rust $RUST_VERSION: $ACTUAL_VERSION"
+    else
+        log_error "Wrong Rust version detected: $ACTUAL_VERSION (expected $RUST_VERSION)"
+        log_error "Please run ./scripts/fix-rust-version.sh first"
+        exit 1
+    fi
+}
+
+# Clean previous builds
+clean_previous_builds() {
+    print_banner "CLEANING PREVIOUS BUILDS"
+    
+    log_info "Cleaning build logs..."
+    rm -rf "$LOG_DIR"/*
+    
+    log_info "Cleaning target directories..."
+    # Clean common
+    if [ -d "$BACKEND_DIR/common/target" ]; then
+        log_info "Cleaning common/target..."
+        rm -rf "$BACKEND_DIR/common/target" || true
+    fi
+    
+    # Clean services
+    local services=(
+        "authorizer"
+        "entry-service"
+        "analytics-service"
+        "ai-service" 
+        "settings-service"
+        "prompts-service"
+    )
+    
+    for service in "${services[@]}"; do
+        if [ -d "$BACKEND_DIR/$service/target" ]; then
+            log_info "Cleaning $service/target..."
+            rm -rf "$BACKEND_DIR/$service/target" || true
+        fi
+    done
+    
+    log_success "All previous builds cleaned."
+}
+
+# Set up environment without sudo
+setup_env_without_sudo() {
+    print_banner "SETTING UP BUILD ENVIRONMENT"
+    
+    # Add local bin to PATH
+    if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
+        export PATH="$LOCAL_BIN:$PATH"
+        log_info "Added $LOCAL_BIN to PATH"
+    fi
+    
+    # Add rustup bin to PATH
+    if [[ ":$PATH:" != *":$RUSTUP_TOOLCHAIN_BIN:"* ]]; then
+        export PATH="$RUSTUP_TOOLCHAIN_BIN:$PATH"
+        log_info "Added $RUSTUP_TOOLCHAIN_BIN to PATH"
+    fi
+    
+    # Make sure we're using the right Rust version
+    log_info "Ensuring Rust $RUST_VERSION is installed and active..."
+    rustup install "$RUST_VERSION" --force
+    
+    # Install cargo-lambda locally if needed
     if ! command -v cargo-lambda &> /dev/null; then
-        log_info "Installing cargo-lambda..."
-        cargo install cargo-lambda
+        log_info "Installing cargo-lambda to $LOCAL_BIN..."
+        "$RUSTUP_TOOLCHAIN_BIN/cargo" install cargo-lambda --root "$BACKEND_DIR/.local"
         if [ $? -ne 0 ]; then
-            log_error "Failed to install cargo-lambda. Please install it manually."
+            log_error "Failed to install cargo-lambda locally. Check permissions."
+            log_info "You can try installing it manually with: cargo install cargo-lambda"
             exit 1
         fi
     fi
     
-    # Add target to rustup
-    rustup target add "$TARGET"
+    # Set up target architecture
+    TARGET=${TARGET:-"aarch64-unknown-linux-musl"}
+    LAMBDA_RUNTIME=${LAMBDA_RUNTIME:-"provided.al2023"}
     
-    # Install required packages for ARM64 in WSL2 Ubuntu
-    if [[ "$TARGET" == *"aarch64"* ]]; then
-        if ! dpkg -l | grep -q "gcc-aarch64-linux-gnu"; then
-            log_info "Installing ARM64 cross-compilation tools in WSL2..."
-            sudo apt-get update
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-        fi
-    fi
+    # Add the target to rustup (this doesn't require sudo)
+    rustup target add --toolchain "$RUST_VERSION" "$TARGET"
     
-    log_success "Lambda build environment set up for $TARGET"
+    # Verify the Rust version
+    verify_rust_version
+    
+    log_success "Build environment set up without sudo."
 }
 
-# Build the common library 
-build_common() {
-    log_info "Building common library..."
+# Build services function
+build_services() {
+    print_banner "BUILDING ALL SERVICES"
     
-    cd "$BACKEND_DIR/common"
+    # Check for available space
+    check_available_space "$REQUIRED_SPACE_MB"
     
-    if [ -f "Makefile" ]; then
-        make build TARGET="$TARGET" 2>&1 | tee "$BACKEND_DIR/build-logs/common-build.log"
-    else
-        # Since the common library isn't a Lambda function, just use cargo build
-        log_info "No Makefile found, using cargo build..."
-        cargo build --release --target "$TARGET" 2>&1 | tee "$BACKEND_DIR/build-logs/common-build.log"
-    fi
-    
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        log_error "Failed to build common library. See build-logs/common-build.log for details."
-        exit 1
-    fi
-    
-    log_success "Common library built successfully"
-    
-    cd "$BACKEND_DIR"
-}
-
-# Build a service with cargo-lambda
-build_service_lambda() {
-    local service="$1"
-    
-    # Skip if it's the common library (already built separately)
-    if [ "$service" == "common" ]; then
-        return 0
-    fi
-    
-    log_info "Building $service with cargo-lambda..."
-    
-    # Check if service directory exists and has a Cargo.toml
-    if [ ! -d "$BACKEND_DIR/$service" ] || [ ! -f "$BACKEND_DIR/$service/Cargo.toml" ]; then
-        log_info "Skipping $service (not a valid Rust project)"
-        return 0
-    fi
-    
-    cd "$BACKEND_DIR/$service"
-    
-    if [ -f "Makefile" ]; then
-        # Use make if Makefile exists
-        log_info "Using Makefile to build $service..."
+    # Build common library first if it exists
+    if [ -d "$BACKEND_DIR/common" ]; then
+        log_info "Building common library with Rust $RUST_VERSION..."
+        (cd "$BACKEND_DIR/common" && RUSTUP_TOOLCHAIN="$RUST_VERSION" "$RUSTUP_TOOLCHAIN_BIN/cargo" build --release --target "$TARGET") > "$LOG_DIR/common-build.log" 2>&1
         
-        # Check which make targets are available
-        if grep -q "build-lambda:" Makefile; then
-            make build-lambda TARGET="$TARGET" LAMBDA_RUNTIME="$LAMBDA_RUNTIME" 2>&1 | tee "$BACKEND_DIR/build-logs/$service-build.log"
-        elif grep -q "package:" Makefile; then
-            make package TARGET="$TARGET" 2>&1 | tee "$BACKEND_DIR/build-logs/$service-build.log"
-        else
-            # If neither target exists, just use 'all'
-            make all TARGET="$TARGET" 2>&1 | tee "$BACKEND_DIR/build-logs/$service-build.log"
+        if [ $? -ne 0 ]; then
+            log_error "Failed to build common library. See $LOG_DIR/common-build.log for details."
+            cat "$LOG_DIR/common-build.log"
+            exit 1
         fi
-    else
-        # Use cargo-lambda for building
-        log_info "No Makefile found, using cargo-lambda build..."
-        cargo lambda build --release --target "$TARGET" --lambda-runtime "$LAMBDA_RUNTIME" 2>&1 | tee "$BACKEND_DIR/build-logs/$service-build.log"
+        
+        log_success "Common library built successfully."
     fi
     
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        log_error "Failed to build $service. See build-logs/$service-build.log for details."
-        exit 1
-    fi
+    # List of services to build
+    local services=(
+        "authorizer"
+        "entry-service"
+        "analytics-service"
+        "ai-service" 
+        "settings-service"
+        "prompts-service"
+    )
     
-    log_success "$service built successfully with cargo-lambda"
+    # Build each service with cargo-lambda
+    for service in "${services[@]}"; do
+        log_info "Building $service with cargo-lambda and Rust $RUST_VERSION..."
+        
+        # Skip if service directory doesn't exist
+        if [ ! -d "$BACKEND_DIR/$service" ]; then
+            log_warning "Service directory $service not found, skipping."
+            continue
+        fi
+        
+        # Build using Makefile if available
+        if [ -f "$BACKEND_DIR/$service/Makefile" ]; then
+            log_info "Using Makefile to build $service..."
+            (cd "$BACKEND_DIR/$service" && RUSTUP_TOOLCHAIN="$RUST_VERSION" PATH="$RUSTUP_TOOLCHAIN_BIN:$PATH" make build-musl TARGET="$TARGET") > "$LOG_DIR/$service-build.log" 2>&1
+        else
+            # Build with cargo-lambda
+            log_info "No Makefile found, using cargo-lambda to build $service..."
+            (cd "$BACKEND_DIR/$service" && RUSTUP_TOOLCHAIN="$RUST_VERSION" "$RUSTUP_TOOLCHAIN_BIN/cargo" lambda build --release --target "$TARGET" --lambda-runtime "$LAMBDA_RUNTIME") > "$LOG_DIR/$service-build.log" 2>&1
+        fi
+        
+        if [ $? -ne 0 ]; then
+            log_error "Failed to build $service. See $LOG_DIR/$service-build.log for details."
+            cat "$LOG_DIR/$service-build.log"
+            exit 1
+        fi
+        
+        log_success "$service built successfully."
+        
+        # Verify Lambda package exists
+        if [ -d "$BACKEND_DIR/$service/target/lambda" ]; then
+            log_info "Lambda package exists for $service"
+        else
+            log_warning "No Lambda package found for $service. Check build output."
+        fi
+    done
     
-    # Check if Lambda package exists
-    if [ -d "$BACKEND_DIR/$service/target/lambda/$service" ]; then
-        log_info "Lambda package exists for $service"
-    else
-        log_warning "No Lambda package found for $service. Check build output."
-    fi
-    
-    cd "$BACKEND_DIR"
+    log_success "All services built successfully."
 }
 
 # Main function
 main() {
-    log_info "Building all services for Refleckt Journal App backend with cargo-lambda..."
-    log_info "Target architecture: $TARGET (WSL2 Ubuntu environment)"
+    print_banner "REFLEKT JOURNAL APP BUILD PROCESS"
     
-    # Setup Lambda build environment
-    setup_lambda_build
+    # Check prerequisites
+    check_prerequisites
     
-    # First, build the common library
-    build_common
+    # Clean previous builds
+    clean_previous_builds
     
-    # Then build all other services with cargo-lambda
-    for service in "${SERVICES[@]}"; do
-        if [ "$service" != "common" ]; then
-            build_service_lambda "$service"
-        fi
-    done
+    # Set up environment without sudo
+    setup_env_without_sudo
     
-    log_success "All services built successfully with cargo-lambda!"
+    # Build all services
+    build_services
+    
+    log_success "Build process complete."
+    log_info "Check build logs in $LOG_DIR for details."
+    log_info "To test endpoints, run: ./scripts/test-endpoints.sh"
 }
 
-# Run the main function
 main "$@"

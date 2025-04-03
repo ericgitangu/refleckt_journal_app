@@ -7,8 +7,5 @@ edition = "2021"
 # Use the consolidated common package
 journal-common = { path = "../common" }
 
-# Service-specific dependencies not in common
-base64 = "0.22.1"
-
-# Override tokio version if needed for compatibility
-# tokio = { version = "1.28.2", features = ["full"] }
+# All dependencies have been hoisted to journal-common
+# This includes base64, rand, and all AWS-related dependencies

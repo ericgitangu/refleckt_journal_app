@@ -15,12 +15,18 @@ struct Entry {
     id: String,
     title: String,
     content: String,
+    #[serde(rename = "createdAt")]
     created_at: String,
+    #[serde(rename = "updatedAt")]
     updated_at: String,
+    #[serde(skip_serializing)]
     tenant_id: String,
     user_id: String,
     categories: Vec<String>,
     tags: Option<Vec<String>>,
+    mood: Option<String>,
+    location: Option<String>,
+    word_count: Option<i32>,
     sentiment_score: Option<f64>,
 }
 
@@ -31,6 +37,8 @@ struct CreateEntryInput {
     content: String,
     categories: Vec<String>,
     tags: Option<Vec<String>>,
+    mood: Option<String>,
+    location: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,10 +47,12 @@ struct UpdateEntryInput {
     content: Option<String>,
     categories: Option<Vec<String>>,
     tags: Option<Vec<String>>,
+    mood: Option<String>,
+    location: Option<String>,
 }
 
 // Query parameters for list/search
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 struct EntryQueryParams {
     category: Option<String>,
     start_date: Option<String>,
@@ -89,6 +99,10 @@ async fn create_entry(
     item.insert("created_at".to_string(), AttributeValue::S(timestamp.clone()));
     item.insert("updated_at".to_string(), AttributeValue::S(timestamp.clone()));
     
+    // Calculate word count
+    let word_count = input.content.split_whitespace().count() as i32;
+    item.insert("word_count".to_string(), AttributeValue::N(word_count.to_string()));
+    
     // Add categories
     if !input.categories.is_empty() {
         item.insert(
@@ -102,6 +116,16 @@ async fn create_entry(
         if !tags.is_empty() {
             item.insert("tags".to_string(), AttributeValue::Ss(tags.clone()));
         }
+    }
+    
+    // Add mood if present
+    if let Some(mood) = &input.mood {
+        item.insert("mood".to_string(), AttributeValue::S(mood.clone()));
+    }
+    
+    // Add location if present
+    if let Some(location) = &input.location {
+        item.insert("location".to_string(), AttributeValue::S(location.clone()));
     }
     
     // Save to DynamoDB
@@ -126,6 +150,9 @@ async fn create_entry(
                 user_id: claims.sub.clone(),
                 categories: input.categories,
                 tags: input.tags,
+                mood: input.mood,
+                location: input.location,
+                word_count: Some(word_count),
                 sentiment_score: None,
             };
             
@@ -206,6 +233,9 @@ async fn get_entry(
                         .map(|v| v.as_ss().unwrap().clone())
                         .unwrap_or_default(),
                     tags: item.get("tags").map(|v| v.as_ss().unwrap().clone()),
+                    mood: item.get("mood").map(|v| v.as_s().unwrap().clone()),
+                    location: item.get("location").map(|v| v.as_s().unwrap().clone()),
+                    word_count: item.get("word_count").and_then(|v| v.as_n().ok().map(|n| n.parse::<i32>().ok())),
                     sentiment_score: item
                         .get("sentiment_score")
                         .and_then(|v| v.as_n().ok().map(|n| n.parse::<f64>().ok()))
@@ -307,6 +337,9 @@ async fn list_entries(
                             .map(|v| v.as_ss().unwrap().clone())
                             .unwrap_or_default(),
                         tags: item.get("tags").map(|v| v.as_ss().unwrap().clone()),
+                        mood: item.get("mood").map(|v| v.as_s().unwrap().clone()),
+                        location: item.get("location").map(|v| v.as_s().unwrap().clone()),
+                        word_count: item.get("word_count").and_then(|v| v.as_n().ok().map(|n| n.parse::<i32>().ok())),
                         sentiment_score: item
                             .get("sentiment_score")
                             .and_then(|v| v.as_n().ok().map(|n| n.parse::<f64>().ok()))
@@ -321,8 +354,8 @@ async fn list_entries(
                 .map(|key| base64::encode(serde_json::to_string(key).unwrap_or_default()));
             
             let response_body = serde_json::json!({
-                "entries": entries,
-                "next_token": next_token,
+                "items": entries,
+                "nextCursor": next_token,
             });
             
             Ok(json_response(200, &response_body))
@@ -430,15 +463,27 @@ async fn update_entry(
         expression_values.insert(":tags".to_string(), AttributeValue::Ss(tags.clone()));
     }
     
+    // Add mood if present
+    if let Some(mood) = &input.mood {
+        update_expression.push_str(", mood = :mood");
+        expression_values.insert(":mood".to_string(), AttributeValue::S(mood.clone()));
+    }
+    
+    // Add location if present
+    if let Some(location) = &input.location {
+        update_expression.push_str(", location = :location");
+        expression_values.insert(":location".to_string(), AttributeValue::S(location.clone()));
+    }
+    
     // Update entry
     match dynamo_client
         .update_item()
         .table_name(table_name)
         .key("id", AttributeValue::S(entry_id.to_string()))
         .key("tenant_id", AttributeValue::S(claims.tenant_id.clone()))
-        .update_expression(update_expression)
+        .update_expression(&update_expression)
         .set_expression_attribute_values(Some(expression_values))
-        .return_values("ALL_NEW")
+        .return_values(aws_sdk_dynamodb::model::ReturnValue::AllNew)
         .send()
         .await
     {
@@ -459,6 +504,9 @@ async fn update_entry(
                     .map(|v| v.as_ss().unwrap().clone())
                     .unwrap_or_default(),
                 tags: updated_item.get("tags").map(|v| v.as_ss().unwrap().clone()),
+                mood: updated_item.get("mood").map(|v| v.as_s().unwrap().clone()),
+                location: updated_item.get("location").map(|v| v.as_s().unwrap().clone()),
+                word_count: updated_item.get("word_count").and_then(|v| v.as_n().ok().map(|n| n.parse::<i32>().ok())),
                 sentiment_score: updated_item
                     .get("sentiment_score")
                     .and_then(|v| v.as_n().ok().map(|n| n.parse::<f64>().ok()))
@@ -567,26 +615,165 @@ async fn delete_entry(
     }
 }
 
+async fn health_check(
+    _event: ApiGatewayProxyRequest,
+) -> Result<ApiGatewayProxyResponse, Error> {
+    // Return a simple health check response
+    let health_status = serde_json::json!({
+        "status": "healthy",
+        "service": "entry-service",
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "version": env!("CARGO_PKG_VERSION"),
+    });
+    
+    Ok(json_response(200, &health_status))
+}
+
+async fn get_entry_insights(
+    dynamo_client: &aws_sdk_dynamodb::Client,
+    entry_id: &str,
+    tenant_id: &str,
+) -> Result<ApiGatewayProxyResponse, Error> {
+    // Get the insights table name from environment or use default
+    let insights_table = std::env::var("INSIGHTS_TABLE").unwrap_or_else(|_| "reflekt-insights".to_string());
+    
+    // Query the insights table for the entry
+    let result = dynamo_client
+        .get_item()
+        .table_name(insights_table)
+        .key("entry_id", AttributeValue::S(entry_id.to_string()))
+        .key("tenant_id", AttributeValue::S(tenant_id.to_string()))
+        .send()
+        .await;
+    
+    match result {
+        Ok(response) => {
+            if let Some(item) = response.item {
+                // Convert DynamoDB item to a response object
+                let mut insights = serde_json::Map::new();
+                
+                // Extract sentiment
+                if let Some(AttributeValue::S(sentiment)) = item.get("sentiment") {
+                    insights.insert("sentiment".to_string(), serde_json::Value::String(sentiment.clone()));
+                }
+                
+                // Extract sentiment score
+                if let Some(AttributeValue::N(score)) = item.get("sentiment_score") {
+                    if let Ok(score_f) = score.parse::<f64>() {
+                        insights.insert("sentimentScore".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(score_f).unwrap()));
+                    }
+                }
+                
+                // Extract keywords
+                if let Some(AttributeValue::Ss(keywords)) = item.get("keywords") {
+                    let keyword_values: Vec<serde_json::Value> = keywords
+                        .iter()
+                        .map(|k| serde_json::Value::String(k.clone()))
+                        .collect();
+                    insights.insert("keywords".to_string(), serde_json::Value::Array(keyword_values));
+                }
+                
+                // Extract suggested categories
+                if let Some(AttributeValue::Ss(categories)) = item.get("suggested_categories") {
+                    let category_values: Vec<serde_json::Value> = categories
+                        .iter()
+                        .map(|c| serde_json::Value::String(c.clone()))
+                        .collect();
+                    insights.insert("suggestedCategories".to_string(), serde_json::Value::Array(category_values));
+                }
+                
+                // Extract insights text
+                if let Some(AttributeValue::S(insights_text)) = item.get("insights") {
+                    insights.insert("insights".to_string(), serde_json::Value::String(insights_text.clone()));
+                }
+                
+                // Extract reflections
+                if let Some(AttributeValue::S(reflections)) = item.get("reflections") {
+                    insights.insert("reflections".to_string(), serde_json::Value::String(reflections.clone()));
+                }
+                
+                // Extract provider
+                if let Some(AttributeValue::S(provider)) = item.get("provider") {
+                    insights.insert("provider".to_string(), serde_json::Value::String(provider.clone()));
+                }
+                
+                // Extract created_at
+                if let Some(AttributeValue::S(created_at)) = item.get("created_at") {
+                    insights.insert("createdAt".to_string(), serde_json::Value::String(created_at.clone()));
+                }
+                
+                Ok(json_response(200, &serde_json::Value::Object(insights)))
+            } else {
+                // If no insights found, return empty object with 404
+                Ok(json_response(404, &serde_json::json!({
+                    "message": "No insights found for this entry",
+                    "entryId": entry_id
+                })))
+            }
+        },
+        Err(e) => {
+            // Handle error
+            Err(Box::new(JournalError::DatabaseError(format!("Failed to get insights: {}", e))))
+        }
+    }
+}
+
 async fn handler(
     event: LambdaEvent<ApiGatewayProxyRequest>,
 ) -> Result<ApiGatewayProxyResponse, Error> {
     // Set up tracing
     tracing_subscriber::fmt::init();
     
-    let path = event.payload.path.clone().unwrap_or_default();
-    let method = event.payload.http_method.clone();
+    // Extract path and method for routing
+    let path = event.payload.path.as_deref().unwrap_or("");
+    let method = event.payload.http_method.as_deref().unwrap_or("");
     
     tracing::info!("Handling request: {} {}", method, path);
     
-    match (method.as_str(), path.as_str()) {
+    // Route the request to the appropriate handler
+    match (method, path) {
+        // Health check endpoint
+        ("GET", "/health") => health_check(event.payload).await,
+        
+        // Entry endpoints
         ("POST", "/entries") => create_entry(event.payload).await,
-        ("GET", p) if p.starts_with("/entries/") && !p.contains("/search") => {
+        ("GET", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
             get_entry(event.payload).await
         }
         ("GET", "/entries") => list_entries(event.payload).await,
-        ("PUT", p) if p.starts_with("/entries/") => update_entry(event.payload).await,
-        ("DELETE", p) if p.starts_with("/entries/") => delete_entry(event.payload).await,
-        // Add search handler later
+        ("PUT", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
+            update_entry(event.payload).await
+        }
+        ("DELETE", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
+            delete_entry(event.payload).await
+        }
+        
+        // GET /entries/{id}/insights - Get AI insights for a specific entry
+        ("GET", p, Some("insights")) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
+            // Validate user has access to this entry
+            let claims = match extract_tenant_context(&event.payload.headers).await {
+                Ok(claims) => claims,
+                Err(e) => return Ok(error_response(401, &e)),
+            };
+            
+            let entry_id = p.split('/').nth(2).unwrap();
+            
+            // Check if user has permission to access this entry
+            let dynamo_client = get_dynamo_client().await;
+            let entry = match get_entry_by_id(dynamo_client, entry_id, &claims.tenant_id).await {
+                Ok(entry) => entry,
+                Err(e) => return Ok(error_response(500, &e)),
+            };
+            
+            if entry.user_id != claims.sub {
+                return Ok(error_response(403, &JournalError::AuthorizationError("You do not have permission to access this entry's insights".into())));
+            }
+            
+            // Get insights for the entry
+            get_entry_insights(&dynamo_client, entry_id, &claims.tenant_id).await
+        }
+        
+        // If no route matches, return 404
         _ => Ok(error_response(
             404,
             &JournalError::NotFoundError("Route not found".into()),

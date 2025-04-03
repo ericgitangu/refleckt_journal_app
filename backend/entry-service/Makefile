@@ -20,64 +20,61 @@ TARGET ?= aarch64-unknown-linux-musl
 # Build profile
 PROFILE ?= release
 
+# Rust toolchain version (defaults to 1.85.0 if not set)
+RUSTUP_TOOLCHAIN ?= 1.85.0
+
 # All encompasses build, package, and verify
 all: package verify-lambda
 
 # Setup cross-compilation environment
 setup-cross:
 	@echo "Setting up cross-compilation environment..."
-	@rustup target add $(TARGET)
-	@echo "✅ Cross-compilation environment set up for $(TARGET)"
+	@rustup target add --toolchain $(RUSTUP_TOOLCHAIN) $(TARGET)
+	@echo "✅ Cross-compilation environment set up for $(TARGET) using Rust $(RUSTUP_TOOLCHAIN)"
 
 # Ensure the common library is built first
 build-common:
-	@echo "Building common library..."
+	@echo "Building common library using Rust $(RUSTUP_TOOLCHAIN)..."
 	@if [ -f "$(COMMON_PATH)/Makefile" ]; then \
-		$(MAKE) -C $(COMMON_PATH) build-musl TARGET=$(TARGET); \
+		$(MAKE) -C $(COMMON_PATH) build-musl TARGET=$(TARGET) RUSTUP_TOOLCHAIN=$(RUSTUP_TOOLCHAIN); \
 	else \
-		cd $(COMMON_PATH) && cargo zigbuild --target $(TARGET) --release && cd -; \
+		cd $(COMMON_PATH) && rustup run $(RUSTUP_TOOLCHAIN) cargo build --target $(TARGET) --release && cd -; \
 	fi
 
 # Build the service
 build: build-common
-	@echo "Building $(SERVICE_NAME)..."
+	@echo "Building $(SERVICE_NAME) using Rust $(RUSTUP_TOOLCHAIN)..."
 	@if command -v cargo-lambda &> /dev/null; then \
 		echo "Using cargo-lambda for build..."; \
-		cargo lambda build --release --output-format zip; \
-	elif command -v cargo-zigbuild &> /dev/null; then \
-		echo "Using cargo-zigbuild for build..."; \
-		cargo zigbuild --release; \
+		rustup run $(RUSTUP_TOOLCHAIN) cargo lambda build --release --output-format zip; \
 	else \
 		echo "Using standard cargo for build..."; \
-		cargo build --release; \
+		rustup run $(RUSTUP_TOOLCHAIN) cargo build --release; \
 	fi
 	@echo "✅ $(SERVICE_NAME) built successfully"
 
 # Build with musl for Lambda compatibility
 build-musl: setup-cross build-common
-	@echo "Building $(SERVICE_NAME) for Lambda compatibility with target $(TARGET)..."
-	@if command -v cargo-zigbuild &> /dev/null; then \
-		echo "Using cargo-zigbuild for cross-compilation..."; \
-		cargo zigbuild --target $(TARGET) --release; \
-	elif command -v cargo-lambda &> /dev/null; then \
+	@echo "Building $(SERVICE_NAME) for Lambda compatibility with target $(TARGET) using Rust $(RUSTUP_TOOLCHAIN)..."
+	@if command -v cargo-lambda &> /dev/null; then \
 		echo "Using cargo-lambda for cross-compilation..."; \
-		cargo lambda build --target $(TARGET) --release --output-format zip; \
+		rustup run $(RUSTUP_TOOLCHAIN) cargo lambda build --target $(TARGET) --release --output-format zip; \
 	else \
 		echo "Using standard cargo for cross-compilation..."; \
-		cargo build --target $(TARGET) --release; \
+		rustup run $(RUSTUP_TOOLCHAIN) cargo build --target $(TARGET) --release; \
 	fi
 	@echo "✅ $(SERVICE_NAME) built successfully for Lambda"
 
 # Run tests
 test:
-	@echo "Testing $(SERVICE_NAME)..."
-	cargo test
+	@echo "Testing $(SERVICE_NAME) using Rust $(RUSTUP_TOOLCHAIN)..."
+	rustup run $(RUSTUP_TOOLCHAIN) cargo test
 	@echo "✅ Tests completed"
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning $(SERVICE_NAME)..."
-	cargo clean
+	rustup run $(RUSTUP_TOOLCHAIN) cargo clean
 	rm -rf $(PACKAGE_DIR)
 	@echo "✅ Clean completed"
 

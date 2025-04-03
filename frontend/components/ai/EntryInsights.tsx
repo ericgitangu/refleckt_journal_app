@@ -1,50 +1,45 @@
-import React, { useEffect, useState } from 'react';
-import { getEntryInsights, EntryInsights as InsightsType } from '../../src/services/api';
+import React from 'react';
+import { useAIInsights } from '@/hooks/useAIInsights';
 import { Skeleton } from "../ui/skeleton";
+import { ErrorBoundary } from './ErrorBoundary';
 
-interface InsightsPanelProps {
+interface EntryInsightsProps {
   entryId: string;
-  isLoading?: boolean;
-  insights?: any;
 }
 
-export default function InsightsPanel({ entryId, isLoading: externalLoading }: InsightsPanelProps) {
-  const [insights, setInsights] = useState<InsightsType | null>(null);
-  const [loading, setLoading] = useState(externalLoading !== undefined ? externalLoading : true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchInsights = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getEntryInsights(entryId);
-        setInsights(data);
-      } catch (err) {
-        console.error('Failed to fetch insights:', err);
-        setError('Could not load AI insights. The analysis may still be in progress.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (entryId) {
-      fetchInsights();
-    }
-  }, [entryId]);
+function EntryInsightsContent({ entryId }: EntryInsightsProps) {
+  const { insights, loading, error, isFromCache, refetch } = useAIInsights(entryId);
 
   if (loading) {
-    return <Skeleton className="h-64 w-full" />;
+    return (
+      <div className="p-4 bg-gray-50 rounded-lg shadow-sm">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="mt-4">
+            <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
     return (
       <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-100">
         <h3 className="text-sm font-medium text-yellow-800">AI Insights</h3>
-        <p className="mt-2 text-sm text-yellow-700">{error}</p>
+        <p className="mt-2 text-sm text-yellow-700">{error.message}</p>
         <p className="mt-1 text-xs text-yellow-600">
           AI analysis is typically available a few moments after saving your entry.
         </p>
+        <button 
+          onClick={() => refetch()}
+          className="mt-2 px-3 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-md hover:bg-yellow-200"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
@@ -68,9 +63,14 @@ export default function InsightsPanel({ entryId, isLoading: externalLoading }: I
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
-      <h3 className="text-lg font-semibold mb-4">AI Insights</h3>
+      <div className="flex justify-between items-start">
+        <h3 className="font-medium text-gray-900">AI Insights</h3>
+        {isFromCache && (
+          <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Cached</span>
+        )}
+      </div>
       
-      <div className="space-y-4">
+      <div className="space-y-4 mt-4">
         {/* Sentiment */}
         <div>
           <h4 className="text-xs uppercase tracking-wide text-gray-500">Sentiment</h4>
@@ -132,9 +132,20 @@ export default function InsightsPanel({ entryId, isLoading: externalLoading }: I
         <div className="pt-2 border-t border-gray-100">
           <p className="text-xs text-gray-400">
             Analysis by {insights.provider.charAt(0).toUpperCase() + insights.provider.slice(1)}
+            {isFromCache && insights._timestamp && 
+              <span className="ml-1">(cached {new Date(insights._timestamp).toLocaleDateString()})</span>
+            }
           </p>
         </div>
       </div>
     </div>
   );
 }
+
+export function EntryInsights(props: EntryInsightsProps) {
+  return (
+    <ErrorBoundary>
+      <EntryInsightsContent {...props} />
+    </ErrorBoundary>
+  );
+} 

@@ -28,13 +28,8 @@ build:
 # Build with musl for Lambda compatibility
 build-musl: setup-cross
 	@echo "Building $(LIB_NAME) for Lambda compatibility with target $(TARGET)..."
-	@if command -v cargo-zigbuild &> /dev/null; then \
-		echo "Using cargo-zigbuild for cross-compilation..."; \
-		cargo zigbuild --target $(TARGET) --release; \
-	else \
-		echo "Using standard cargo for cross-compilation..."; \
-		cargo build --target $(TARGET) --release; \
-	fi
+	@echo "Using standard cargo for cross-compilation..."
+	@cargo build --target $(TARGET) --release
 	@echo "✅ $(LIB_NAME) built successfully for Lambda"
 
 # Run tests

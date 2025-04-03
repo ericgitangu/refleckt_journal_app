@@ -35,7 +35,7 @@ build-common:
 	@if [ -f "$(COMMON_PATH)/Makefile" ]; then \
 		$(MAKE) -C $(COMMON_PATH) build-musl TARGET=$(TARGET); \
 	else \
-		cd $(COMMON_PATH) && cargo zigbuild --target $(TARGET) --release && cd -; \
+		cd $(COMMON_PATH) && cargo build --target $(TARGET) --release && cd -; \
 	fi
 
 # Build the service
@@ -44,9 +44,6 @@ build: build-common
 	@if command -v cargo-lambda &> /dev/null; then \
 		echo "Using cargo-lambda for build..."; \
 		cargo lambda build --release --output-format zip; \
-	elif command -v cargo-zigbuild &> /dev/null; then \
-		echo "Using cargo-zigbuild for build..."; \
-		cargo zigbuild --release; \
 	else \
 		echo "Using standard cargo for build..."; \
 		cargo build --release; \
@@ -56,10 +53,7 @@ build: build-common
 # Build with musl for Lambda compatibility
 build-musl: setup-cross build-common
 	@echo "Building $(SERVICE_NAME) for Lambda compatibility with target $(TARGET)..."
-	@if command -v cargo-zigbuild &> /dev/null; then \
-		echo "Using cargo-zigbuild for cross-compilation..."; \
-		cargo zigbuild --target $(TARGET) --release; \
-	elif command -v cargo-lambda &> /dev/null; then \
+	@if command -v cargo-lambda &> /dev/null; then \
 		echo "Using cargo-lambda for cross-compilation..."; \
 		cargo lambda build --target $(TARGET) --release --output-format zip; \
 	else \

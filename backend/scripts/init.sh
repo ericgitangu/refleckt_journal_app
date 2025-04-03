@@ -143,25 +143,25 @@ setup_lambda_build() {
     rustup target add "$TARGET"
     
     # Create cargo config directory if it doesn't exist
-    mkdir -p "$BACKEND_DIR/.cargo"
+    mkdir -p "$(dirname "$BACKEND_DIR")/.cargo"
     
     # Set target-specific environment variables
     if [[ "$TARGET" == *"aarch64"* ]]; then
         log_info "Configuring for ARM64 target"
         
-        # ARM doesn't need AVX512 flags
-        cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+        # Simplified configuration without ring-specific settings
+        cat > "$(dirname "$BACKEND_DIR")/.cargo/config.toml" << EOF
 [build]
 rustflags = []
 
 [env]
 # Empty default environment
 
-# ARM specific settings
+# ARM specific settings - simplified for OpenSSL
 [target.aarch64-unknown-linux-musl]
 rustflags = []
-# ARM-specific compiler config
-env = { "CC_aarch64_unknown_linux_musl" = "clang", "AR_aarch64_unknown_linux_musl" = "llvm-ar", "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
+# Use rust-lld for linking
+env = { "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
 
 # x86_64 specific settings - disable AVX512
 [target.x86_64-unknown-linux-gnu]
@@ -169,16 +169,14 @@ rustflags = ["-C", "target-feature=-avx512f"]
 env = { "CFLAGS" = "-mno-avx512f" }
 EOF
 
-        # Set environment variables for the build
-        export CC_aarch64_unknown_linux_musl=clang
-        export AR_aarch64_unknown_linux_musl=llvm-ar
+        # Set simplified environment variables
         export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-Clink-self-contained=yes -Clinker=rust-lld"
         
     elif [[ "$TARGET" == *"x86_64"* ]]; then
         log_info "Configuring for x86_64 target"
         
         # Need to disable AVX512 for x86_64 targets
-        cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+        cat > "$(dirname "$BACKEND_DIR")/.cargo/config.toml" << EOF
 [build]
 rustflags = []
 
@@ -190,10 +188,10 @@ rustflags = []
 rustflags = ["-C", "target-feature=-avx512f"]
 env = { "CFLAGS" = "-mno-avx512f" }
 
-# ARM specific settings (for completeness)
+# ARM specific settings - simplified for OpenSSL
 [target.aarch64-unknown-linux-musl]
 rustflags = []
-env = { "CC_aarch64_unknown_linux_musl" = "clang", "AR_aarch64_unknown_linux_musl" = "llvm-ar", "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
+env = { "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
 EOF
         
         # Set environment variables for the build
@@ -201,7 +199,7 @@ EOF
         export RUSTFLAGS="-C target-feature=-avx512f"
     fi
     
-    # Set up consistent rust-toolchain.toml files
+    # Set up consolidated rust-toolchain.toml file
     bash "$SCRIPTS_DIR/setup-toolchain.sh"
     
     log_success "Lambda build environment set up for $TARGET"

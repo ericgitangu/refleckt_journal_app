@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to set up consistent rust-toolchain.toml files across all services
+# Script to set up consistent rust-toolchain.toml file at the root level
 
 set -e
 
@@ -10,24 +10,13 @@ BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 # Source utils.sh for helper functions
 source "$SCRIPT_DIR/utils.sh"
 
-# Services list (adjust as needed)
-SERVICES=(
-    "common"
-    "authorizer"
-    "analytics-service"
-    "ai-service"
-    "entry-service"
-    "settings-service"
-    "prompts-service"
-)
-
 # Create root toolchain file
 create_root_toolchain() {
     log_info "Creating root toolchain file..."
     
     cat > "$BACKEND_DIR/rust-toolchain.toml" << EOF
 [toolchain]
-channel = "1.84.0"
+channel = "1.85.0"
 components = ["rustfmt", "clippy"]
 targets = ["aarch64-unknown-linux-musl"]
 profile = "minimal"
@@ -36,44 +25,45 @@ EOF
     log_success "Root toolchain file created successfully"
 }
 
-# Add toolchain file to a service
-add_toolchain_to_service() {
-    local service="$1"
-    local service_dir="$BACKEND_DIR/$service"
+# Remove any service-specific toolchain files
+remove_service_toolchains() {
+    log_info "Removing any service-specific toolchain files..."
     
-    # Check if service directory exists
-    if [ ! -d "$service_dir" ]; then
-        log_warning "Service directory $service does not exist. Skipping."
-        return 0
-    fi
+    # List of services (update as needed)
+    SERVICES=(
+        "common"
+        "authorizer"
+        "analytics-service"
+        "ai-service" 
+        "entry-service"
+        "settings-service"
+        "prompts-service"
+    )
     
-    log_info "Adding toolchain file to $service..."
-    
-    # Create rust-toolchain.toml in the service directory
-    cat > "$service_dir/rust-toolchain.toml" << EOF
-[toolchain]
-channel = "1.84.0"
-components = ["rustfmt", "clippy"]
-targets = ["aarch64-unknown-linux-musl"]
-profile = "minimal"
-EOF
-    
-    log_success "Toolchain file added to $service"
+    for service in "${SERVICES[@]}"; do
+        local service_dir="$BACKEND_DIR/$service"
+        local toolchain_file="$service_dir/rust-toolchain.toml"
+        
+        if [ -f "$toolchain_file" ]; then
+            log_info "Removing toolchain file from $service..."
+            rm "$toolchain_file"
+            log_success "Removed toolchain file from $service"
+        fi
+    done
 }
 
 # Main function
 main() {
-    log_info "Setting up Rust toolchain files..."
+    log_info "Setting up consolidated Rust toolchain file..."
     
     # Create the root toolchain file
     create_root_toolchain
     
-    # Add toolchain files to all services
-    for service in "${SERVICES[@]}"; do
-        add_toolchain_to_service "$service"
-    done
+    # Remove any service-specific toolchain files
+    remove_service_toolchains
     
-    log_success "All toolchain files set up successfully!"
+    log_success "Consolidated toolchain setup complete!"
+    log_info "A single rust-toolchain.toml file is now used at the root level."
     log_info "Run 'rustup show' to verify your toolchain settings."
 }
 

@@ -22,3 +22,54 @@ export interface InsightSummary {
   highlights: Insight[];
   generated_at: string;
 }
+
+/**
+ * Type for specific AI insights related to an entry
+ */
+export interface EntryInsight {
+  entryId: string;
+  sentiment: string;
+  sentimentScore: number;
+  keywords: string[];
+  suggestedCategories: string[];
+  insights?: string;
+  reflections?: string;
+  provider: string;
+  createdAt: string;
+  // Cache metadata
+  _timestamp?: number;
+  _expiresAt?: number;
+}
+
+/**
+ * Type for topic analysis
+ */
+export interface Topic {
+  name: string;
+  confidence: number;
+  relatedTerms: string[];
+}
+
+/**
+ * Type for sentiment analysis
+ */
+export interface SentimentScore {
+  score: number;
+  label: string; // positive, negative, neutral
+  confidence: number;
+}
+
+/**
+ * Type for aggregated insights across multiple entries
+ */
+export interface AggregatedInsights {
+  period: string;
+  topTopics: Topic[];
+  overallSentiment: SentimentScore;
+  writingPatterns: {
+    averageWordCount: number;
+    frequentWords: string[];
+    writingTimes: Record<string, number>;
+  };
+  recommendations: string[];
+}

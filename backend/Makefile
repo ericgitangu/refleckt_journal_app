@@ -49,17 +49,22 @@ setup-lambda:
 		cargo install cargo-lambda; \
 	fi
 	@rustup target add $(TARGET)
-	@echo "Creating or updating Rust toolchain file for Lambda compatibility..."
+	@echo "Creating or updating root-level Rust toolchain file for Lambda compatibility..."
 	@if [ ! -f rust-toolchain.toml ]; then \
-		cat > rust-toolchain.toml << EOF \
-[toolchain]\n\
-channel = "1.84.0"\n\
-components = ["rustfmt", "clippy"]\n\
-targets = ["aarch64-unknown-linux-musl"]\n\
-profile = "minimal"\n\
-EOF \
+		echo '[toolchain]' > rust-toolchain.toml; \
+		echo 'channel = "1.85.0"' >> rust-toolchain.toml; \
+		echo 'components = ["rustfmt", "clippy"]' >> rust-toolchain.toml; \
+		echo 'targets = ["aarch64-unknown-linux-musl"]' >> rust-toolchain.toml; \
+		echo 'profile = "minimal"' >> rust-toolchain.toml; \
 	fi
-	@echo "✅ Lambda build environment set up successfully"
+	@echo "Ensuring no duplicate toolchain files exist in service directories..."
+	@for service in $(SERVICES); do \
+		if [ -f "$$service/rust-toolchain.toml" ]; then \
+			echo "Removing duplicate toolchain file from $$service..."; \
+			rm "$$service/rust-toolchain.toml"; \
+		fi; \
+	done
+	@echo "✅ Lambda build environment set up successfully with consolidated toolchain configuration"
 
 # Install dependencies
 install-deps: setup-lambda

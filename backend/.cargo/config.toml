@@ -4,11 +4,11 @@ rustflags = []
 [env]
 # Empty default environment
 
-# ARM specific settings for WSL2 Ubuntu
+# ARM specific settings
 [target.aarch64-unknown-linux-musl]
-rustflags = []
-# ARM-specific compiler config - use system tools in WSL
-linker = "aarch64-linux-gnu-gcc"
+rustflags = ["-C", "linker=rust-lld"]
+# Modified to avoid needing llvm-ar
+env = { "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
 
 # x86_64 specific settings - disable AVX512
 [target.x86_64-unknown-linux-gnu]

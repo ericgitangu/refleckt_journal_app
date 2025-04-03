@@ -3,7 +3,10 @@ use aws_lambda_events::apigw::{
     ApiGatewayCustomAuthorizerResponse, IamPolicyStatement,
 };
 use aws_lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use jsonwebtoken::{decode, DecodingKey, Validation};
+// Replace jsonwebtoken with jwt and openssl
+// use jsonwebtoken::{decode, DecodingKey, Validation};
+use jwt::{Claims, Header, Token, VerifyWithKey};
+use openssl::{hash::MessageDigest, pkey::PKey, sign::Verifier};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -106,14 +109,27 @@ fn extract_token(event: &ApiGatewayCustomAuthorizerRequest) -> Result<String, Er
     Err("No token found in request".into())
 }
 
+// Updated validate_token function to use jwt crate with OpenSSL
 fn validate_token(token: &str, secret: &str) -> Result<JwtClaims, Error> {
-    let token_data = decode::<JwtClaims>(
-        token,
-        &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::default(),
-    )?;
+    // Create key from secret
+    let key = PKey::hmac(secret.as_bytes())
+        .map_err(|e| format!("Invalid key: {}", e))?;
     
-    Ok(token_data.claims)
+    // Parse the token
+    let token: Token<Header, JwtClaims, _> = Token::parse(token)
+        .map_err(|e| format!("Invalid token format: {}", e))?;
+    
+    // Verify the token
+    let claims = token.verify_with_key(&key)
+        .map_err(|e| format!("Invalid token signature: {}", e))?;
+    
+    // Check expiration
+    let now = chrono::Utc::now().timestamp();
+    if claims.exp < now {
+        return Err("Token expired".into());
+    }
+    
+    Ok(claims)
 }
 
 fn create_auth_context(claims: &JwtClaims) -> HashMap<String, String> {

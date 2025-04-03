@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { promptsApi, Prompt } from "@/lib/api";
+import { getDailyPrompt, Prompt } from "../src/services/api";
 import { PromptCard } from "@/components/PromptCard";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
@@ -32,7 +32,7 @@ export function DailyPrompt({
     }
 
     try {
-      const response = await promptsApi.getDaily();
+      const response = await getDailyPrompt();
       setPrompt(response.prompt);
       setError(null);
     } catch (err) {
@@ -99,11 +99,33 @@ export function DailyPrompt({
       )}
       {prompt && (
         <PromptCard
-          prompt={prompt}
-          onUsePrompt={onUsePrompt}
+          prompt={adaptPrompt(prompt)}
+          onUsePrompt={adaptOnUsePrompt(onUsePrompt)}
           compact={compact}
         />
       )}
     </div>
   );
 }
+
+// Add these adapter functions to both DailyPrompt.tsx and RandomPrompt.tsx
+const adaptPrompt = (prompt: Prompt) => {
+  return {
+    ...prompt,
+    created_at: prompt.createdAt,
+  };
+};
+
+// Adapter for the callback function
+const adaptOnUsePrompt = (callback?: (prompt: Prompt) => void) => {
+  if (!callback) return undefined;
+  
+  return (oldPrompt: any) => {
+    // Convert old format to new format before passing to callback
+    const newPrompt = {
+      ...oldPrompt,
+      createdAt: oldPrompt.created_at,
+    };
+    callback(newPrompt);
+  };
+};

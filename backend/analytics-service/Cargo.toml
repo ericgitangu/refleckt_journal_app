@@ -7,5 +7,4 @@ edition = "2021"
 # Use the consolidated common package
 journal-common = { path = "../common" }
 
-# Override tokio version if needed for compatibility
-# tokio = { version = "1.28.2", features = ["full"] }
+# All dependencies have been hoisted to journal-common

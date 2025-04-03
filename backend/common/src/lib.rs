@@ -5,7 +5,8 @@ use aws_sdk_secretsmanager::Client as SecretsClient;
 use aws_sdk_eventbridge::Client as EventBridgeClient;
 use aws_lambda_events::encodings::Body;
 use aws_lambda_events::http::{HeaderMap, HeaderValue, Response, StatusCode};
-use jsonwebtoken::{decode, DecodingKey, TokenData, Validation};
+use jwt::{Claims, Header, Token, VerifyWithKey};
+use openssl::{hash::MessageDigest, pkey::PKey, sign::Verifier};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
@@ -126,14 +127,27 @@ pub async fn get_events_client() -> EventBridgeClient {
     }).await.clone()
 }
 
-// Validate JWT token
-pub fn validate_token(token: &str, jwt_secret: &str) -> Result<TokenData<JwtClaims>, JournalError> {
-    decode::<JwtClaims>(
-        token,
-        &DecodingKey::from_secret(jwt_secret.as_bytes()),
-        &Validation::default(),
-    )
-    .map_err(|e| JournalError::AuthError(format!("Invalid token: {}", e)))
+// Validate JWT token with new JWT library
+pub fn validate_token(token: &str, jwt_secret: &str) -> Result<JwtClaims, JournalError> {
+    // Create key from secret
+    let key = PKey::hmac(jwt_secret.as_bytes())
+        .map_err(|e| JournalError::AuthError(format!("Invalid key: {}", e)))?;
+    
+    // Parse the token
+    let token: Token<Header, JwtClaims, _> = Token::parse(token)
+        .map_err(|e| JournalError::AuthError(format!("Invalid token format: {}", e)))?;
+    
+    // Verify the token
+    let claims = token.verify_with_key(&key)
+        .map_err(|e| JournalError::AuthError(format!("Invalid token signature: {}", e)))?;
+    
+    // Check expiration
+    let now = chrono::Utc::now().timestamp();
+    if claims.exp < now {
+        return Err(JournalError::AuthError("Token expired".into()));
+    }
+    
+    Ok(claims)
 }
 
 // Extract JWT from Authorization header
@@ -186,8 +200,8 @@ pub async fn extract_tenant_context(
         }
     };
     
-    let token_data = validate_token(&token, &jwt_secret)?;
-    Ok(token_data.claims)
+    let claims = validate_token(&token, &jwt_secret)?;
+    Ok(claims)
 }
 
 // Publish event to EventBridge

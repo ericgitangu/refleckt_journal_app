@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { promptsApi, Prompt } from "@/lib/api";
+import { getRandomPrompt, Prompt } from "../src/services/api";
 import { PromptCard } from "@/components/PromptCard";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Loader2 } from "lucide-react";
@@ -12,7 +12,7 @@ const FALLBACK_PROMPT: Prompt = {
   id: "fallback-random",
   text: "What would you like to explore in your journal today? Consider a challenge you're facing, a joy you've experienced, or a hope for tomorrow.",
   category: "reflective",
-  created_at: new Date().toISOString(),
+  createdAt: new Date().toISOString(),
   tags: ["general", "reflection", "open-ended"],
 };
 
@@ -38,7 +38,7 @@ export function RandomPrompt({
     setIsLoading(true);
 
     try {
-      const response = await promptsApi.getRandom();
+      const response = await getRandomPrompt();
       setPrompt(response.prompt);
       setError(null);
     } catch (err) {
@@ -94,7 +94,30 @@ export function RandomPrompt({
         <RefreshCw className="h-4 w-4" />
         <span className="sr-only">New Random Prompt</span>
       </Button>
-      <PromptCard prompt={prompt} onUsePrompt={onUsePrompt} compact={compact} />
+      <PromptCard prompt={adaptPrompt(prompt)} onUsePrompt={adaptOnUsePrompt(onUsePrompt)} compact={compact} />
     </div>
   );
 }
+
+// Add these adapter functions to both DailyPrompt.tsx and RandomPrompt.tsx
+const adaptPrompt = (prompt: Prompt) => {
+  return {
+    ...prompt,
+    created_at: prompt.createdAt,
+  };
+};
+
+// Adapter for the callback function
+const adaptOnUsePrompt = (callback?: (prompt: Prompt) => void) => {
+  if (!callback) return undefined;
+  
+  return (oldPrompt: any) => {
+    // Convert old format to new format before passing to callback
+    const newPrompt = {
+      ...oldPrompt,
+      createdAt: oldPrompt.created_at,
+    };
+    callback(newPrompt);
+  };
+};
+
