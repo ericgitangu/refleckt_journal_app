@@ -10,6 +10,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
 
+# Verify directory paths are valid before using them
+if [ -z "$SCRIPT_DIR" ] || [ -z "$BACKEND_DIR" ]; then
+    echo "[ERROR] Critical directory paths are empty. Cannot proceed."
+    exit 1
+fi
+
+if [ -z "$LOCAL_BIN_DIR" ]; then
+    echo "[WARNING] LOCAL_BIN_DIR is empty, setting to default .local/bin"
+    LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
+    if [ -z "$LOCAL_BIN_DIR" ]; then
+        echo "[ERROR] Failed to set LOCAL_BIN_DIR. Cannot proceed."
+        exit 1
+    fi
+fi
+
 # Source the common utilities
 if [ -f "$SCRIPT_DIR/common.sh" ]; then
     source "$SCRIPT_DIR/common.sh"

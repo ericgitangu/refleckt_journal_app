@@ -8,6 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 SCRIPTS_DIR="$BACKEND_DIR/scripts"
 
+# Define default values before sourcing other scripts
+DEFAULT_REQUIRED_SPACE_MB=${DEFAULT_REQUIRED_SPACE_MB:-500}
+
 # Source common functions
 source "$SCRIPTS_DIR/common.sh"
 
@@ -106,7 +109,7 @@ DEBUG=${DEBUG:-false}
 TARGET_SERVICES=()
 
 # Script constants
-REQUIRED_SPACE_MB=500
+REQUIRED_SPACE_MB=${REQUIRED_SPACE_MB:-500}
 
 # Create local bin dir with proper error handling
 if [ -z "$LOCAL_BIN" ]; then
