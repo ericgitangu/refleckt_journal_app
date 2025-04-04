@@ -13,6 +13,11 @@ LOG_DIR="$BACKEND_DIR/logs/build"
 SCRIPT_NAME=$(basename "$0")
 CURRENT_OPERATION="initializing"
 
+# Detect OS type
+OS_TYPE="$(uname -s | tr '[:upper:]' '[:lower:]')"
+ARCH="$(uname -m)"
+echo "Detected OS: $OS_TYPE, Architecture: $ARCH"
+
 # Source common utility functions
 source "$SCRIPT_DIR/common.sh"
 
@@ -86,6 +91,8 @@ handle_error() {
         echo "Command: $command"
         echo -e "$stack"
         echo "=== BUILD ENVIRONMENT ==="
+        echo "OS_TYPE: $OS_TYPE"
+        echo "ARCH: $ARCH"
         echo "TARGET: $TARGET"
         echo "RUST_VERSION: $RUST_VERSION"
         echo "OPENSSL_DIR: $OPENSSL_DIR"
@@ -165,12 +172,67 @@ run_piped_command() {
     return 0
 }
 
+# Set up OS-specific build environment
+setup_os_specific_env() {
+    # Set target-specific linker and compiler environment variables
+    if [ "$OS_TYPE" = "darwin" ]; then
+        # macOS-specific settings
+        if [ -f "/usr/bin/ar" ] && [ -z "$AR" ]; then
+            export AR="/usr/bin/ar"
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="/usr/bin/ar"
+            log_info "Using system ar at /usr/bin/ar for cross-compilation on macOS"
+        fi
+        
+        # Ensure musl-cross is in PATH for macOS
+        if command -v brew &>/dev/null && ! command -v aarch64-linux-musl-gcc &>/dev/null; then
+            MUSL_CROSS_PREFIX=$(brew --prefix musl-cross 2>/dev/null || echo "")
+            if [ -n "$MUSL_CROSS_PREFIX" ] && [ -d "$MUSL_CROSS_PREFIX/bin" ]; then
+                export PATH="$MUSL_CROSS_PREFIX/bin:$PATH"
+                log_info "Added musl-cross from Homebrew to PATH: $MUSL_CROSS_PREFIX/bin"
+            fi
+        fi
+    elif [ "$OS_TYPE" = "linux" ]; then
+        # Linux-specific settings
+        if [ -x "/usr/bin/ar" ] && [ -z "$AR" ]; then
+            export AR="/usr/bin/ar"
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="/usr/bin/ar"
+            log_info "Using system ar at /usr/bin/ar for cross-compilation on Linux"
+        fi
+        
+        # Check for musl toolchain on Linux
+        if [ -x "/usr/bin/aarch64-linux-musl-gcc" ] && [ -z "$CC_aarch64_unknown_linux_musl" ]; then
+            export CC_aarch64_unknown_linux_musl="/usr/bin/aarch64-linux-musl-gcc"
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="/usr/bin/aarch64-linux-musl-gcc"
+            log_info "Using Linux system aarch64-linux-musl-gcc"
+        elif [ -x "/usr/bin/aarch64-linux-gnu-gcc" ] && [ -z "$CC_aarch64_unknown_linux_musl" ]; then
+            export CC_aarch64_unknown_linux_musl="/usr/bin/aarch64-linux-gnu-gcc"
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="/usr/bin/aarch64-linux-gnu-gcc"
+            log_info "Using Linux system aarch64-linux-gnu-gcc"
+        fi
+    fi
+    
+    # Final verification for cross-compiler
+    if ! command -v aarch64-linux-musl-gcc &>/dev/null && [ "$TARGET" = "aarch64-unknown-linux-musl" ]; then
+        if [ "$OS_TYPE" = "darwin" ]; then
+            log_warning "aarch64-linux-musl-gcc not found in PATH. Build may fail."
+            log_warning "Consider installing musl-cross: brew install FiloSottile/musl-cross/musl-cross --with-aarch64"
+        elif [ "$OS_TYPE" = "linux" ]; then
+            log_warning "aarch64-linux-musl-gcc not found in PATH. Build may fail."
+            log_warning "Consider installing: sudo apt-get install musl-tools gcc-aarch64-linux-gnu (for Debian/Ubuntu)"
+            log_warning "Or: sudo dnf install musl-gcc aarch64-linux-gnu-gcc (for Fedora/RHEL)"
+        fi
+    fi
+}
+
 # Check parameters
 if [ -z "$SERVICE_NAME" ]; then
     log_error "Service name is required."
     echo "Usage: $0 <service-name> [output-dir]"
     exit 1
 fi
+
+# Set up OS-specific environment
+setup_os_specific_env
 
 CURRENT_OPERATION="validating service directory"
 log_info "Cross-compiling $SERVICE_NAME for Lambda with target $TARGET"

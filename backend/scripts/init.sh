@@ -124,169 +124,114 @@ mkdir -p "$LOG_DIR"
 # Call ensure_log_dirs at the beginning
 ensure_log_dirs
 
+# More robust prerequisite checking
 check_prerequisites() {
     log_info "Checking prerequisites..."
     
-    # Check for AWS CLI
-    if ! command -v aws &> /dev/null; then
-        log_error "AWS CLI is not installed. Please install it first."
-        exit 1
-    fi
+    # Check OS type for platform-specific setup
+    local os_type="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    local arch="$(uname -m)"
     
-    # Check for AWS SAM CLI
-    if ! command -v sam &> /dev/null; then
-        log_error "AWS SAM CLI is not installed. Please install it first."
-        exit 1
-    fi
+    log_info "Detected OS: $os_type, Architecture: $arch"
     
-    # Check for jq
-    if ! command -v jq &> /dev/null; then
-        log_error "jq is not installed. Please install it first."
-        exit 1
-    fi
-    
-    # Check for cargo-lambda
-    if ! command -v cargo-lambda &> /dev/null; then
-        log_warning "cargo-lambda is not installed. Installing now..."
-        cargo install cargo-lambda
-        if [ $? -ne 0 ]; then
-            log_error "Failed to install cargo-lambda. Please install it manually."
-            exit 1
+    # Check if we need an aarch64 cross-compiler
+    if [[ "${TARGET:-aarch64-unknown-linux-musl}" == *"aarch64"* ]]; then
+        log_info "Checking for aarch64 cross-compiler..."
+        
+        # Check if the compiler is already installed
+        if command -v aarch64-linux-musl-gcc &> /dev/null; then
+            gcc_path=$(command -v aarch64-linux-musl-gcc)
+            log_success "Found aarch64-linux-musl-gcc in PATH at: $gcc_path"
+            return 0
         fi
-        log_success "cargo-lambda installed successfully."
-    fi
-    
-    # Check that the target is available in rustup
-    log_info "Checking Rust target: $TARGET"
-    if ! rustup target list --installed | grep -q "$TARGET"; then
-        log_warning "Target $TARGET not installed. Installing now..."
-        rustup target add "$TARGET"
-        if [ $? -ne 0 ]; then
-            log_error "Failed to install target $TARGET."
-        exit 1
-        fi
-        log_success "Target $TARGET installed successfully."
-    else
-        log_success "Target $TARGET is already installed."
-    fi
-    
-    # Check for musl-cross in more flexible ways
-    log_info "Checking for musl cross compiler..."
-    
-    # Look for the compiler directly instead of the package
-    local gcc_path=""
-    
-    # First, try to find it directly in PATH
-    if command -v aarch64-linux-musl-gcc &> /dev/null; then
-        gcc_path=$(command -v aarch64-linux-musl-gcc)
-        log_success "Found aarch64-linux-musl-gcc in PATH at: $gcc_path"
-    else
-        # If not in PATH, try to use brew to find the installation
-        if command -v brew &> /dev/null; then
-            log_info "Checking if musl-cross is installed with brew..."
-            
-            if brew list --formula | grep -q "musl-cross"; then
-                log_info "musl-cross is installed with brew. Getting installation path..."
-                
-                local brew_prefix=$(brew --prefix musl-cross 2>/dev/null || echo "")
-                if [ -n "$brew_prefix" ]; then
-                    # Construct the expected path to the compiler
-                    gcc_path="$brew_prefix/bin/aarch64-linux-musl-gcc"
-                    
-                    if [ -x "$gcc_path" ]; then
-                        log_success "Found aarch64-linux-musl-gcc at: $gcc_path"
-                        
-                        # Add to PATH if not already included
-                        if ! echo "$PATH" | grep -q "$(dirname "$gcc_path")"; then
-                            export PATH="$(dirname "$gcc_path"):$PATH"
-                            log_info "Added $(dirname "$gcc_path") to PATH"
+        
+        # OS-specific installation methods
+        case "$os_type" in
+            darwin)
+                # macOS installation via Homebrew
+                if command -v brew &> /dev/null; then
+                    log_warning "aarch64-linux-musl-gcc not found. Installing via Homebrew..."
+                    brew install FiloSottile/musl-cross/musl-cross --with-aarch64
+                    if [ $? -eq 0 ]; then
+                        log_success "musl-cross installed successfully."
+                        # Update PATH to include the new installation
+                        local brew_prefix=$(brew --prefix musl-cross 2>/dev/null || echo "")
+                        if [ -n "$brew_prefix" ]; then
+                            export PATH="$brew_prefix/bin:$PATH"
                         fi
-                        
-                        # Set the compiler specifically for aarch64 target
-                        export CC_aarch64_unknown_linux_musl="$gcc_path"
-                        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="$gcc_path"
                     else
-                        log_warning "musl-cross is installed but aarch64-linux-musl-gcc not found at $gcc_path"
-                        log_info "Checking if compiler was installed with --with-aarch64 flag..."
-                        
-                        # Try to install or reinstall with the correct flag
-                        log_warning "You might need to reinstall musl-cross with: brew reinstall FiloSottile/musl-cross/musl-cross --with-aarch64"
-                        
-                        # Try legacy standard locations as a fallback
-                        if [ -f "/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc" ]; then
-                            gcc_path="/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc"
-                            log_success "Found aarch64-linux-musl-gcc at legacy location: $gcc_path"
-            export PATH="/usr/local/opt/musl-cross/bin:$PATH"
-                        elif [ -f "/opt/homebrew/opt/musl-cross/bin/aarch64-linux-musl-gcc" ]; then
-                            gcc_path="/opt/homebrew/opt/musl-cross/bin/aarch64-linux-musl-gcc"
-                            log_success "Found aarch64-linux-musl-gcc at legacy location: $gcc_path"
-                            export PATH="/opt/homebrew/opt/musl-cross/bin:$PATH"
-                        else
-                            log_error "aarch64-linux-musl-gcc not found. Please reinstall musl-cross with: brew reinstall FiloSottile/musl-cross/musl-cross --with-aarch64"
-                            exit 1
-                        fi
+                        log_error "Failed to install musl-cross. Please install manually with: brew install FiloSottile/musl-cross/musl-cross"
+                        exit 1
                     fi
                 else
-                    log_error "Could not determine musl-cross installation path."
-                    log_error "Please ensure musl-cross is installed with: brew install FiloSottile/musl-cross/musl-cross --with-aarch64"
-            exit 1
-        fi
-            else
-                log_error "musl-cross not found. Please install with: brew install FiloSottile/musl-cross/musl-cross --with-aarch64"
+                    log_error "brew not found. Please install Homebrew first or install musl-cross manually."
+                    exit 1
+                fi
+                ;;
+                
+            linux)
+                # Linux installation based on available package managers
+                if command -v apt-get &> /dev/null; then
+                    # Debian/Ubuntu
+                    log_warning "aarch64-linux-musl-gcc not found. Installing via apt..."
+                    if sudo apt-get update && sudo apt-get install -y musl-tools gcc-aarch64-linux-gnu; then
+                        log_success "Cross-compiler tools installed successfully."
+                    else
+                        log_error "Failed to install cross-compiler tools. Please install manually with: sudo apt-get install musl-tools gcc-aarch64-linux-gnu"
+                        exit 1
+                    fi
+                elif command -v dnf &> /dev/null; then
+                    # Fedora/RHEL
+                    log_warning "aarch64-linux-musl-gcc not found. Installing via dnf..."
+                    if sudo dnf install -y musl-gcc aarch64-linux-gnu-gcc; then
+                        log_success "Cross-compiler tools installed successfully."
+                    else
+                        log_error "Failed to install cross-compiler tools. Please install manually with: sudo dnf install musl-gcc aarch64-linux-gnu-gcc"
+                        exit 1
+                    fi
+                elif command -v yum &> /dev/null; then
+                    # CentOS/older RHEL
+                    log_warning "aarch64-linux-musl-gcc not found. Installing via yum..."
+                    if sudo yum install -y musl-gcc aarch64-linux-gnu-gcc; then
+                        log_success "Cross-compiler tools installed successfully."
+                    else
+                        log_error "Failed to install cross-compiler tools. Please install manually."
+                        exit 1
+                    fi
+                else
+                    log_error "No supported package manager found. Please install required tools manually:"
+                    log_error "On Debian/Ubuntu: sudo apt-get install musl-tools gcc-aarch64-linux-gnu"
+                    log_error "On Fedora/RHEL: sudo dnf install musl-gcc aarch64-linux-gnu-gcc"
+                    exit 1
+                fi
+                ;;
+                
+            *)
+                log_error "Unsupported operating system: $os_type"
+                log_error "Please install the required tools manually."
                 exit 1
-            fi
-        else
-            log_error "brew not found and musl-cross not installed in standard locations."
-            log_error "Please install musl-cross and ensure the compiler is available in PATH."
+                ;;
+        esac
+    fi
+    
+    # Check Rust installation
+    if ! command -v rustup &> /dev/null; then
+        log_error "rustup not found. Please install Rust first."
+        exit 1
+    fi
+    
+    # Check if cargo-lambda is installed
+    if ! command -v cargo-lambda &> /dev/null; then
+        log_warning "cargo-lambda not found. Installing..."
+        cargo install cargo-lambda
+        if [ $? -ne 0 ]; then
+            log_error "Failed to install cargo-lambda. Please install manually with: cargo install cargo-lambda"
             exit 1
         fi
     fi
     
-    # Final verification
-    if ! command -v aarch64-linux-musl-gcc &> /dev/null; then
-        log_error "aarch64-linux-musl-gcc still not found in PATH after setup. Build will likely fail."
-        log_error "Please add the musl-cross bin directory to your PATH manually or reinstall musl-cross."
-        exit 1
-    fi
-    
-    # Check for OpenSSL with flexible version checking
-    log_info "Checking for OpenSSL..."
-    
-    if command -v openssl &> /dev/null; then
-        local openssl_path=$(dirname $(which openssl))
-        local openssl_version=$(openssl version | awk '{print $2}')
-        log_success "Found OpenSSL $openssl_version at: $(which openssl)"
-        
-        # Set OPENSSL_DIR to the parent directory of the openssl binary
-        export OPENSSL_DIR="$(dirname $openssl_path)"
-        log_info "Set OPENSSL_DIR=$OPENSSL_DIR"
-    else
-        # Try standard Homebrew locations if command not found
-        if [ -f "/usr/local/opt/openssl@1.1/bin/openssl" ]; then
-            export OPENSSL_DIR="/usr/local/opt/openssl@1.1"
-            log_success "Found OpenSSL at $OPENSSL_DIR"
-        elif [ -f "/usr/local/opt/openssl@3/bin/openssl" ]; then
-            export OPENSSL_DIR="/usr/local/opt/openssl@3"
-            log_success "Found OpenSSL at $OPENSSL_DIR"
-        elif [ -f "/opt/homebrew/opt/openssl@1.1/bin/openssl" ]; then
-            export OPENSSL_DIR="/opt/homebrew/opt/openssl@1.1"
-            log_success "Found OpenSSL at $OPENSSL_DIR"
-        elif [ -f "/opt/homebrew/opt/openssl@3/bin/openssl" ]; then
-            export OPENSSL_DIR="/opt/homebrew/opt/openssl@3"
-            log_success "Found OpenSSL at $OPENSSL_DIR"
-        else
-            log_error "OpenSSL not found. Please install OpenSSL via: brew install openssl"
-            exit 1
-        fi
-    fi
-    
-    # Verify AWS credentials are configured
-    if ! aws sts get-caller-identity >/dev/null 2>&1; then
-        log_error "AWS credentials not configured. Please run 'aws configure' or set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables."
-        exit 1
-    fi
-    
-    log_success "All prerequisites checked."
+    log_success "All prerequisites are installed."
+    return 0
 }
 
 setup_aws_credentials() {
