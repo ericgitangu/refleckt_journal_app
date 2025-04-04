@@ -14,11 +14,24 @@ source "$SCRIPTS_DIR/common.sh"
 # Source environment variables from set_env.sh
 source "$SCRIPTS_DIR/set_env.sh"
 
-# Set up log directory within the logs structure
-LOG_DIR="$BACKEND_DIR/logs/build"
+# Ensure LOG_DIR exists with proper error handling
+if [ -z "$LOG_DIR" ]; then
+    LOG_DIR="$BACKEND_DIR/logs/build"
+    log_warning "LOG_DIR was not set, defaulting to $LOG_DIR"
+fi
 
-# Create log directory
-mkdir -p "$LOG_DIR"
+# Create log directory with explicit error checking
+log_info "Creating log directory at: $LOG_DIR"
+if ! mkdir -p "$LOG_DIR"; then
+    log_error "Failed to create log directory: $LOG_DIR"
+    log_error "Check file permissions and path validity"
+    exit 1
+fi
+
+# Clean logs if needed
+if [ -d "$LOG_DIR" ]; then
+    rm -rf "$LOG_DIR"/*
+fi
 
 # Trap handler for unexpected failures
 handle_error() {
@@ -94,10 +107,20 @@ TARGET_SERVICES=()
 
 # Script constants
 REQUIRED_SPACE_MB=500
-LOCAL_BIN="$LOCAL_BIN_DIR"
 
-# Create directories
-mkdir -p "$LOCAL_BIN"
+# Create local bin dir with proper error handling
+if [ -z "$LOCAL_BIN" ]; then
+    LOCAL_BIN="$BACKEND_DIR/.local/bin"
+    log_warning "LOCAL_BIN was not set, defaulting to $LOCAL_BIN"
+fi
+
+# Ensure LOCAL_BIN directory exists with proper permissions
+log_info "Creating local bin directory at: $LOCAL_BIN"
+if ! mkdir -p "$LOCAL_BIN"; then
+    log_error "Failed to create local bin directory: $LOCAL_BIN"
+    log_error "Check file permissions and path validity"
+    exit 1
+fi
 
 # Set up lightweight llvm-ar without installing developer tools
 setup_llvm_ar() {

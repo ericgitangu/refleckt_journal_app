@@ -10,19 +10,42 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
 
-# Source the utils
-source "$SCRIPT_DIR/utils.sh"
+# Source the common utilities
+if [ -f "$SCRIPT_DIR/common.sh" ]; then
+    source "$SCRIPT_DIR/common.sh"
+elif [ -f "$SCRIPT_DIR/utils.sh" ]; then
+    source "$SCRIPT_DIR/utils.sh"
+else
+    # Minimal logging if utils are not found
+    log_info() { echo "[INFO] $*"; }
+    log_success() { echo "[SUCCESS] $*"; }
+    log_error() { echo "[ERROR] $*"; }
+    log_warning() { echo "[WARNING] $*"; }
+fi
 
 log_info "=== INSTALLING LIGHTWEIGHT LLVM-AR (NO DEVELOPER TOOLS REQUIRED) ==="
 
-# Create local bin directory if it doesn't exist
-mkdir -p "$LOCAL_BIN_DIR"
+# Verify directory paths are valid
+if [ -z "$LOCAL_BIN_DIR" ]; then
+    log_error "LOCAL_BIN_DIR is empty. Cannot proceed."
+    exit 1
+fi
 
-log_info "Setting up lightweight llvm-ar without developer tools..."
+# Create local bin directory with explicit error handling
+log_info "Creating local bin directory at: $LOCAL_BIN_DIR"
+if ! mkdir -p "$LOCAL_BIN_DIR"; then
+    log_error "Failed to create directory: $LOCAL_BIN_DIR"
+    log_error "Check file permissions and path validity"
+    exit 1
+fi
+
+# Detect OS type
+OS_TYPE="$(uname -s | tr '[:upper:]' '[:lower:]')"
+log_info "$OS_TYPE detected"
 
 # Check if we're on macOS 
-if [ "$(uname)" = "Darwin" ]; then
-    log_info "macOS detected"
+if [ "$OS_TYPE" = "darwin" ]; then
+    log_info "macOS system detected"
     
     # Check if system ar exists - this should exist by default on macOS
     if [ -f "/usr/bin/ar" ]; then
@@ -52,44 +75,56 @@ EOF
         exit 1
     fi
 else
-    log_info "Non-macOS system detected"
-    log_warning "This script is primarily designed for macOS"
+    log_info "Linux system detected"
     
-    # For non-macOS, try to find ar
-    if [ -f "/usr/bin/ar" ]; then
-        cat > "$LOCAL_BIN_DIR/llvm-ar" << 'EOF'
+    # For Linux, try to find ar in standard locations
+    AR_PATH=""
+    for path in "/usr/bin/ar" "/bin/ar" "/usr/local/bin/ar"; do
+        if [ -f "$path" ]; then
+            AR_PATH="$path"
+            break
+        fi
+    done
+    
+    if [ -n "$AR_PATH" ]; then
+        log_info "Using system ar at $AR_PATH"
+        
+        cat > "$LOCAL_BIN_DIR/llvm-ar" << EOF
 #!/bin/bash
-# Minimal llvm-ar replacement
-exec /usr/bin/ar "$@"
+# Minimal llvm-ar replacement for Linux
+exec $AR_PATH "\$@"
 EOF
         chmod +x "$LOCAL_BIN_DIR/llvm-ar"
-        log_success "Created llvm-ar wrapper using system ar"
+        log_success "Created llvm-ar wrapper using system ar at $AR_PATH"
     else
-        log_error "System ar not found at /usr/bin/ar"
-        log_error "Please install the basic binutils package for your system"
+        log_error "System ar not found in standard locations"
+        log_error "Please install binutils: sudo apt-get install binutils (Debian/Ubuntu)"
+        log_error "or: sudo dnf install binutils (Fedora/RHEL)"
         exit 1
     fi
 fi
 
 # Add export commands to a helper script that can be sourced
-cat > "$BACKEND_DIR/ar-setup.sh" << EOF
+AR_PATH=${AR_PATH:-"/usr/bin/ar"}
+HELPER_SCRIPT="$BACKEND_DIR/ar-setup.sh"
+
+log_info "Creating helper script at $HELPER_SCRIPT"
+cat > "$HELPER_SCRIPT" << EOF
 # Source this file to set up environment variables for cross-compilation
-export AR="/usr/bin/ar"
-export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="/usr/bin/ar"
+export AR="$AR_PATH"
+export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="$AR_PATH"
 export PATH="$LOCAL_BIN_DIR:\$PATH"
 EOF
 
-log_success "Created helper script at $BACKEND_DIR/ar-setup.sh"
-
-echo -e "\n\033[1;32m=== INSTALLATION COMPLETE ===\033[0m\n"
+log_success "Created helper script at $HELPER_SCRIPT"
 
 log_info "Lightweight llvm-ar has been set up at $LOCAL_BIN_DIR/llvm-ar"
 log_info "This allows cross-compilation without needing any developer tools"
 
-echo -e "\n\033[1;34mTo use in your current shell:\033[0m"
-echo -e "source $BACKEND_DIR/ar-setup.sh"
+log_info "To use in your current shell:"
+log_info "source $HELPER_SCRIPT"
 
-echo -e "\n\033[1;34mThese variables are also set by set_env.sh:\033[0m"
-echo -e "source $SCRIPT_DIR/set_env.sh"
+log_info "These variables are also set by set_env.sh:"
+log_info "source $SCRIPT_DIR/set_env.sh"
 
-echo -e "\n\033[1;32mDone!\033[0m" 
+log_success "Done!" 

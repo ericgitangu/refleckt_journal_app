@@ -24,8 +24,18 @@ source "$SCRIPT_DIR/common.sh"
 # Source environment variables from set_env.sh
 source "$SCRIPT_DIR/set_env.sh"
 
-# Create log directory
-mkdir -p "$LOG_DIR"
+# Create log directory with explicit error handling
+if [ -z "$LOG_DIR" ]; then
+    LOG_DIR="$BACKEND_DIR/logs/build"
+    echo "Warning: LOG_DIR was not set, defaulting to $LOG_DIR"
+fi
+
+# Ensure log directory exists with proper permissions
+if ! mkdir -p "$LOG_DIR"; then
+    echo "Error: Failed to create log directory: $LOG_DIR"
+    echo "Check file permissions and path validity"
+    exit 1
+fi
 
 # Signal names for better error reporting
 get_signal_name() {

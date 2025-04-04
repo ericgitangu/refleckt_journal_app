@@ -5,7 +5,21 @@ set -eo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-LOG_DIR="$BACKEND_DIR/logs/build"
+
+# Ensure LOG_DIR exists with proper error handling
+if [ -z "$LOG_DIR" ]; then
+    LOG_DIR="$BACKEND_DIR/logs/build"
+    log_warning "LOG_DIR was not set, defaulting to $LOG_DIR"
+fi
+
+# Create log directory with explicit error checking
+log_info "Creating log directory at: $LOG_DIR"
+if ! mkdir -p "$LOG_DIR"; then
+    echo "Error: Failed to create log directory: $LOG_DIR"
+    echo "Check file permissions and path validity"
+    exit 1
+fi
+
 SCRIPT_NAME=$(basename "$0")
 CURRENT_OPERATION="initializing"
 
@@ -14,9 +28,6 @@ source "$SCRIPT_DIR/common.sh"
 
 # Source environment variables
 source "$SCRIPT_DIR/set_env.sh"
-
-# Create log directory
-mkdir -p "$LOG_DIR"
 
 # Signal names for better error reporting
 get_signal_name() {
