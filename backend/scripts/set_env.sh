@@ -134,16 +134,37 @@ if [ "$WSL_DETECTED" = true ]; then
         echo "WSL detected: Setting OPENSSL_LIB_DIR to $OPENSSL_LIB_DIR"
     fi
     
-    # Force static linking for OpenSSL in WSL environments
-    export OPENSSL_STATIC=1
-    export OPENSSL_INCLUDE_DIR="$OPENSSL_DIR/include"
-    
-    # Print diagnostic information about OpenSSL in WSL
-    echo "WSL OpenSSL configuration:"
-    echo "- OPENSSL_DIR: $OPENSSL_DIR"
-    echo "- OPENSSL_INCLUDE_DIR: $OPENSSL_INCLUDE_DIR"
-    echo "- OPENSSL_LIB_DIR: ${OPENSSL_LIB_DIR:-not set}"
-    echo "- OPENSSL_STATIC: $OPENSSL_STATIC"
+    # Handle Ubuntu/Debian multi-arch OpenSSL headers explicitly
+    if [ ! -f "/usr/include/openssl/opensslconf.h" ] && [ -f "/usr/include/x86_64-linux-gnu/openssl/opensslconf.h" ]; then
+        echo "WSL multi-arch OpenSSL headers detected"
+        
+        # Set the include directory to the multi-arch location
+        export OPENSSL_INCLUDE_DIR="/usr/include/x86_64-linux-gnu"
+        export OPENSSL_DIR="/usr"
+        
+        # Set additional variables needed for openssl-sys crate
+        export X86_64_LINUX_GNU_OPENSSL=1
+        
+        echo "⚠️ Using WSL multi-arch OpenSSL configuration:"
+        echo "  - OPENSSL_DIR: $OPENSSL_DIR"
+        echo "  - OPENSSL_INCLUDE_DIR: $OPENSSL_INCLUDE_DIR"
+        echo "  - OPENSSL_LIB_DIR: ${OPENSSL_LIB_DIR:-not set}"
+        
+        # Set special environment variables for openssl-sys crate
+        export OPENSSL_NO_PKG_CONFIG=1
+        export OPENSSL_NO_VENDOR=1
+    else
+        # Force static linking for OpenSSL in WSL environments
+        export OPENSSL_STATIC=1
+        export OPENSSL_INCLUDE_DIR="$OPENSSL_DIR/include"
+        
+        # Print diagnostic information about OpenSSL in WSL
+        echo "WSL OpenSSL configuration:"
+        echo "- OPENSSL_DIR: $OPENSSL_DIR"
+        echo "- OPENSSL_INCLUDE_DIR: $OPENSSL_INCLUDE_DIR"
+        echo "- OPENSSL_LIB_DIR: ${OPENSSL_LIB_DIR:-not set}"
+        echo "- OPENSSL_STATIC: $OPENSSL_STATIC"
+    fi
     
     # Verify OpenSSL headers exist
     if [ -f "$OPENSSL_DIR/include/openssl/opensslconf.h" ]; then

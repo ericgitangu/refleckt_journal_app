@@ -415,7 +415,43 @@ setup_cargo_config() {
         return 0
     fi
     
+    # Check for WSL with multi-arch OpenSSL
+    local using_multiarch=false
+    if grep -q Microsoft /proc/version 2>/dev/null && 
+       [ ! -f "/usr/include/openssl/opensslconf.h" ] && 
+       [ -f "/usr/include/x86_64-linux-gnu/openssl/opensslconf.h" ]; then
+        using_multiarch=true
+        log_info "Detected WSL with multi-arch OpenSSL - creating specialized config"
+    fi
+    
     # Write the cargo config with the detected OPENSSL_DIR
+    if [ "$using_multiarch" = true ]; then
+        # Special config for WSL with multi-arch OpenSSL
+        cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+[build]
+rustflags = ["-C", "link-arg=-s"]
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+rustflags = [
+  "-C", "link-self-contained=yes"
+]
+
+[env]
+OPENSSL_STATIC = "1"
+OPENSSL_DIR = "/usr"
+OPENSSL_INCLUDE_DIR = "/usr/include/x86_64-linux-gnu"
+OPENSSL_LIB_DIR = "/usr/lib/x86_64-linux-gnu"
+OPENSSL_NO_PKG_CONFIG = "1"
+OPENSSL_NO_VENDOR = "1"
+X86_64_LINUX_GNU_OPENSSL = "1"
+AWS_LC_SYS_STATIC = "1"
+AWS_LC_SYS_VENDORED = "1"
+RUSTSEC_IGNORE = "1"
+EOF
+        log_success "Created specialized config.toml for WSL multi-arch OpenSSL"
+    else
+        # Standard config
         cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
 [build]
 rustflags = ["-C", "link-arg=-s"]
@@ -429,13 +465,13 @@ rustflags = [
 [env]
 OPENSSL_STATIC = "1"
 OPENSSL_DIR = "${OPENSSL_DIR}"
-AWS_LC_SYS_STATIC = "1"
+AWS_LC_SYS_STATIC = "1" 
 AWS_LC_SYS_VENDORED = "1"
 RUSTSEC_IGNORE = "1"
 OPENSSL_NO_VENDOR = "1"
 EOF
-    
-    log_success "Root-level cargo config created with OPENSSL_DIR=${OPENSSL_DIR}"
+        log_success "Root-level cargo config created with OPENSSL_DIR=${OPENSSL_DIR}"
+    fi
 }
 
 build_common_library() {
