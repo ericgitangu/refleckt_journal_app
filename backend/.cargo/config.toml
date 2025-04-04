@@ -1,16 +1,12 @@
 [build]
-rustflags = []
+rustflags = ["-C", "link-arg=-s"]
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+rustflags = [
+  "-C", "link-self-contained=yes"
+]
 
 [env]
-# Empty default environment
-
-# ARM specific settings
-[target.aarch64-unknown-linux-musl]
-rustflags = ["-C", "linker=rust-lld"]
-# Modified to avoid needing llvm-ar
-env = { "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
-
-# x86_64 specific settings - disable AVX512
-[target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=-avx512f"]
-env = { "CFLAGS" = "-mno-avx512f" }
+OPENSSL_STATIC = "1"
+OPENSSL_DIR = "/usr/local/opt/openssl@1.1"

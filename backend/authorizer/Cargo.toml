@@ -5,6 +5,13 @@ edition = "2021"
 
 [dependencies]
 # Use the consolidated common package which already includes all needed dependencies
-journal-common = { path = "../common" }
+journal-common = { path = "../common", default-features = false, features = ["jwt-auth"] }
 
-# No need for duplicating dependencies that are already in common
+# No need for OpenSSL here as it's already in common with identical settings
+
+# No need for aws-lambda-runtime as it's already in common (as lambda_runtime)
+
+[features]
+default = []
+
+# No need for patch section here as it's already in common

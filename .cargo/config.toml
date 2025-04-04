@@ -4,10 +4,10 @@ rustflags = []
 [env]
 # Empty default environment
 
-# ARM specific settings
+# ARM specific settings - simplified for OpenSSL
 [target.aarch64-unknown-linux-musl]
-rustflags = ["-C", "linker=rust-lld"]
-# Modified to avoid needing llvm-ar
+rustflags = []
+# Use rust-lld for linking
 env = { "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" }
 
 # x86_64 specific settings - disable AVX512

@@ -25,6 +25,27 @@ EOF
     log_success "Root toolchain file created successfully"
 }
 
+# Configure cargo to use system linker and avoid LLVM
+configure_cargo() {
+    log_info "Configuring cargo for cross-compilation..."
+    
+    mkdir -p "$BACKEND_DIR/.cargo"
+    
+    cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+[build]
+rustflags = ["-C", "link-arg=-s"]
+
+[target.aarch64-unknown-linux-musl]
+linker = "rust-lld"
+rustflags = ["-C", "link-self-contained=yes"]
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=-avx512f"]
+EOF
+    
+    log_success "Cargo configured for macOS cross-compilation"
+}
+
 # Remove any service-specific toolchain files
 remove_service_toolchains() {
     log_info "Removing any service-specific toolchain files..."
@@ -58,6 +79,9 @@ main() {
     
     # Create the root toolchain file
     create_root_toolchain
+    
+    # Configure cargo
+    configure_cargo
     
     # Remove any service-specific toolchain files
     remove_service_toolchains

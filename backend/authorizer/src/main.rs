@@ -2,9 +2,14 @@ use aws_lambda_events::apigw::{
     ApiGatewayCustomAuthorizerPolicy, ApiGatewayCustomAuthorizerRequest,
     ApiGatewayCustomAuthorizerResponse, IamPolicyStatement,
 };
-use aws_lambda_runtime::{run, service_fn, Error, LambdaEvent};
-// Use types re-exported from common
-use journal_common::{jwt::{Header, Token, VerifyWithKey}, hmac::{Hmac, Mac}, sha2::Sha256, chrono};
+// Import lambda_runtime through common instead of directly
+use journal_common::{
+    lambda_runtime::{run, service_fn, Error, LambdaEvent},
+    jwt::{Header, Token, VerifyWithKey}, 
+    hmac::{Hmac, Mac}, 
+    sha2::Sha256, 
+    chrono
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

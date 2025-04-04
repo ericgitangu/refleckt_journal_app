@@ -247,13 +247,16 @@ update_env_file() {
 build_services_sequentially() {
     print_banner "BUILDING SERVICES SEQUENTIALLY"
     
+    # Target for Lambda compilation
+    TARGET=${TARGET:-"aarch64-unknown-linux-musl"}
+    
     # List of services
     local services=("entry-service" "analytics-service" "ai-service" "settings-service" "authorizer" "prompts-service")
     
     # Build common library first if it exists
     if [ -d "$BACKEND_DIR/common" ]; then
-        log_info "Building common library..."
-        (cd "$BACKEND_DIR/common" && cargo build --release) > "$LOG_DIR/build-common.log" 2>&1
+        log_info "Building common library for target $TARGET..."
+        (cd "$BACKEND_DIR/common" && cargo build --release --target $TARGET) > "$LOG_DIR/build-common.log" 2>&1
         
         if [ $? -ne 0 ]; then
             log_error "Failed to build common library. See $LOG_DIR/build-common.log for details."
@@ -265,7 +268,7 @@ build_services_sequentially() {
     
     # Loop through each service and build sequentially
     for service in "${services[@]}"; do
-        log_info "Building $service..."
+        log_info "Building $service for target $TARGET..."
         
         # Create service build directory if it doesn't exist
         mkdir -p "$LOG_DIR/$service"
@@ -273,7 +276,7 @@ build_services_sequentially() {
         # Build the service
         (
             cd "$BACKEND_DIR/$service" && 
-            cargo build --release
+            cargo build --release --target $TARGET
         ) > "$LOG_DIR/$service/build.log" 2>&1
         
         if [ $? -ne 0 ]; then
@@ -281,19 +284,31 @@ build_services_sequentially() {
             exit 1
         fi
         
-        log_success "$service built successfully."
+        # Create bootstrap file for Lambda
+        mkdir -p "$BACKEND_DIR/$service/target/lambda"
+        cp "$BACKEND_DIR/$service/target/$TARGET/release/journal-$service" "$BACKEND_DIR/$service/target/lambda/bootstrap" 2>/dev/null || \
+        cp "$BACKEND_DIR/$service/target/$TARGET/release/$service" "$BACKEND_DIR/$service/target/lambda/bootstrap" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            chmod +x "$BACKEND_DIR/$service/target/lambda/bootstrap"
+            log_success "$service built and prepared for Lambda successfully."
+        else
+            log_error "Could not create Lambda bootstrap file for $service."
+            exit 1
+        fi
         
         # Check space after each build
         check_available_space
         
         # Clean up after successful build to save space
-        if [ -d "$BACKEND_DIR/$service/target" ]; then
+        if [ -d "$BACKEND_DIR/$service/target/$TARGET" ]; then
             log_info "Cleaning up $service build artifacts to save space..."
-            rm -rf "$BACKEND_DIR/$service/target"
+            rm -rf "$BACKEND_DIR/$service/target/$TARGET"
+            # Preserve the lambda directory with bootstrap
+            log_info "Preserving Lambda deployment artifacts..."
         fi
     done
     
-    log_success "All services built successfully."
+    log_success "All services built successfully for Lambda deployment (target: $TARGET)."
 }
 
 setup_frontend_integration() {
@@ -393,6 +408,48 @@ main() {
     
     # Setup AWS credentials
     aws_check_credentials
+    
+    # Check for cross-compiler if targeting aarch64
+    if [[ "${TARGET:-aarch64-unknown-linux-musl}" == *"aarch64"* ]]; then
+        log_info "Checking for aarch64 cross-compiler..."
+        if command -v aarch64-linux-musl-gcc &> /dev/null; then
+            log_success "aarch64-linux-musl-gcc found."
+        else
+            if [[ "$(uname)" == "Darwin" ]] && command -v brew &> /dev/null; then
+                log_warning "aarch64-linux-musl-gcc not found. Installing via Homebrew..."
+                brew install FiloSottile/musl-cross/musl-cross
+                if [ $? -ne 0 ]; then
+                    log_error "Failed to install musl-cross. Please install manually with: brew install FiloSottile/musl-cross/musl-cross"
+                    exit 1
+                fi
+                log_success "musl-cross installed successfully."
+            else
+                log_error "aarch64-linux-musl-gcc not found and could not be installed automatically."
+                log_error "On macOS: brew install FiloSottile/musl-cross/musl-cross"
+                log_error "On Ubuntu: apt-get install gcc-aarch64-linux-gnu"
+                exit 1
+            fi
+        fi
+        
+        # Set up cargo config for cross-compilation
+        log_info "Setting up cargo config for cross-compilation..."
+        mkdir -p "$BACKEND_DIR/.cargo"
+        cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+[build]
+rustflags = ["-C", "link-arg=-s"]
+
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+rustflags = [
+  "-C", "link-self-contained=yes"
+]
+
+[env]
+OPENSSL_STATIC = "1"
+OPENSSL_DIR = "/usr/local/opt/openssl@1.1"
+EOF
+        log_success "Cargo config created for cross-compilation."
+    fi
     
     # Verify CloudFormation template
     aws_verify_template "$BACKEND_DIR/infrastructure/template.yaml" "$LOG_DIR"

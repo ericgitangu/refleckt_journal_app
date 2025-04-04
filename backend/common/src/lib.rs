@@ -18,6 +18,7 @@ pub use jwt;
 pub use hmac;
 pub use sha2;
 pub use chrono;
+pub use lambda_runtime;
 
 // Singleton clients for AWS services
 static DYNAMO_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
