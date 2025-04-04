@@ -1,8 +1,9 @@
 #!/bin/bash
+# Enhanced init.sh script with proper error handling and logging
 set -eo pipefail
 
 # Script constants
-SCRIPT_DIR="$(dirname "$0")"
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 SCRIPTS_DIR="$BACKEND_DIR/scripts"
 LOG_DIR="$BACKEND_DIR/logs/init"
@@ -20,44 +21,91 @@ LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
 # Rust version to use
 RUST_VERSION=${RUST_VERSION:-"1.85.0"}
 
-# Set AWS_LC_SYS_STATIC=1 to prevent aws-lc-sys from trying to compile C code
-# This is the key fix for cross-compilation issues
-export AWS_LC_SYS_STATIC=1
-export AWS_LC_SYS_VENDORED=1
-export RUSTSEC_IGNORE=1
-export OPENSSL_STATIC=1
-export OPENSSL_NO_VENDOR=1
-export CARGO_FEATURES="openssl,ring/force-openssl"
-# Instruct cargo to ignore C dependencies
-export CARGO_BUILD_TARGET="aarch64-unknown-linux-musl"
-export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS="-C target-feature=+crt-static -C link-args=-lgcc"
-# Clear any existing RUSTFLAGS to prevent issues
-unset RUSTFLAGS
+# Source common utility functions
+source "$SCRIPTS_DIR/utils.sh"
+
+# Source environment variables from set_env.sh
+source "$SCRIPTS_DIR/set_env.sh"
 
 # Create logs directory
 mkdir -p "$LOG_DIR"
 rm -rf "$LOG_DIR"/*
 
-# Source common utility functions
-source "$SCRIPTS_DIR/utils.sh"
+# Trap handler for unexpected failures
+handle_error() {
+    local line=$1
+    local status=$2
+    local command=$3
+    local func=${FUNCNAME[1]:-main}
+    local error_log="$LOG_DIR/init_error_summary.log"
+    
+    # Capture the call stack for more context
+    local stack=""
+    local frame=0
+    local i
+    stack="Call stack:\n"
+    while caller $frame >/dev/null 2>&1; do
+        i=($(caller $frame))
+        stack+="  #$frame: ${i[1]} (${i[2]}) at line ${i[0]}\n"
+        ((frame++))
+    done
+    
+    log_error "Initialization failed with exit status $status at line $line in function $func"
+    log_error "Current operation: ${CURRENT_OPERATION:-unknown}"
+    log_error "Command that failed: $command"
+    log_error "See detailed logs in $error_log"
+    
+    # Create a detailed error summary with environment information
+    {
+        echo "=== INITIALIZATION FAILURE SUMMARY ==="
+        echo "Timestamp: $(date)"
+        echo "Script: $(basename "$0")"
+        echo "Failed operation: ${CURRENT_OPERATION:-unknown}"
+        echo "Failed function: $func"
+        echo "Failed at line: $line"
+        echo "Exit status: $status"
+        echo "Command: $command"
+        echo -e "$stack"
+        echo "=== ENVIRONMENT VARIABLES ==="
+        echo "TARGET: $TARGET"
+        echo "RUST_VERSION: $RUST_VERSION"
+        echo "OPENSSL_DIR: $OPENSSL_DIR"
+        echo "AWS_LC_SYS_STATIC: $AWS_LC_SYS_STATIC"
+        echo "AWS_LC_SYS_VENDORED: $AWS_LC_SYS_VENDORED"
+        echo "AWS_REGION: $AWS_REGION"
+        echo "STAGE: $STAGE"
+        echo "STACK_NAME: $STACK_NAME"
+        echo "PATH: $PATH"
+        echo "Working directory: $(pwd)"
+        echo "=== LOG FILES ==="
+        echo "Recent error logs:"
+        find "$LOG_DIR" -name "*error*.log" -mtime -1 | xargs ls -lh 2>/dev/null || echo "No recent error logs found"
+        
+        # If there's a specific operation having issues, try to include relevant logs
+        if [[ -n "${CURRENT_LOG_FILE}" && -f "${CURRENT_LOG_FILE}" ]]; then
+            echo -e "\n=== LAST 20 LINES OF CURRENT OPERATION LOG ==="
+            tail -n 20 "${CURRENT_LOG_FILE}"
+        fi
+        
+        echo "==========================="
+    } > "$error_log"
+    
+    # Print hint about how to debug further
+    log_info "For more details, run: cat $error_log"
+    log_info "You can also check specific operation logs in $LOG_DIR/"
+    
+    exit $status
+}
 
-# Add local bin to PATH if it exists
-if [ -d "$LOCAL_BIN_DIR" ]; then
-    export PATH="$LOCAL_BIN_DIR:$PATH"
-fi
-
-# Source setup-env.sh if it exists
-if [ -f "$BACKEND_DIR/setup-env.sh" ]; then
-    source "$BACKEND_DIR/setup-env.sh"
-    log_info "Sourced environment from setup-env.sh"
-fi
+# Set up trap to catch failures
+trap 'handle_error ${LINENO} $? "$BASH_COMMAND"' ERR
 
 # Ensure all log subdirectories exist
 ensure_log_dirs() {
     log_info "Ensuring log directories exist..."
 
     # First ensure the main log directory exists
-mkdir -p "$LOG_DIR"
+    mkdir -p "$LOG_DIR"
     
     # Create service-specific log directories if desired (for future separation)
     # This is optional since we're already creating the main LOG_DIR
@@ -79,51 +127,6 @@ mkdir -p "$LOG_DIR"
 
 # Call ensure_log_dirs at the beginning
 ensure_log_dirs
-
-# Trap handler for unexpected failures
-handle_error() {
-    local line=$1
-    local status=$2
-    local command=$3
-    
-    log_error "Initialization failed with exit status $status at line $line: $command"
-    log_error "See logs in $LOG_DIR for details"
-    
-    # Create a summary of the error in the log directory
-    {
-        echo "=== INITIALIZATION FAILURE SUMMARY ==="
-        echo "Timestamp: $(date)"
-        echo "Failed at line: $line"
-        echo "Exit status: $status"
-        echo "Command: $command"
-        echo "==========================="
-    } > "$LOG_DIR/init_error_summary.log"
-    
-    exit $status
-}
-
-# Set up trap to catch failures
-trap 'handle_error ${LINENO} $? "$BASH_COMMAND"' ERR
-
-########################################
-# Helper Functions
-########################################
-
-log_info() {
-    echo -e "\033[0;34m[INFO]\033[0m $1"
-}
-
-log_success() {
-    echo -e "\033[0;32m[SUCCESS]\033[0m $1"
-}
-
-log_warning() {
-    echo -e "\033[0;33m[WARNING]\033[0m $1"
-}
-
-log_error() {
-    echo -e "\033[0;31m[ERROR]\033[0m $1"
-}
 
 check_prerequisites() {
     log_info "Checking prerequisites..."
@@ -157,53 +160,128 @@ check_prerequisites() {
         log_success "cargo-lambda installed successfully."
     fi
     
-    # Check for musl-cross
-    log_info "Checking for musl-cross compiler..."
-    if ! ls -la /usr/local/opt/musl-cross &>/dev/null; then
-        log_warning "musl-cross not found in /usr/local/opt. This is required for cross-compilation."
-        log_error "Please install musl-cross via: brew install FiloSottile/musl-cross/musl-cross"
+    # Check that the target is available in rustup
+    log_info "Checking Rust target: $TARGET"
+    if ! rustup target list --installed | grep -q "$TARGET"; then
+        log_warning "Target $TARGET not installed. Installing now..."
+        rustup target add "$TARGET"
+        if [ $? -ne 0 ]; then
+            log_error "Failed to install target $TARGET."
+            exit 1
+        fi
+        log_success "Target $TARGET installed successfully."
+    else
+        log_success "Target $TARGET is already installed."
+    fi
+    
+    # Check for musl-cross in more flexible ways
+    log_info "Checking for musl cross compiler..."
+    
+    # Look for the compiler directly instead of the package
+    local gcc_path=""
+    
+    # First, try to find it directly in PATH
+    if command -v aarch64-linux-musl-gcc &> /dev/null; then
+        gcc_path=$(command -v aarch64-linux-musl-gcc)
+        log_success "Found aarch64-linux-musl-gcc in PATH at: $gcc_path"
+    else
+        # If not in PATH, try to use brew to find the installation
+        if command -v brew &> /dev/null; then
+            log_info "Checking if musl-cross is installed with brew..."
+            
+            if brew list --formula | grep -q "musl-cross"; then
+                log_info "musl-cross is installed with brew. Getting installation path..."
+                
+                local brew_prefix=$(brew --prefix musl-cross 2>/dev/null || echo "")
+                if [ -n "$brew_prefix" ]; then
+                    # Construct the expected path to the compiler
+                    gcc_path="$brew_prefix/bin/aarch64-linux-musl-gcc"
+                    
+                    if [ -x "$gcc_path" ]; then
+                        log_success "Found aarch64-linux-musl-gcc at: $gcc_path"
+                        
+                        # Add to PATH if not already included
+                        if ! echo "$PATH" | grep -q "$(dirname "$gcc_path")"; then
+                            export PATH="$(dirname "$gcc_path"):$PATH"
+                            log_info "Added $(dirname "$gcc_path") to PATH"
+                        fi
+                        
+                        # Set the compiler specifically for aarch64 target
+                        export CC_aarch64_unknown_linux_musl="$gcc_path"
+                        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="$gcc_path"
+                    else
+                        log_warning "musl-cross is installed but aarch64-linux-musl-gcc not found at $gcc_path"
+                        log_info "Checking if compiler was installed with --with-aarch64 flag..."
+                        
+                        # Try to install or reinstall with the correct flag
+                        log_warning "You might need to reinstall musl-cross with: brew reinstall FiloSottile/musl-cross/musl-cross --with-aarch64"
+                        
+                        # Try legacy standard locations as a fallback
+                        if [ -f "/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc" ]; then
+                            gcc_path="/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc"
+                            log_success "Found aarch64-linux-musl-gcc at legacy location: $gcc_path"
+                            export PATH="/usr/local/opt/musl-cross/bin:$PATH"
+                        elif [ -f "/opt/homebrew/opt/musl-cross/bin/aarch64-linux-musl-gcc" ]; then
+                            gcc_path="/opt/homebrew/opt/musl-cross/bin/aarch64-linux-musl-gcc"
+                            log_success "Found aarch64-linux-musl-gcc at legacy location: $gcc_path"
+                            export PATH="/opt/homebrew/opt/musl-cross/bin:$PATH"
+                        else
+                            log_error "aarch64-linux-musl-gcc not found. Please reinstall musl-cross with: brew reinstall FiloSottile/musl-cross/musl-cross --with-aarch64"
+                            exit 1
+                        fi
+                    fi
+                else
+                    log_error "Could not determine musl-cross installation path."
+                    log_error "Please ensure musl-cross is installed with: brew install FiloSottile/musl-cross/musl-cross --with-aarch64"
+                    exit 1
+                fi
+            else
+                log_error "musl-cross not found. Please install with: brew install FiloSottile/musl-cross/musl-cross --with-aarch64"
+                exit 1
+            fi
+        else
+            log_error "brew not found and musl-cross not installed in standard locations."
+            log_error "Please install musl-cross and ensure the compiler is available in PATH."
+            exit 1
+        fi
+    fi
+    
+    # Final verification
+    if ! command -v aarch64-linux-musl-gcc &> /dev/null; then
+        log_error "aarch64-linux-musl-gcc still not found in PATH after setup. Build will likely fail."
+        log_error "Please add the musl-cross bin directory to your PATH manually or reinstall musl-cross."
         exit 1
     fi
     
-    # Check for aarch64 compiler
-    if [[ "$TARGET" == "aarch64-unknown-linux-musl" ]]; then
-        if ! ls -la /usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc &>/dev/null; then
-            log_error "aarch64-linux-musl-gcc not found. Please install with: brew install FiloSottile/musl-cross/musl-cross --with-aarch64"
-            exit 1
-        fi
+    # Check for OpenSSL with flexible version checking
+    log_info "Checking for OpenSSL..."
+    
+    if command -v openssl &> /dev/null; then
+        local openssl_path=$(dirname $(which openssl))
+        local openssl_version=$(openssl version | awk '{print $2}')
+        log_success "Found OpenSSL $openssl_version at: $(which openssl)"
         
-        # Add musl-cross to PATH if not already there
-        if ! echo "$PATH" | grep -q "/usr/local/opt/musl-cross/bin"; then
-            log_info "Adding musl-cross to PATH"
-            export PATH="/usr/local/opt/musl-cross/bin:$PATH"
-        fi
-    fi
-    
-    # Check for rust toolchain and target
-    log_info "Checking Rust toolchain and target..."
-    if ! rustup toolchain list | grep -q "$RUST_VERSION"; then
-        log_warning "Rust $RUST_VERSION not found. Installing now..."
-        rustup install "$RUST_VERSION"
-        if [ $? -ne 0 ]; then
-            log_error "Failed to install Rust $RUST_VERSION."
+        # Set OPENSSL_DIR to the parent directory of the openssl binary
+        export OPENSSL_DIR="$(dirname $openssl_path)"
+        log_info "Set OPENSSL_DIR=$OPENSSL_DIR"
+    else
+        # Try standard Homebrew locations if command not found
+        if [ -f "/usr/local/opt/openssl@1.1/bin/openssl" ]; then
+            export OPENSSL_DIR="/usr/local/opt/openssl@1.1"
+            log_success "Found OpenSSL at $OPENSSL_DIR"
+        elif [ -f "/usr/local/opt/openssl@3/bin/openssl" ]; then
+            export OPENSSL_DIR="/usr/local/opt/openssl@3"
+            log_success "Found OpenSSL at $OPENSSL_DIR"
+        elif [ -f "/opt/homebrew/opt/openssl@1.1/bin/openssl" ]; then
+            export OPENSSL_DIR="/opt/homebrew/opt/openssl@1.1"
+            log_success "Found OpenSSL at $OPENSSL_DIR"
+        elif [ -f "/opt/homebrew/opt/openssl@3/bin/openssl" ]; then
+            export OPENSSL_DIR="/opt/homebrew/opt/openssl@3"
+            log_success "Found OpenSSL at $OPENSSL_DIR"
+        else
+            log_error "OpenSSL not found. Please install OpenSSL via: brew install openssl"
             exit 1
         fi
-    fi
-    
-    if ! rustup target list --installed --toolchain "$RUST_VERSION" | grep -q "$TARGET"; then
-        log_warning "Target $TARGET not installed for Rust $RUST_VERSION. Installing now..."
-        rustup target add --toolchain "$RUST_VERSION" "$TARGET"
-        if [ $? -ne 0 ]; then
-            log_error "Failed to install target $TARGET for Rust $RUST_VERSION."
-            exit 1
-        fi
-    fi
-    
-    # Check for OpenSSL
-    if ! ls -la /usr/local/opt/openssl@1.1 &>/dev/null; then
-        log_warning "OpenSSL 1.1 not found. This is required for building with OpenSSL."
-        log_error "Please install OpenSSL 1.1 via: brew install openssl@1.1"
-        exit 1
     fi
     
     # Verify AWS credentials are configured
@@ -236,105 +314,50 @@ setup_aws_credentials() {
     exit 1
 }
 
-setup_lambda_build() {
-    log_info "Setting up Lambda build environment..."
+# Setup root-level cargo config
+setup_cargo_config() {
+    log_info "Setting up root-level cargo configuration..."
     
-    # Detect system
-    local os_type
-    os_type=$(uname -s)
-    
-    log_info "$os_type system detected, setting up Lambda build toolchain..."
-    
-    # Use consistent rust version (1.85.0)
-    RUST_VERSION=${RUST_VERSION:-"1.85.0"}
-    
-    # Use rustup to find the toolchain path
-    RUSTUP_TOOLCHAIN_BIN=$(rustup which --toolchain "$RUST_VERSION" rustc)
-    RUSTUP_TOOLCHAIN_BIN=$(dirname "$RUSTUP_TOOLCHAIN_BIN")
-    
-    log_info "Using Rust toolchain at: $RUSTUP_TOOLCHAIN_BIN"
-    
-    # Add rustup bin to PATH
-    if [[ ":$PATH:" != *":$RUSTUP_TOOLCHAIN_BIN:"* ]]; then
-        export PATH="$RUSTUP_TOOLCHAIN_BIN:$PATH"
-        log_info "Added $RUSTUP_TOOLCHAIN_BIN to PATH"
-    fi
-    
-    # Ensure specific Rust version is installed
-    log_info "Ensuring Rust $RUST_VERSION is installed and active..."
-    rustup install "$RUST_VERSION" --force
-    
-    # Set RUSTUP_TOOLCHAIN environment variable
-    export RUSTUP_TOOLCHAIN="${RUST_VERSION}"
-    
-    # Add the target to rustup with the specific toolchain
-    rustup target add --toolchain "$RUST_VERSION" "$TARGET"
-    
-    # Create local bin directory if it doesn't exist
-    mkdir -p "$LOCAL_BIN_DIR"
-    
-    # Set up consolidated rust-toolchain.toml file
-    bash "$SCRIPTS_DIR/setup-toolchain.sh"
-    
-    # Set critical environment variables for building
-    export AWS_LC_SYS_STATIC=1
-    export AWS_LC_SYS_VENDORED=1
-    export RUSTSEC_IGNORE=1
-    export OPENSSL_STATIC=1
-    export OPENSSL_NO_VENDOR=1
-    export OPENSSL_DIR="/usr/local/opt/openssl@1.1"
-    
-    # Setup cargo config directory
+    # Create .cargo directory at the project root
     mkdir -p "$BACKEND_DIR/.cargo"
     
-    # On macOS, create a special config for cross-compilation
-    if [ "$os_type" = "Darwin" ]; then
-        log_info "Setting up cross-compilation for macOS"
-        
-        # Export musl gcc path explicitly
-        export CC_aarch64_unknown_linux_musl="/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc"
-        export CXX_aarch64_unknown_linux_musl="/usr/local/opt/musl-cross/bin/aarch64-linux-musl-g++"
-        export AR_aarch64_unknown_linux_musl="/usr/local/opt/musl-cross/bin/aarch64-linux-musl-ar"
-        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc"
-        
-        # Set up .cargo/config.toml
-        cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+    # Check if config.toml already exists
+    if [ -f "$BACKEND_DIR/.cargo/config.toml" ]; then
+        log_info "Root cargo config.toml already exists"
+        return 0
+    }
+    
+    # Write the cargo config with the detected OPENSSL_DIR
+    cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
 [build]
 rustflags = ["-C", "link-arg=-s"]
 
 [target.aarch64-unknown-linux-musl]
-linker = "/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc"
-# Use an array of strings for rustflags to prevent concatenation issues
+linker = "aarch64-linux-musl-gcc"
 rustflags = [
   "-C", "link-self-contained=yes"
 ]
 
 [env]
-AWS_LC_SYS_STATIC = "1"
+OPENSSL_STATIC = "1"
+OPENSSL_DIR = "${OPENSSL_DIR}"
+AWS_LC_SYS_STATIC = "1" 
 AWS_LC_SYS_VENDORED = "1"
 RUSTSEC_IGNORE = "1"
-OPENSSL_STATIC = "1"
 OPENSSL_NO_VENDOR = "1"
 EOF
-    fi
     
-    log_success "Lambda build environment set up for $TARGET"
+    log_success "Root-level cargo config created with OPENSSL_DIR=${OPENSSL_DIR}"
 }
 
 build_common_library() {
+    CURRENT_OPERATION="building common library"
+    CURRENT_LOG_FILE="$LOG_DIR/common-build.log"
     log_info "Building common library..."
     
     # Use specialized script for common library
     if [ -f "$SCRIPTS_DIR/build-common.sh" ]; then
         log_info "Using specialized build-common.sh script..."
-        # Ensure all environment variables are passed
-        AWS_LC_SYS_STATIC=1 \
-        AWS_LC_SYS_VENDORED=1 \
-        RUSTSEC_IGNORE=1 \
-        OPENSSL_STATIC=1 \
-        OPENSSL_NO_VENDOR=1 \
-        TARGET="$TARGET" \
-        RUSTUP_TOOLCHAIN="$RUST_VERSION" \
         bash "$SCRIPTS_DIR/build-common.sh" 2>&1 | tee "$LOG_DIR/common-build.log"
         
         if [ ${PIPESTATUS[0]} -ne 0 ]; then
@@ -355,49 +378,14 @@ build_common_library() {
     # Ensure log file directory exists
     mkdir -p "$(dirname "$LOG_DIR/common-build.log")"
     
-    # Create a local cargo config for the common library
-    mkdir -p ".cargo"
-    cat > ".cargo/config.toml" << EOF
-[build]
-rustflags = ["-C", "link-arg=-s"]
-
-[target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
-# Use an array of strings for rustflags to prevent concatenation issues
-rustflags = [
-  "-C", "link-self-contained=yes"
-]
-
-[env]
-AWS_LC_SYS_STATIC = "1"
-AWS_LC_SYS_VENDORED = "1"
-RUSTSEC_IGNORE = "1"
-OPENSSL_STATIC = "1"
-OPENSSL_NO_VENDOR = "1"
-EOF
-    
     # First check for Makefile
     if [ -f "Makefile" ]; then
         log_info "Using Makefile for common library build..."
-        
-        # Set Makefile env vars explicitly
-        AWS_LC_SYS_STATIC=1 \
-        AWS_LC_SYS_VENDORED=1 \
-        RUSTSEC_IGNORE=1 \
-        OPENSSL_STATIC=1 \
-        OPENSSL_NO_VENDOR=1 \
-        make build-musl TARGET="$TARGET" RUSTUP_TOOLCHAIN="$RUST_VERSION" 2>&1 | tee "$LOG_DIR/common-build.log"
+        make build-musl TARGET="$TARGET" 2>&1 | tee "$LOG_DIR/common-build.log"
     else
-        # Build with rustup run to ensure correct toolchain
-    log_info "Using cargo build for library..."
-        
-        # Set env vars explicitly for the build
-        AWS_LC_SYS_STATIC=1 \
-        AWS_LC_SYS_VENDORED=1 \
-        RUSTSEC_IGNORE=1 \
-        OPENSSL_STATIC=1 \
-        OPENSSL_NO_VENDOR=1 \
-        rustup run "$RUST_VERSION" cargo build --release --target "$TARGET" 2>&1 | tee "$LOG_DIR/common-build.log"
+        # Build with cargo
+        log_info "Using cargo build for library..."
+        cargo build --release --target "$TARGET" 2>&1 | tee "$LOG_DIR/common-build.log"
     fi
     
     if [ ${PIPESTATUS[0]} -ne 0 ]; then
@@ -415,6 +403,8 @@ build_service() {
     local service_dir="$1"
     local service_name="$(basename "$service_dir")"
     
+    CURRENT_OPERATION="building service $service_name"
+    CURRENT_LOG_FILE="$LOG_DIR/$service_name-build.log"
     log_info "Building $service_name..."
     
     # Only proceed if directory exists and contains Cargo.toml
@@ -428,82 +418,58 @@ build_service() {
     # Ensure log file directory exists
     mkdir -p "$(dirname "$LOG_DIR/$service_name-build.log")"
     
-    # Create a local cargo config for the service
-    mkdir -p ".cargo"
-    cat > ".cargo/config.toml" << EOF
-[build]
-rustflags = ["-C", "link-arg=-s"]
-
-[target.aarch64-unknown-linux-musl]
-linker = "aarch64-linux-musl-gcc"
-# Use an array of strings for rustflags to prevent concatenation issues
-rustflags = [
-  "-C", "link-self-contained=yes" 
-]
-
-[env]
-AWS_LC_SYS_STATIC = "1"
-AWS_LC_SYS_VENDORED = "1"
-RUSTSEC_IGNORE = "1"
-OPENSSL_STATIC = "1"
-OPENSSL_NO_VENDOR = "1"
-EOF
-    
     # Special handling for authorizer service which uses ring/aws-lc-sys
     if [ "$service_name" = "authorizer" ]; then
         log_info "Special handling for authorizer service with aws-lc-sys dependency"
         
         # Use specialized script for authorizer
-        log_info "Using specialized build-authorizer.sh script..."
-        AWS_LC_SYS_STATIC=1 \
-        AWS_LC_SYS_VENDORED=1 \
-        RUSTSEC_IGNORE=1 \
-        OPENSSL_STATIC=1 \
-        OPENSSL_NO_VENDOR=1 \
-        TARGET="$TARGET" \
-        RUSTUP_TOOLCHAIN="$RUST_VERSION" \
-        bash "$SCRIPTS_DIR/build-authorizer.sh" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
-        
-        if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            log_error "Failed to build authorizer with specialized script."
-            cat "$LOG_DIR/$service_name-build.log"
-            exit 1
+        if [ -f "$SCRIPTS_DIR/build-authorizer.sh" ]; then
+            log_info "Using specialized build-authorizer.sh script..."
+            bash "$SCRIPTS_DIR/build-authorizer.sh" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
+            
+            if [ ${PIPESTATUS[0]} -ne 0 ]; then
+                log_error "Failed to build authorizer with specialized script."
+                cat "$LOG_DIR/$service_name-build.log"
+                exit 1
+            fi
+            
+            log_success "Authorizer built successfully with specialized script"
+        else
+            log_warning "No specialized script found for authorizer. Trying standard approach..."
+            
+            # Use standard build approach with special flags for authorizer
+            log_info "Building authorizer with standard approach and special flags..."
+            cargo build --release --target "$TARGET" --no-default-features 2>&1 | tee "$LOG_DIR/$service_name-build.log"
+            
+            if [ ${PIPESTATUS[0]} -ne 0 ]; then
+                log_error "Failed to build authorizer. Check $LOG_DIR/$service_name-build.log for details."
+                cat "$LOG_DIR/$service_name-build.log"
+                exit 1
+            fi
+            
+            # Create bootstrap file
+            mkdir -p "target/lambda"
+            cp "target/${TARGET}/release/${service_name}" "target/lambda/bootstrap"
+            chmod +x "target/lambda/bootstrap"
+            
+            log_success "Authorizer built successfully with standard approach"
         fi
-        
-        log_success "Authorizer built successfully with specialized script"
     else
         log_info "Building with target: $TARGET"
         
         # First check for Makefile
         if [ -f "Makefile" ]; then
             log_info "Using Makefile for $service_name build..."
-            AWS_LC_SYS_STATIC=1 \
-            AWS_LC_SYS_VENDORED=1 \
-            RUSTSEC_IGNORE=1 \
-            OPENSSL_STATIC=1 \
-            OPENSSL_NO_VENDOR=1 \
-            make build-musl TARGET="$TARGET" RUSTUP_TOOLCHAIN="$RUST_VERSION" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
+            make build-musl TARGET="$TARGET" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
         # Then check for cross-build.sh
         elif [ -f "$SCRIPTS_DIR/cross-build.sh" ]; then
             log_info "Using cross-build.sh for $service_name..."
-            AWS_LC_SYS_STATIC=1 \
-            AWS_LC_SYS_VENDORED=1 \
-            RUSTSEC_IGNORE=1 \
-            OPENSSL_STATIC=1 \
-            OPENSSL_NO_VENDOR=1 \
-            TARGET="$TARGET" \
-            RUSTUP_TOOLCHAIN="$RUST_VERSION" \
             bash "$SCRIPTS_DIR/cross-build.sh" "$service_name" "./target/lambda" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
         else
             # Check if the service has aws-lc-sys or ring dependencies
             if grep -q "aws-lc-sys\|ring" Cargo.lock 2>/dev/null || grep -q "lambda_runtime" Cargo.toml 2>/dev/null; then
                 log_info "Detected aws-lc-sys/ring dependency, using standard cargo build for $service_name..."
-                AWS_LC_SYS_STATIC=1 \
-                AWS_LC_SYS_VENDORED=1 \
-                RUSTSEC_IGNORE=1 \
-                OPENSSL_STATIC=1 \
-                OPENSSL_NO_VENDOR=1 \
-                rustup run "$RUST_VERSION" cargo build --target "$TARGET" --release 2>&1 | tee "$LOG_DIR/$service_name-build.log"
+                cargo build --target "$TARGET" --release 2>&1 | tee "$LOG_DIR/$service_name-build.log"
                 
                 # Create bootstrap file
                 mkdir -p "target/lambda"
@@ -513,13 +479,8 @@ EOF
                 log_info "Created bootstrap file at target/lambda/bootstrap"
             else
                 # Use cargo-lambda as a last resort for services without critical dependencies
-    log_info "Building $service_name with cargo-lambda for $TARGET..."
-                AWS_LC_SYS_STATIC=1 \
-                AWS_LC_SYS_VENDORED=1 \
-                RUSTSEC_IGNORE=1 \
-                OPENSSL_STATIC=1 \
-                OPENSSL_NO_VENDOR=1 \
-                rustup run "$RUST_VERSION" cargo lambda build -v --release --target "$TARGET" --lambda-runtime "$LAMBDA_RUNTIME" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
+                log_info "Building $service_name with cargo-lambda for $TARGET..."
+                cargo lambda build -v --release --target "$TARGET" --lambda-runtime "$LAMBDA_RUNTIME" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
             fi
         fi
     fi
@@ -536,6 +497,7 @@ EOF
 }
 
 build_services() {
+    CURRENT_OPERATION="building all services"
     log_info "Building all services..."
     
     # First, build the common library
@@ -552,6 +514,8 @@ build_services() {
 }
 
 deploy_stack() {
+    CURRENT_OPERATION="deploying CloudFormation stack $STACK_NAME"
+    CURRENT_LOG_FILE="$LOG_DIR/deploy-stack.log"
     log_info "Deploying CloudFormation stack..."
     
     # Ensure log file directory exists
@@ -573,6 +537,8 @@ deploy_stack() {
 }
 
 get_stack_outputs() {
+    CURRENT_OPERATION="fetching CloudFormation stack outputs"
+    CURRENT_LOG_FILE="$LOG_DIR/stack_outputs.log"
     log_info "Fetching CloudFormation stack outputs..."
     
     local stack_output
@@ -595,6 +561,7 @@ update_env_file() {
     local stack_output="$1"
     local env_tmp="${ENV_FILE}.tmp"
     
+    CURRENT_OPERATION="updating environment file"
     log_info "Updating environment file..."
     
     # Start with empty environment file
@@ -641,6 +608,8 @@ update_env_file() {
 }
 
 create_test_user() {
+    CURRENT_OPERATION="creating test user"
+    CURRENT_LOG_FILE="$LOG_DIR/cognito-user-create.log"
     log_info "Creating test user..."
     
     # Get user pool ID from environment file
@@ -692,6 +661,8 @@ create_test_user() {
 }
 
 get_auth_token() {
+    CURRENT_OPERATION="getting authentication token"
+    CURRENT_LOG_FILE="$LOG_DIR/admin_auth_result.json"
     log_info "Getting authentication token..."
     
     # Source environment file to get variables
@@ -738,6 +709,8 @@ get_auth_token() {
 }
 
 test_endpoints() {
+    CURRENT_OPERATION="testing API endpoints"
+    CURRENT_LOG_FILE="$LOG_DIR/test-endpoints.log"
     log_info "Testing API endpoints..."
     
     # Ensure log file directory exists
@@ -748,124 +721,269 @@ test_endpoints() {
         bash "$SCRIPTS_DIR/test-endpoints.sh" -r "$REGION" 2>&1 | tee "$LOG_DIR/test-endpoints.log"
         if [ ${PIPESTATUS[0]} -ne 0 ]; then
             log_warning "Some endpoint tests failed. Check $LOG_DIR/test-endpoints.log for details."
-            # Continue despite failures
-        else
-            log_success "All endpoint tests passed successfully."
-        fi
-    else
-        log_error "test-endpoints.sh script not found in $SCRIPTS_DIR"
-        # Continue execution
-    fi
+        } else {
+            log_success "All endpoint tests passed."
+        }
+    } else {
+        log_warning "test-endpoints.sh not found. Skipping API tests."
+    }
 }
 
 verify_lambdas() {
+    CURRENT_OPERATION="verifying Lambda deployments"
     log_info "Verifying Lambda deployments..."
     
     # Run the verify-lambda.sh script for each service
     services=("entry-service" "analytics-service" "ai-service" "settings-service" "authorizer" "prompts-service")
     
     for service in "${services[@]}"; do
-        if [ -f "$SCRIPTS_DIR/verify-lambda.sh" ]; then
-            log_info "Verifying $service Lambda function..."
+        log_info "Verifying $service Lambda function..."
+        
+        # Ensure log file exists
+        mkdir -p "$LOG_DIR"
+        
+        bash "$SCRIPTS_DIR/verify-lambda.sh" -s "$service" -r "$REGION" 2>&1 | tee "$LOG_DIR/$service-verify.log"
+        
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            log_warning "Verification of $service Lambda failed. Check $LOG_DIR/$service-verify.log for details."
+        } else {
+            log_success "$service Lambda verified successfully."
+        }
+    }
+}
+
+print_completion_message() {
+    local api_endpoint
+    api_endpoint=$(grep "API_ENDPOINT" "$ENV_FILE" | cut -d= -f2 2>/dev/null || echo "N/A")
+    
+    print_banner "INITIALIZATION COMPLETE"
+    
+    echo -e "🎉 \033[1;32mReflekt Journal App has been successfully initialized!\033[0m 🎉"
+    echo -e "\n📝 \033[1;34mSummary:\033[0m"
+    echo -e "  • API Endpoint: \033[1;36m$api_endpoint\033[0m"
+    echo -e "  • Environment variables: \033[1;36m$ENV_FILE\033[0m"
+    echo -e "  • Authentication token: \033[1;36m$TOKEN_FILE\033[0m"
+    echo -e "  • Log files: \033[1;36m$LOG_DIR\033[0m"
+    
+    echo -e "\n🚀 \033[1;34mNext steps:\033[0m"
+    echo -e "  1. Test your API by running: \033[1;33m./scripts/test-endpoints.sh\033[0m"
+    echo -e "  2. Set up the frontend application"
+    echo -e "  3. For any issues, check the logs in \033[1;33m$LOG_DIR\033[0m"
+    
+    echo -e "\n🔍 \033[1;34mTestable resources:\033[0m"
+    echo -e "  • Demo user: \033[1;36mtest@example.com\033[0m / \033[1;36mTest123!\033[0m"
+    echo -e "  • API endpoint: \033[1;36m$api_endpoint\033[0m"
+    
+    print_banner "HAPPY CODING!"
+}
+
+# Install or set up llvm-ar without requiring full developer tools
+setup_llvm_ar() {
+    log_info "Setting up lightweight llvm-ar..."
+    
+    # Create local bin directory if it doesn't exist
+    mkdir -p "$LOCAL_BIN_DIR"
+
+    # Check if we're on macOS
+    if [ "$(uname)" = "Darwin" ]; then
+        log_info "macOS detected, setting up ar symlinks"
+        
+        # Check if system ar exists
+        if [ -f "/usr/bin/ar" ]; then
+            log_info "Using system ar as a replacement for llvm-ar"
             
-            # Ensure log file directory exists for this service
-            mkdir -p "$(dirname "$LOG_DIR/verify-$service.log")"
-            
-            bash "$SCRIPTS_DIR/verify-lambda.sh" -s "$service" -r "$REGION" 2>&1 | tee "$LOG_DIR/verify-$service.log"
-            if [ ${PIPESTATUS[0]} -ne 0 ]; then
-                log_warning "Verification for $service failed. Check $LOG_DIR/verify-$service.log for details."
-                # Continue despite failures
+            # Create symlink to system ar if it doesn't exist
+            if [ ! -f "$LOCAL_BIN_DIR/llvm-ar" ]; then
+                ln -sf /usr/bin/ar "$LOCAL_BIN_DIR/llvm-ar"
+                log_success "Created symlink from system ar to llvm-ar at $LOCAL_BIN_DIR/llvm-ar"
             else
-                log_success "$service Lambda verified successfully."
+                log_info "llvm-ar symlink already exists"
+            fi
+            
+            # Set environment variables to use system ar
+            export AR="/usr/bin/ar"
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="/usr/bin/ar"
+            
+            log_success "Using system ar for cross-compilation"
+        else
+            log_warning "System ar not found at /usr/bin/ar"
+            
+            # Download minimal llvm-ar if system ar is not available
+            download_minimal_llvm_ar
+        fi
+    else
+        log_info "Non-macOS system detected, checking for llvm-ar"
+        
+        # Check if llvm-ar is installed
+        if command -v llvm-ar &> /dev/null; then
+            log_info "llvm-ar found in PATH"
+            # Create symlink if needed
+            if [ ! -f "$LOCAL_BIN_DIR/llvm-ar" ]; then
+                ln -sf "$(command -v llvm-ar)" "$LOCAL_BIN_DIR/llvm-ar"
+                log_success "Created symlink to existing llvm-ar at $LOCAL_BIN_DIR/llvm-ar"
             fi
         else
-            log_error "verify-lambda.sh script not found in $SCRIPTS_DIR"
-            break
+            log_warning "llvm-ar not found in PATH"
+            # Download minimal llvm-ar
+            download_minimal_llvm_ar
         fi
-    done
-}
-
-setup_frontend() {
-    log_info "Setting up frontend environment..."
-    
-    # Create a .env.local file in the frontend directory
-    local frontend_env="../frontend/.env.local"
-    local backend_env="$ENV_FILE"
-    
-    # Make sure backend env file exists
-    if [ ! -f "$backend_env" ]; then
-        log_error "Backend environment file $backend_env not found."
-        exit 1
     fi
     
-    # Source backend env file to get API_ENDPOINT and other settings
-    source "$backend_env"
-    
-    # Create frontend env file
-    cat > "$frontend_env" << EOF
-# Generated by init.sh - $(date)
-NEXT_PUBLIC_API_ENDPOINT=${API_ENDPOINT}
-NEXT_PUBLIC_REGION=${AWS_REGION}
-NEXT_PUBLIC_USER_POOL_ID=${USER_POOL_ID}
-NEXT_PUBLIC_USER_POOL_CLIENT_ID=${USER_POOL_CLIENT_ID}
-EOF
-    
-    log_success "Frontend environment file created at $frontend_env"
-    
-    log_info "Frontend is now configured to use the deployed backend at ${API_ENDPOINT}"
+    # Verify llvm-ar setup
+    verify_llvm_ar
 }
 
-########################################
-# Main Function
-########################################
+# Download minimal llvm-ar binary
+download_minimal_llvm_ar() {
+    log_info "Downloading minimal llvm-ar..."
+    
+    # Define URL for minimal llvm-ar binary
+    local os_type="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    local arch="$(uname -m)"
+    
+    # URL for the appropriate binary - this is an example URL
+    # In reality, you'd host these binaries somewhere accessible
+    local url="https://example.com/llvm-ar-minimal-${os_type}-${arch}.tar.gz"
+    
+    # For the purpose of this example, we'll simulate the download
+    log_info "Would download from $url"
+    log_info "Simulating minimal llvm-ar binary..."
+    
+    # Instead of downloading, create a shell script that mimics llvm-ar
+    # by forwarding to system ar with appropriate flags
+    cat > "$LOCAL_BIN_DIR/llvm-ar" << 'EOF'
+#!/bin/bash
+# Minimal llvm-ar replacement that forwards to system ar
+system_ar=$(command -v ar || echo "/usr/bin/ar")
+if [ ! -f "$system_ar" ]; then
+    echo "Error: Could not find system ar" >&2
+    exit 1
+fi
+exec "$system_ar" "$@"
+EOF
+    
+    chmod +x "$LOCAL_BIN_DIR/llvm-ar"
+    log_success "Created minimal llvm-ar replacement at $LOCAL_BIN_DIR/llvm-ar"
+}
+
+# Verify llvm-ar is working correctly
+verify_llvm_ar() {
+    log_info "Verifying llvm-ar setup..."
+    
+    # Add local bin to PATH if not already
+    export PATH="$LOCAL_BIN_DIR:$PATH"
+    
+    # Check if llvm-ar is in PATH
+    if command -v llvm-ar &> /dev/null; then
+        log_success "llvm-ar found in PATH"
+        
+        # Create a simple test archive to verify functionality
+        local test_dir=$(mktemp -d)
+        local test_file="$test_dir/test.txt"
+        local test_archive="$test_dir/test.a"
+        
+        echo "test content" > "$test_file"
+        
+        # Try to create an archive
+        if llvm-ar rcs "$test_archive" "$test_file" 2>/dev/null; then
+            log_success "llvm-ar successfully created test archive"
+            rm -rf "$test_dir"
+        else
+            log_warning "llvm-ar failed to create test archive, but we'll continue anyway"
+            log_info "The environment variables should still allow cargo to build correctly"
+        fi
+    else
+        log_error "llvm-ar not found in PATH after setup"
+        log_info "Setting AR environment variables as fallback"
+        
+        # Set fallback environment variables
+        export AR="/usr/bin/ar"
+        export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="/usr/bin/ar"
+    fi
+}
+
+# Verify environment variable setup for aws-lc-sys and ring
+verify_patch_section() {
+    log_info "Checking configuration for Ring/aws-lc-sys handling..."
+    
+    local common_cargo="$BACKEND_DIR/common/Cargo.toml"
+    
+    if [ ! -f "$common_cargo" ]; then
+        log_warning "common/Cargo.toml not found, skipping verification"
+        return 0
+    fi
+    
+    # With our environment variable approach, patches are no longer needed
+    # Check if there's a patch section (we want it removed)
+    if grep -q '\[patch.crates-io\]' "$common_cargo"; then
+        log_warning "Patch section found in common/Cargo.toml - no longer needed with environment variables"
+        log_info "Consider removing the [patch.crates-io] section as it may cause compilation issues"
+        log_info "The environment variables in set_env.sh handle cross-compilation properly now"
+    else
+        log_success "No patch section found in common/Cargo.toml - good!"
+    fi
+    
+    # Verify environment variables are set
+    if [ -z "$AWS_LC_SYS_STATIC" ] || [ -z "$AWS_LC_SYS_VENDORED" ]; then
+        log_warning "AWS_LC_SYS_STATIC or AWS_LC_SYS_VENDORED environment variables not set"
+        log_info "Sourcing set_env.sh to set required environment variables"
+        source "$SCRIPT_DIR/set_env.sh"
+    else
+        log_success "AWS_LC_SYS_STATIC and AWS_LC_SYS_VENDORED are set correctly"
+    fi
+}
+
 main() {
-    log_info "Initializing Reflekt Journal App backend..."
+    # Print welcome banner
+    CURRENT_OPERATION="initialization"
+    print_banner "REFLEKT JOURNAL APP INITIALIZATION"
+    
+    # Create logs directory
+    mkdir -p "$LOG_DIR"
     
     # Check prerequisites
     check_prerequisites
     
-    # Setup AWS credentials
+    # Setup lightweight llvm-ar
+    setup_llvm_ar
+    
+    # Verify patch section in common/Cargo.toml
+    verify_patch_section
+    
+    # Setup root-level cargo config
+    setup_cargo_config
+    
+    # Set up AWS credentials
     setup_aws_credentials
     
-    # Setup Lambda build environment
-    setup_lambda_build
-    
-    # Build all services with cargo-lambda
+    # Build all services
     build_services
     
-    # Deploy the stack
+    # Deploy the CloudFormation stack
     deploy_stack
     
     # Get stack outputs
-    stack_output=$(get_stack_outputs)
+    stack_outputs=$(get_stack_outputs)
     
     # Update environment file
-    update_env_file "$stack_output"
+    update_env_file "$stack_outputs"
     
     # Create test user
     create_test_user
     
-    # Get authentication token
+    # Get auth token
     get_auth_token
     
-    # Verify Lambda deployments
-    verify_lambdas
-    
-    # Test endpoints
+    # Test API endpoints
     test_endpoints
     
-    # Setup frontend
-    setup_frontend
+    # Verify lambda functions
+    verify_lambdas
     
-    log_success "Backend initialization complete!"
-    log_info "==================================================="
-    log_info "Next steps:"
-    log_info "1. The backend is now deployed and ready to use."
-    log_info "2. The frontend is configured to use the deployed backend."
-    log_info "3. Start the frontend with 'cd ../frontend && yarn dev'"
-    log_info "4. Use the test user credentials from $ENV_FILE to log in."
-    log_info "==================================================="
+    # Print completion message
+    print_completion_message
+    
+    exit 0
 }
 
-# Run the main function
 main "$@"

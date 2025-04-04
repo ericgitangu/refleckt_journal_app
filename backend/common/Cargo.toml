@@ -5,8 +5,8 @@ edition = "2021"
 description = "Shared library for Reflekt Journal App services containing common dependencies and utilities"
 
 [dependencies]
-# AWS SDK dependencies with consistent versions - use native-tls instead of rustls
-aws-config = { version = "1.6.0", features = ["native-tls"], default-features = false }
+# AWS SDK dependencies with consistent versions
+aws-config = { version = "1.6.1", default-features = false, features = ["rustls"] }
 aws-sdk-dynamodb = "1.69.0"
 aws-sdk-s3 = "1.79.0"
 aws-sdk-secretsmanager = "1.66.0"
@@ -14,8 +14,8 @@ aws-sdk-eventbridge = "1.65.0"
 aws_lambda_events = { version = "0.16.0", features = ["http", "cloudwatch_events"] }
 
 # Lambda-related dependencies
-lambda_http = { version = "0.14.0", default-features = false, features = ["openssl"] }
-lambda_runtime = { version = "0.13.0", default-features = false, features = ["openssl"] }
+lambda_http = { version = "0.14.0", default-features = false }
+lambda_runtime = { version = "0.13.0", default-features = false }
 
 # Serialization and data handling
 serde = { version = "1.0", features = ["derive"] }
@@ -40,8 +40,8 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 env_logger = "0.11.8"  # Hoisted from ai-service
 
-# Networking
-reqwest = { version = "0.12.14", default-features = false, features = ["json", "native-tls"] }
+# Networking - use rustls explicitly instead of default features
+reqwest = { version = "0.12.14", default-features = false, features = ["json", "rustls-tls"] }
 
 # Crypto and security - updated to latest OpenSSL with v3 support
 openssl = { version = "0.10.71", features = ["vendored"] }
@@ -54,11 +54,8 @@ default = ["openssl", "jwt-auth"]
 openssl = []
 jwt-auth = ["jwt/openssl"]
 
-# Prevent ring and aws-lc-sys from being included
-[patch.crates-io]
-# Replace ring with OpenSSL-based version
-ring = { git = "https://github.com/briansmith/ring", features = ["force-openssl"] }
-
-# Properly disable aws-lc dependencies by explicitly making them no-ops
-aws-lc-rs = { git = "https://github.com/aws/aws-lc-rs", features = ["fips-static"] }
-aws-lc-sys = { git = "https://github.com/aws/aws-lc-rs", package = "aws-lc-sys", optional = true }
+# The patches are no longer needed since we're using environment variables
+# to handle cross-compilation properly with:
+# - AWS_LC_SYS_STATIC=1
+# - AWS_LC_SYS_VENDORED=1
+# - Using system ar for linking

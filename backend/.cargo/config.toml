@@ -9,4 +9,8 @@ rustflags = [
 
 [env]
 OPENSSL_STATIC = "1"
-OPENSSL_DIR = "/usr/local/opt/openssl@1.1"
+OPENSSL_DIR = "/usr/local"
+AWS_LC_SYS_STATIC = "1" 
+AWS_LC_SYS_VENDORED = "1"
+RUSTSEC_IGNORE = "1"
+OPENSSL_NO_VENDOR = "1"

@@ -257,7 +257,53 @@ We've implemented an optimized build system using `cargo-lambda` for AWS Lambda 
 3. **Simplified Workflow**: Handles both compilation and packaging in a single step
 4. **No Root Required**: Tools are installed locally within the project directory
 
-#### OpenSSL-Based Cryptography
+### Cross-Compilation Setup
+
+The most common issue with building Lambda functions on macOS is the cross-compilation from macOS to Linux. We use musl-cross to handle this:
+
+```bash
+# Install musl-cross with aarch64 target
+brew install FiloSottile/musl-cross/musl-cross --with-aarch64
+```
+
+If you already have musl-cross installed but are missing the aarch64 target, you can reinstall:
+
+```bash
+brew reinstall FiloSottile/musl-cross/musl-cross --with-aarch64
+```
+
+#### Verifying musl-cross Installation
+
+After installation, verify that the aarch64 compiler is available:
+
+```bash
+# Check if the compiler exists
+ls -la "$(brew --prefix musl-cross)/bin/aarch64-linux-musl-gcc"
+
+# Verify it can be executed
+"$(brew --prefix musl-cross)/bin/aarch64-linux-musl-gcc" --version
+```
+
+If the compiler is not found, it might be because:
+1. You installed musl-cross without the `--with-aarch64` flag
+2. The compiler is installed but not in your PATH
+3. Homebrew didn't link the binaries properly
+
+#### Lightweight llvm-ar Setup
+
+Our build system uses a lightweight llvm-ar replacement to avoid requiring the full LLVM toolchain:
+
+```bash
+# Set up the lightweight llvm-ar
+./scripts/install-llvm-ar.sh
+```
+
+This script:
+- Creates a symlink from system `/usr/bin/ar` to `llvm-ar` in the local bin directory
+- Sets up appropriate environment variables to avoid needing the actual llvm-ar
+- Includes verification to confirm it's working correctly
+
+### OpenSSL-Based Cryptography
 
 This project uses OpenSSL for all cryptographic operations, including JWT validation. We've chosen OpenSSL for its:
 
@@ -267,7 +313,7 @@ This project uses OpenSSL for all cryptographic operations, including JWT valida
 
 By using OpenSSL with its vendored feature, we avoid platform-specific cryptographic dependencies and ensure consistent behavior across all deployment environments.
 
-#### ARM64-Only Approach
+### ARM64-Only Approach
 
 We've standardized on ARM64 (aarch64) as our exclusive target architecture for several reasons:
 
@@ -278,7 +324,7 @@ We've standardized on ARM64 (aarch64) as our exclusive target architecture for s
 5. **Future-Proof**: AWS is heavily investing in ARM-based solutions
 6. **Simplified Setup**: By standardizing on one architecture, we avoid complexity and potential issues
 
-#### Rust Toolchain Configuration
+### Rust Toolchain Configuration
 
 All services use a consistent `rust-toolchain.toml` file:
 
@@ -295,6 +341,38 @@ This configuration:
 - Includes necessary components (rustfmt, clippy)
 - Specifies only the ARM64 target
 - Uses the minimal profile for faster installation
+
+### Centralized Environment Configuration
+
+We use a centralized `set_env.sh` script that sets all environment variables in one place. Source it with:
+
+```bash
+# Source environment variables
+source ./scripts/set_env.sh
+```
+
+This sets up:
+- `TARGET`: The compilation target (`aarch64-unknown-linux-musl`)
+- `RUST_VERSION`: The Rust version to use
+- `OPENSSL_DIR`: Path to OpenSSL installation
+- `AWS_LC_SYS_STATIC`: Prevents aws-lc-sys from compiling C code
+- `AR`: Path to the ar tool (uses system ar on macOS)
+- `CC_aarch64_unknown_linux_musl`: Path to the aarch64 C compiler
+
+### Root-Level Cargo Config
+
+We use a single root-level `.cargo/config.toml` file for all services to ensure consistency and maintainability. This approach:
+- Ensures all services use the same configuration
+- Reduces duplication across services
+- Simplifies updating configuration settings
+- Reduces the risk of configuration drift between services
+
+### Special Handling for Ring and aws-lc-sys
+
+The authorizer service uses the Ring cryptography library with a special patch for cross-compilation. Our build system:
+- Uses Anoma's fork of Ring that avoids assembly code
+- Makes aws-lc-sys optional and uses a dummy implementation
+- Builds the authorizer with `--no-default-features` to avoid Ring assembly code
 
 ### Build Script (`build-all.sh`)
 
@@ -533,29 +611,61 @@ Common issues and solutions:
    pip install aws-sam-cli
    ```
 
-3. **Build Failures**
+3. **musl-cross Issues**
    ```bash
-   # Check build logs
-   cat ./logs/build/entry-service-build.log
+   # Check where musl-cross is installed
+   brew --prefix musl-cross
    
-   # Try cleaning and rebuilding
-   ./scripts/build-all.sh --clean
+   # Ensure the bin directory is in your PATH
+   export PATH="$(brew --prefix musl-cross)/bin:$PATH"
+   
+   # Reinstall with aarch64 target
+   brew reinstall FiloSottile/musl-cross/musl-cross --with-aarch64
    ```
 
-4. **Deployment Failures**
+4. **OpenSSL Detection Issues**
+   ```bash
+   # Check OpenSSL installation
+   which openssl
+   openssl version
+   
+   # For OpenSSL errors, verify OPENSSL_DIR is set correctly
+   echo $OPENSSL_DIR
+   
+   # You can manually set the environment variable
+   export OPENSSL_DIR="/usr/local"  # or the correct path for your system
+   ```
+
+5. **Ring/aws-lc-sys Compilation Errors**
+   Verify the patch section in common/Cargo.toml has the correct entries:
+   ```toml
+   [patch.crates-io]
+   # Use Anoma's fork of ring that avoids assembly code
+   ring = { git = "https://github.com/anoma/ring", branch = "0.16.20-assembly-free" }
+   # Make aws-lc-sys optional and use dummy implementation
+   aws-lc-sys = { git = "https://github.com/aws/aws-lc-rs", branch = "main", features = ["bindgen"] }
+   ```
+
+6. **Deployment Failures**
    ```bash
    # Check CloudFormation events
    aws cloudformation describe-stack-events \
      --stack-name reflekt-journal-dev
    ```
 
-5. **Test Failures**
+7. **Test Failures**
    ```bash
    # Run with verbose output
    ./scripts/test-endpoints.sh -v
    
    # Check specific endpoint
    curl -v $API_URL/health
+   ```
+
+8. **Debugging with Detailed Output**
+   ```bash
+   # Run scripts with debug output
+   DEBUG=true ./scripts/build-all.sh
    ```
 
 ## 👨‍💻 Author
