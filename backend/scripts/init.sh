@@ -162,12 +162,12 @@ check_prerequisites() {
                         fi
                     else
                         log_error "Failed to install musl-cross. Please install manually with: brew install FiloSottile/musl-cross/musl-cross"
-                        exit 1
-                    fi
+        exit 1
+    fi
                 else
                     log_error "brew not found. Please install Homebrew first or install musl-cross manually."
-                    exit 1
-                fi
+        exit 1
+    fi
                 ;;
                 
             linux)
@@ -179,8 +179,8 @@ check_prerequisites() {
                         log_success "Cross-compiler tools installed successfully."
                     else
                         log_error "Failed to install cross-compiler tools. Please install manually with: sudo apt-get install musl-tools gcc-aarch64-linux-gnu"
-                        exit 1
-                    fi
+        exit 1
+    fi
                 elif command -v dnf &> /dev/null; then
                     # Fedora/RHEL
                     log_warning "aarch64-linux-musl-gcc not found. Installing via dnf..."
@@ -188,8 +188,8 @@ check_prerequisites() {
                         log_success "Cross-compiler tools installed successfully."
                     else
                         log_error "Failed to install cross-compiler tools. Please install manually with: sudo dnf install musl-gcc aarch64-linux-gnu-gcc"
-                        exit 1
-                    fi
+            exit 1
+        fi
                 elif command -v yum &> /dev/null; then
                     # CentOS/older RHEL
                     log_warning "aarch64-linux-musl-gcc not found. Installing via yum..."
@@ -203,14 +203,14 @@ check_prerequisites() {
                     log_error "No supported package manager found. Please install required tools manually:"
                     log_error "On Debian/Ubuntu: sudo apt-get install musl-tools gcc-aarch64-linux-gnu"
                     log_error "On Fedora/RHEL: sudo dnf install musl-gcc aarch64-linux-gnu-gcc"
-                    exit 1
-                fi
+        exit 1
+    fi
                 ;;
                 
             *)
                 log_error "Unsupported operating system: $os_type"
                 log_error "Please install the required tools manually."
-                exit 1
+            exit 1
                 ;;
         esac
     fi
@@ -218,7 +218,7 @@ check_prerequisites() {
     # Check Rust installation
     if ! command -v rustup &> /dev/null; then
         log_error "rustup not found. Please install Rust first."
-        exit 1
+            exit 1
     fi
     
     # Check if cargo-lambda is installed
@@ -785,7 +785,7 @@ setup_llvm_ar() {
     fi
 
     # Check if we're on macOS
-    if [ "$(uname)" = "Darwin" ]; then
+    if [ "$(uname -s)" = "Darwin" ]; then
         log_info "macOS detected, setting up ar symlinks"
         
         # Check if system ar exists
@@ -794,10 +794,10 @@ setup_llvm_ar() {
             
             # Create symlink to system ar if it doesn't exist
             if [ ! -f "$LOCAL_BIN_DIR/llvm-ar" ]; then
-                ln -sf /usr/bin/ar "$LOCAL_BIN_DIR/llvm-ar"
-                log_success "Created symlink from system ar to llvm-ar at $LOCAL_BIN_DIR/llvm-ar"
+                # Create lightweight wrapper instead of symlink for better compatibility
+                create_lightweight_llvm_ar
             else
-                log_info "llvm-ar symlink already exists"
+                log_info "llvm-ar wrapper already exists"
             fi
             
             # Set environment variables to use system ar
@@ -808,24 +808,24 @@ setup_llvm_ar() {
         else
             log_warning "System ar not found at /usr/bin/ar"
             
-            # Download minimal llvm-ar if system ar is not available
-            download_minimal_llvm_ar
+            # Create minimal llvm-ar if system ar is not available
+            create_lightweight_llvm_ar
         fi
     else
-        log_info "Non-macOS system detected, checking for llvm-ar"
+        log_info "Linux system detected, checking for ar"
         
-        # Check if llvm-ar is installed
-        if command -v llvm-ar &> /dev/null; then
-            log_info "llvm-ar found in PATH"
-            # Create symlink if needed
-            if [ ! -f "$LOCAL_BIN_DIR/llvm-ar" ]; then
-                ln -sf "$(command -v llvm-ar)" "$LOCAL_BIN_DIR/llvm-ar"
-                log_success "Created symlink to existing llvm-ar at $LOCAL_BIN_DIR/llvm-ar"
-            fi
+        # For Linux, directly create a lightweight wrapper
+        # that handles multiple possible ar locations
+        create_lightweight_llvm_ar
+        
+        # Set environment variables for build scripts
+        if command -v ar &>/dev/null; then
+            AR_PATH=$(command -v ar)
+            export AR="$AR_PATH"
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="$AR_PATH"
+            log_success "Set AR environment variables to system ar at $AR_PATH"
         else
-            log_warning "llvm-ar not found in PATH"
-            # Download minimal llvm-ar
-            download_minimal_llvm_ar
+            log_warning "Could not find system ar in PATH, relying on wrapper script"
         fi
     fi
     
@@ -833,37 +833,161 @@ setup_llvm_ar() {
     verify_llvm_ar
 }
 
-# Download minimal llvm-ar binary
-download_minimal_llvm_ar() {
-    log_info "Downloading minimal llvm-ar..."
+# Create lightweight llvm-ar wrapper script or download if needed
+create_lightweight_llvm_ar() {
+    log_info "Setting up lightweight llvm-ar..."
     
-    # Define URL for minimal llvm-ar binary
+    # Detect OS type for platform-specific configuration
     local os_type="$(uname -s | tr '[:upper:]' '[:lower:]')"
     local arch="$(uname -m)"
+    local download_needed=false
     
-    # URL for the appropriate binary - this is an example URL
-    # In reality, you'd host these binaries somewhere accessible
-    local url="https://example.com/llvm-ar-minimal-${os_type}-${arch}.tar.gz"
+    # Check if ar exists in standard locations
+    local found_ar=""
+    for ar_path in "/usr/bin/ar" "/bin/ar" "/usr/local/bin/ar"; do
+        if [ -x "$ar_path" ]; then
+            found_ar="$ar_path"
+            break
+        fi
+    done
     
-    # For the purpose of this example, we'll simulate the download
-    log_info "Would download from $url"
-    log_info "Simulating minimal llvm-ar binary..."
-    
-    # Instead of downloading, create a shell script that mimics llvm-ar
-    # by forwarding to system ar with appropriate flags
-    cat > "$LOCAL_BIN_DIR/llvm-ar" << 'EOF'
-#!/bin/bash
-# Minimal llvm-ar replacement that forwards to system ar
-system_ar=$(command -v ar || echo "/usr/bin/ar")
-if [ ! -f "$system_ar" ]; then
-    echo "Error: Could not find system ar" >&2
-        exit 1
+    # If we didn't find ar directly, try command -v
+    if [ -z "$found_ar" ] && command -v ar &>/dev/null; then
+        found_ar=$(command -v ar)
     fi
-exec "$system_ar" "$@"
-EOF
     
-    chmod +x "$LOCAL_BIN_DIR/llvm-ar"
-    log_success "Created minimal llvm-ar replacement at $LOCAL_BIN_DIR/llvm-ar"
+    # If found, create a wrapper script
+    if [ -n "$found_ar" ]; then
+        log_info "Found system ar at $found_ar"
+        
+        # Create a wrapper script
+        cat > "$LOCAL_BIN_DIR/llvm-ar" << EOF
+#!/bin/bash
+# Lightweight llvm-ar replacement
+exec $found_ar "\$@"
+EOF
+        chmod +x "$LOCAL_BIN_DIR/llvm-ar"
+        log_success "Created llvm-ar wrapper using system ar at $found_ar"
+    else
+        # No ar found, we'll need to download it
+        download_needed=true
+    fi
+    
+    # Download ar binary if needed
+    if [ "$download_needed" = true ]; then
+        log_warning "No system ar found, attempting to download a prebuilt binary..."
+        
+        # Create temp directory for downloads
+        local tmp_dir=$(mktemp -d)
+        local download_url=""
+        local binary_name="ar"
+        
+        # Set platform-specific download URLs
+        if [ "$os_type" = "darwin" ]; then
+            if [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
+                # macOS arm64
+                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-arm64-apple-darwin21.0.tar.xz"
+                binary_path="clang+llvm-15.0.7-arm64-apple-darwin21.0/bin/llvm-ar"
+            else
+                # macOS x86_64
+                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz"
+                binary_path="clang+llvm-15.0.7-x86_64-apple-darwin21.0/bin/llvm-ar"
+            fi
+        else
+            # Linux
+            if [ "$arch" = "x86_64" ]; then
+                # Linux x86_64
+                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-linux-gnu-ubuntu-18.04.tar.xz"
+                binary_path="clang+llvm-15.0.7-x86_64-linux-gnu-ubuntu-18.04/bin/llvm-ar"
+            elif [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then
+                # Linux arm64
+                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-aarch64-linux-gnu.tar.xz"
+                binary_path="clang+llvm-15.0.7-aarch64-linux-gnu/bin/llvm-ar"
+            else
+                log_error "Unsupported architecture: $arch. Cannot download prebuilt binary."
+                log_error "Please install binutils manually with your package manager."
+                return 1
+            fi
+        fi
+        
+        # Download and extract the binary
+        log_info "Downloading from $download_url..."
+        local archive_file="$tmp_dir/llvm.tar.xz"
+        
+        # Check if curl is available
+        if ! command -v curl &>/dev/null; then
+            log_error "curl is required for downloading. Please install curl first."
+            log_error "Debian/Ubuntu: sudo apt-get install curl"
+            log_error "Fedora/RHEL:   sudo dnf install curl"
+            log_error "macOS:         brew install curl"
+            return 1
+        fi
+        
+        # Download the archive
+        if ! curl -SLo "$archive_file" "$download_url"; then
+            log_error "Failed to download from $download_url"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+        
+        # Check if tar exists for extraction
+        if ! command -v tar &>/dev/null; then
+            log_error "tar is required for extraction. Please install tar first."
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+        
+        # Extract the archive
+        log_info "Extracting archive..."
+        if ! tar -xf "$archive_file" -C "$tmp_dir"; then
+            log_error "Failed to extract archive"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+        
+        # Copy the binary to the local bin directory
+        local extracted_binary="$tmp_dir/$binary_path"
+        if [ ! -f "$extracted_binary" ]; then
+            log_error "Binary not found in extracted archive: $extracted_binary"
+            rm -rf "$tmp_dir"
+            return 1
+        fi
+        
+        log_info "Installing $extracted_binary to $LOCAL_BIN_DIR/llvm-ar"
+        cp "$extracted_binary" "$LOCAL_BIN_DIR/llvm-ar"
+        chmod +x "$LOCAL_BIN_DIR/llvm-ar"
+        
+        # Clean up
+        rm -rf "$tmp_dir"
+        log_success "Downloaded and installed llvm-ar to $LOCAL_BIN_DIR/llvm-ar"
+    fi
+    
+    # Test the binary or wrapper
+    if "$LOCAL_BIN_DIR/llvm-ar" --version &>/dev/null; then
+        log_success "llvm-ar is working correctly"
+    else
+        log_error "llvm-ar installation failed. The binary doesn't work."
+        
+        # Create a fallback error wrapper if the binary doesn't work
+        cat > "$LOCAL_BIN_DIR/llvm-ar" << 'EOF'
+#!/bin/bash
+echo "Error: llvm-ar could not be set up properly." >&2
+echo "Please install binutils manually:" >&2
+echo "  Debian/Ubuntu: sudo apt-get install binutils" >&2
+echo "  Fedora/RHEL:   sudo dnf install binutils" >&2
+echo "  macOS:         brew install llvm" >&2
+exit 1
+EOF
+        chmod +x "$LOCAL_BIN_DIR/llvm-ar"
+        log_warning "Created fallback error wrapper that will tell users how to install binutils"
+        return 1
+    fi
+    
+    # Set environment variables for the new ar binary
+    export AR="$LOCAL_BIN_DIR/llvm-ar"
+    export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="$LOCAL_BIN_DIR/llvm-ar"
+    
+    return 0
 }
 
 # Verify llvm-ar is working correctly
