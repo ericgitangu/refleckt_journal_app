@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Use the consolidated common package
-journal-common = { path = "../common" }
+# Use the consolidated common package without AI features
+journal-common = { path = "../common", default-features = false, features = ["openssl"] }
 
 # All dependencies have been hoisted to journal-common
-# This includes rust-bert and all AWS-related dependencies
+# No need for rust-bert in this service

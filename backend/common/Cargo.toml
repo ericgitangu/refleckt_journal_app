@@ -14,7 +14,7 @@ aws-sdk-eventbridge = "1.65.0"
 aws_lambda_events = { version = "0.16.0", features = ["http", "cloudwatch_events"] }
 
 # Lambda-related dependencies
-lambda_http = { version = "0.14.0", default-features = false }
+lambda_http = { version = "0.14.0", default-features = false, features = ["apigw_rest"] }
 lambda_runtime = { version = "0.13.0", default-features = false }
 
 # Serialization and data handling
@@ -33,7 +33,7 @@ base64 = "0.22.1"  # Used by multiple services
 rand = "0.9.0"     # Updated to match prompts-service version
 
 # AI and ML libraries
-rust-bert = { version = "0.23.0", default-features = false }  # Hoisted from ai-service and settings-service
+rust-bert = { version = "0.23.0", default-features = false, optional = true }
 
 # Logging and tracing
 tracing = "0.1"
@@ -53,6 +53,7 @@ tokio = { version = "1.44.0", features = ["full"] }
 default = ["openssl", "jwt-auth"]
 openssl = []
 jwt-auth = ["jwt/openssl"]
+ai-features = ["rust-bert"]
 
 # The patches are no longer needed since we're using environment variables
 # to handle cross-compilation properly with:

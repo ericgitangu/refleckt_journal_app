@@ -1,5 +1,5 @@
 use aws_lambda_events::apigw::{ApiGatewayProxyRequest, ApiGatewayProxyResponse};
-use aws_lambda_runtime::{run, service_fn, Error, LambdaEvent};
+use journal_common::lambda_runtime::{run, service_fn, Error, LambdaEvent};
 use aws_sdk_dynamodb::model::AttributeValue;
 use journal_common::{
     error_response, extract_tenant_context, get_dynamo_client, json_response, publish_event, JournalError,

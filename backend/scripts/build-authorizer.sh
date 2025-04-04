@@ -10,7 +10,7 @@ SCRIPT_NAME=$(basename "$0")
 CURRENT_OPERATION="initializing"
 
 # Source the utility functions
-source "$SCRIPT_DIR/utils.sh"
+source "$SCRIPT_DIR/common.sh"
 
 # Source environment variables
 source "$SCRIPT_DIR/set_env.sh"

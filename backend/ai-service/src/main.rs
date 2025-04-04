@@ -1,8 +1,11 @@
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
-use aws_lambda_runtime::{run, service_fn, Error, LambdaEvent};
+use journal_common::lambda_runtime::{run, service_fn, Error, LambdaEvent};
 use aws_sdk_dynamodb::model::AttributeValue;
 use journal_common::{
     get_dynamo_client, get_s3_client, publish_event, JournalError,
+    EntryAnalysis as CommonEntryAnalysis,
+    SentimentAnalysis, KeywordAnalysis, InsightAnalysis,
+    analyze_text,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -305,6 +308,26 @@ async fn analyze_with_anthropic(entry: &EntryEvent) -> Result<EntryAnalysis, Jou
     })
 }
 
+// Process entry with RustBert (or fallback to basic analysis)
+async fn analyze_with_rustbert(entry: &EntryEvent) -> Result<EntryAnalysis, JournalError> {
+    // Use the common library AI module functionality
+    let analysis = analyze_text(&entry.title, &entry.content);
+    
+    // Convert from common library format to service format
+    Ok(EntryAnalysis {
+        entry_id: entry.entry_id.clone(),
+        tenant_id: entry.tenant_id.clone(),
+        user_id: entry.user_id.clone(),
+        sentiment: analysis.sentiment.sentiment,
+        sentiment_score: analysis.sentiment.score,
+        keywords: analysis.keywords.keywords,
+        suggested_categories: analysis.keywords.categories,
+        insights: analysis.insights.insights,
+        reflections: analysis.insights.reflections,
+        provider: "rustbert".to_string(),
+    })
+}
+
 async fn analyze_entry(
     event: &EntryEvent,
 ) -> Result<EntryAnalysis, JournalError> {
@@ -312,42 +335,7 @@ async fn analyze_entry(
     match get_ai_provider() {
         AiProvider::OpenAI => analyze_with_openai(event).await,
         AiProvider::Anthropic => analyze_with_anthropic(event).await,
-        AiProvider::RustBert => {
-            // Fallback to simplified analysis for testing/development environments
-            let sentiment = "neutral".to_string();
-            let sentiment_score = 0.0;
-            
-            // Simple keyword extraction
-            let words: Vec<String> = event.content
-                .split_whitespace()
-                .map(|w| w.to_lowercase())
-                .filter(|w| w.len() > 4)  // Only consider longer words
-                .collect();
-                
-            let keywords: Vec<String> = words
-                .iter()
-                .take(5)
-                .cloned()
-                .collect();
-                
-            let suggested_categories = vec![
-                "general".to_string(),
-                "journal".to_string(),
-            ];
-            
-            Ok(EntryAnalysis {
-                entry_id: event.entry_id.clone(),
-                tenant_id: event.tenant_id.clone(),
-                user_id: event.user_id.clone(),
-                sentiment,
-                sentiment_score,
-                keywords,
-                suggested_categories,
-                insights: Some("This is a journal entry about various thoughts and experiences.".to_string()),
-                reflections: Some("What more would you like to explore about this topic?".to_string()),
-                provider: "rustbert".to_string(),
-            })
-        }
+        AiProvider::RustBert => analyze_with_rustbert(event).await,
     }
 }
 

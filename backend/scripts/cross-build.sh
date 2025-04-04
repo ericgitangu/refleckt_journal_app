@@ -13,8 +13,8 @@ LOG_DIR="$BACKEND_DIR/logs/build"
 SCRIPT_NAME=$(basename "$0")
 CURRENT_OPERATION="initializing"
 
-# Source utils.sh for logging functions
-source "$SCRIPT_DIR/utils.sh"
+# Source common utility functions
+source "$SCRIPT_DIR/common.sh"
 
 # Source environment variables from set_env.sh
 source "$SCRIPT_DIR/set_env.sh"

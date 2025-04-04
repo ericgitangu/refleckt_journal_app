@@ -2,30 +2,26 @@
 # Enhanced init.sh script with proper error handling and logging
 set -eo pipefail
 
-# Script constants
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-SCRIPTS_DIR="$BACKEND_DIR/scripts"
-LOG_DIR="$BACKEND_DIR/logs/init"
+SCRIPTS_DIR="$SCRIPT_DIR" # For backward compatibility
+
+# Default options
+LOG_DIR="$BACKEND_DIR/logs"
 ENV_FILE="$BACKEND_DIR/.env"
-TOKEN_FILE="$BACKEND_DIR/.token"
-STACK_NAME=${STACK_NAME:-reflekt-journal}
-STAGE=${STAGE:-dev}
-REGION=${AWS_REGION:-us-east-1}
-# Default target for Lambda compilation
-TARGET=${TARGET:-"aarch64-unknown-linux-musl"}
-# Lambda runtime
-LAMBDA_RUNTIME=${LAMBDA_RUNTIME:-"provided.al2023"}
-# Local bin directory
-LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
-# Rust version to use
-RUST_VERSION=${RUST_VERSION:-"1.85.0"}
+STAGE=${STAGE:-"dev"}
+STACK_NAME=${STACK_NAME:-"reflekt-${STAGE}"}
+REGION=${AWS_REGION:-"us-east-1"}
+TOKEN_FILE="$LOG_DIR/token.txt"
 
 # Source common utility functions
-source "$SCRIPTS_DIR/utils.sh"
+source "$SCRIPTS_DIR/common.sh"
 
 # Source environment variables from set_env.sh
-source "$SCRIPTS_DIR/set_env.sh"
+if [ -f "$SCRIPTS_DIR/set_env.sh" ]; then
+    source "$SCRIPTS_DIR/set_env.sh"
+fi
 
 # Create logs directory
 mkdir -p "$LOG_DIR"
@@ -105,7 +101,7 @@ ensure_log_dirs() {
     log_info "Ensuring log directories exist..."
 
     # First ensure the main log directory exists
-    mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR"
     
     # Create service-specific log directories if desired (for future separation)
     # This is optional since we're already creating the main LOG_DIR
@@ -167,7 +163,7 @@ check_prerequisites() {
         rustup target add "$TARGET"
         if [ $? -ne 0 ]; then
             log_error "Failed to install target $TARGET."
-            exit 1
+        exit 1
         fi
         log_success "Target $TARGET installed successfully."
     else
@@ -220,7 +216,7 @@ check_prerequisites() {
                         if [ -f "/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc" ]; then
                             gcc_path="/usr/local/opt/musl-cross/bin/aarch64-linux-musl-gcc"
                             log_success "Found aarch64-linux-musl-gcc at legacy location: $gcc_path"
-                            export PATH="/usr/local/opt/musl-cross/bin:$PATH"
+            export PATH="/usr/local/opt/musl-cross/bin:$PATH"
                         elif [ -f "/opt/homebrew/opt/musl-cross/bin/aarch64-linux-musl-gcc" ]; then
                             gcc_path="/opt/homebrew/opt/musl-cross/bin/aarch64-linux-musl-gcc"
                             log_success "Found aarch64-linux-musl-gcc at legacy location: $gcc_path"
@@ -233,8 +229,8 @@ check_prerequisites() {
                 else
                     log_error "Could not determine musl-cross installation path."
                     log_error "Please ensure musl-cross is installed with: brew install FiloSottile/musl-cross/musl-cross --with-aarch64"
-                    exit 1
-                fi
+            exit 1
+        fi
             else
                 log_error "musl-cross not found. Please install with: brew install FiloSottile/musl-cross/musl-cross --with-aarch64"
                 exit 1
@@ -325,10 +321,10 @@ setup_cargo_config() {
     if [ -f "$BACKEND_DIR/.cargo/config.toml" ]; then
         log_info "Root cargo config.toml already exists"
         return 0
-    }
+    fi
     
     # Write the cargo config with the detected OPENSSL_DIR
-    cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
+        cat > "$BACKEND_DIR/.cargo/config.toml" << EOF
 [build]
 rustflags = ["-C", "link-arg=-s"]
 
@@ -341,7 +337,7 @@ rustflags = [
 [env]
 OPENSSL_STATIC = "1"
 OPENSSL_DIR = "${OPENSSL_DIR}"
-AWS_LC_SYS_STATIC = "1" 
+AWS_LC_SYS_STATIC = "1"
 AWS_LC_SYS_VENDORED = "1"
 RUSTSEC_IGNORE = "1"
 OPENSSL_NO_VENDOR = "1"
@@ -384,7 +380,7 @@ build_common_library() {
         make build-musl TARGET="$TARGET" 2>&1 | tee "$LOG_DIR/common-build.log"
     else
         # Build with cargo
-        log_info "Using cargo build for library..."
+    log_info "Using cargo build for library..."
         cargo build --release --target "$TARGET" 2>&1 | tee "$LOG_DIR/common-build.log"
     fi
     
@@ -424,16 +420,16 @@ build_service() {
         
         # Use specialized script for authorizer
         if [ -f "$SCRIPTS_DIR/build-authorizer.sh" ]; then
-            log_info "Using specialized build-authorizer.sh script..."
-            bash "$SCRIPTS_DIR/build-authorizer.sh" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
-            
-            if [ ${PIPESTATUS[0]} -ne 0 ]; then
-                log_error "Failed to build authorizer with specialized script."
-                cat "$LOG_DIR/$service_name-build.log"
-                exit 1
-            fi
-            
-            log_success "Authorizer built successfully with specialized script"
+        log_info "Using specialized build-authorizer.sh script..."
+        bash "$SCRIPTS_DIR/build-authorizer.sh" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
+        
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            log_error "Failed to build authorizer with specialized script."
+            cat "$LOG_DIR/$service_name-build.log"
+            exit 1
+        fi
+        
+        log_success "Authorizer built successfully with specialized script"
         else
             log_warning "No specialized script found for authorizer. Trying standard approach..."
             
@@ -479,7 +475,7 @@ build_service() {
                 log_info "Created bootstrap file at target/lambda/bootstrap"
             else
                 # Use cargo-lambda as a last resort for services without critical dependencies
-                log_info "Building $service_name with cargo-lambda for $TARGET..."
+    log_info "Building $service_name with cargo-lambda for $TARGET..."
                 cargo lambda build -v --release --target "$TARGET" --lambda-runtime "$LAMBDA_RUNTIME" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
             fi
         fi
@@ -496,7 +492,48 @@ build_service() {
     cd "$BACKEND_DIR"
 }
 
+# Get argument for skipping ai-service
+SKIP_AI_SERVICE=false
+for arg in "$@"; do
+    case $arg in
+        --skip-ai)
+            SKIP_AI_SERVICE=true
+            log_info "Skipping AI service build (torch-sys dependencies will not be compiled)"
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo "Options:"
+            echo "  --help, -h           Show this help message and exit"
+            echo "  --clean              Clean all build artifacts before building"
+            echo "  --target TARGET      Set the target architecture (default: aarch64-unknown-linux-musl)"
+            echo "  --skip-ai            Skip building the AI service (avoids compiling torch-sys dependencies)"
+            echo "  --rust-version VER   Set the Rust version to use (default: 1.85.0)"
+            exit 0
+            ;;
+    esac
+done
+
+# Build services
 build_services() {
+    print_banner "BUILDING SERVICES"
+    
+    # List of services to build
+    local services=(
+        "authorizer"
+        "entry-service"
+        "analytics-service"
+        "prompts-service"
+        "settings-service"
+    )
+    
+    # Add AI service if not skipped
+    if [ "$SKIP_AI_SERVICE" != "true" ]; then
+        services+=("ai-service")
+    else
+        log_info "Skipping AI service build as requested."
+    fi
+    
     CURRENT_OPERATION="building all services"
     log_info "Building all services..."
     
@@ -721,12 +758,12 @@ test_endpoints() {
         bash "$SCRIPTS_DIR/test-endpoints.sh" -r "$REGION" 2>&1 | tee "$LOG_DIR/test-endpoints.log"
         if [ ${PIPESTATUS[0]} -ne 0 ]; then
             log_warning "Some endpoint tests failed. Check $LOG_DIR/test-endpoints.log for details."
-        } else {
+        else
             log_success "All endpoint tests passed."
-        }
-    } else {
+        fi
+    else
         log_warning "test-endpoints.sh not found. Skipping API tests."
-    }
+    fi
 }
 
 verify_lambdas() {
@@ -737,19 +774,19 @@ verify_lambdas() {
     services=("entry-service" "analytics-service" "ai-service" "settings-service" "authorizer" "prompts-service")
     
     for service in "${services[@]}"; do
-        log_info "Verifying $service Lambda function..."
-        
+            log_info "Verifying $service Lambda function..."
+            
         # Ensure log file exists
         mkdir -p "$LOG_DIR"
-        
+            
         bash "$SCRIPTS_DIR/verify-lambda.sh" -s "$service" -r "$REGION" 2>&1 | tee "$LOG_DIR/$service-verify.log"
         
-        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            if [ ${PIPESTATUS[0]} -ne 0 ]; then
             log_warning "Verification of $service Lambda failed. Check $LOG_DIR/$service-verify.log for details."
-        } else {
-            log_success "$service Lambda verified successfully."
-        }
-    }
+            else
+                log_success "$service Lambda verified successfully."
+            fi
+    done
 }
 
 print_completion_message() {
@@ -857,8 +894,8 @@ download_minimal_llvm_ar() {
 system_ar=$(command -v ar || echo "/usr/bin/ar")
 if [ ! -f "$system_ar" ]; then
     echo "Error: Could not find system ar" >&2
-    exit 1
-fi
+        exit 1
+    fi
 exec "$system_ar" "$@"
 EOF
     

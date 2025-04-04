@@ -53,10 +53,7 @@ build: build-common
 # Build with musl for Lambda compatibility
 build-musl: setup-cross build-common
 	@echo "Building $(SERVICE_NAME) for Lambda compatibility with target $(TARGET)..."
-	@if command -v cross &> /dev/null; then \
-		echo "Using cross for cross-compilation..."; \
-		cross build --target $(TARGET) --release; \
-	elif command -v cargo-lambda &> /dev/null; then \
+	@if command -v cargo-lambda &> /dev/null; then \
 		echo "Using cargo-lambda for cross-compilation..."; \
 		cargo lambda build --target $(TARGET) --release --output-format zip; \
 	else \

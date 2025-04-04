@@ -4,8 +4,31 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Use the consolidated common package
-journal-common = { path = "../common" }
+# Use journal-common with AI features enabled
+journal-common = { path = "../common", features = ["ai-features"] }
 
-# All dependencies have been hoisted to journal-common
-# This includes rust-bert, env_logger, and all AWS-related dependencies
+# AWS SDK dependencies
+aws-config = { version = "1.6.1", features = ["rustls"] }
+aws-sdk-dynamodb = "1.69.0"
+aws-sdk-s3 = "1.79.0"
+aws-sdk-secretsmanager = "1.66.0"
+aws-sdk-eventbridge = "1.65.0"
+aws_lambda_events = { version = "0.16.0", features = ["http", "cloudwatch_events"] }
+
+# Utility dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.44.0", features = ["full"] }
+anyhow = "1.0"
+reqwest = { version = "0.12.14", default-features = false, features = ["json", "rustls-tls"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# OpenSSL configuration for cross-compilation
+[dependencies.openssl]
+version = "0.10.71"
+features = ["vendored"]
+
+[[bin]]
+name = "journal-ai-service"
+path = "src/main.rs"

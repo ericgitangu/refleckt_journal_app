@@ -19,6 +19,7 @@ pub use hmac;
 pub use sha2;
 pub use chrono;
 pub use lambda_runtime;
+pub use lambda_http;
 
 // Singleton clients for AWS services
 static DYNAMO_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
@@ -246,3 +247,19 @@ pub async fn publish_event(
     
     Ok(())
 }
+
+// Settings module
+mod settings;
+pub use settings::*;
+
+// AI module - conditionally compiled
+#[cfg(feature = "ai-features")]
+mod ai;
+#[cfg(feature = "ai-features")]
+pub use ai::*;
+
+// Also export a simplified version without the heavy AI dependencies
+#[cfg(not(feature = "ai-features"))]
+mod ai;
+#[cfg(not(feature = "ai-features"))]
+pub use ai::*;

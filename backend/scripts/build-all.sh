@@ -332,6 +332,18 @@ is_service_built() {
     return 1  # Service needs to be built
 }
 
+# Get argument for skipping ai-service
+SKIP_AI_SERVICE=false
+for arg in "$@"; do
+    case $arg in
+        --skip-ai)
+            SKIP_AI_SERVICE=true
+            log_info "Skipping AI service build (torch-sys dependencies will not be compiled)"
+            shift
+            ;;
+    esac
+done
+
 # Build services function
 build_services() {
     CURRENT_OPERATION="building all services"
@@ -366,10 +378,16 @@ build_services() {
         "authorizer"
         "entry-service"
         "analytics-service"
-        "ai-service" 
-        "settings-service"
         "prompts-service"
+        "settings-service"
     )
+    
+    # Add AI service if not skipped
+    if [ "$SKIP_AI_SERVICE" != "true" ]; then
+        services+=("ai-service")
+    else
+        log_info "Skipping AI service build as requested."
+    fi
     
     # Build each service with cargo-lambda
     for service in "${services[@]}"; do
@@ -452,23 +470,36 @@ print_guide() {
     echo -e "  3. \033[1;32mCentralized environment variables\033[0m - All build settings in set_env.sh"
     echo -e "  4. \033[1;32mRoot-level cargo config\033[0m - Single configuration for all services"
     echo -e "  5. \033[1;32mSpecial handling for authorizer\033[0m - Building with --no-default-features"
+    echo -e "  6. \033[1;32mOptional AI dependencies\033[0m - Use --skip-ai to avoid compiling torch-sys"
     
     echo -e "\n📋 \033[1;34mTroubleshooting Checklist:\033[0m"
     echo -e "  • For Ring/aws-lc-sys issues, check that AWS_LC_SYS_STATIC=1 and AWS_LC_SYS_VENDORED=1 are set"
     echo -e "  • For OpenSSL errors, check that OPENSSL_DIR is correctly set in set_env.sh"
     echo -e "  • For linker errors, ensure musl-cross is installed: brew install FiloSottile/musl-cross/musl-cross"
+    echo -e "  • For disk space errors with torch-sys, use: ./scripts/build-all.sh --skip-ai"
     echo -e "  • For authorizer issues, ensure it's built with --no-default-features"
     
     echo -e "\n🚀 \033[1;34mNext Steps:\033[0m"
     echo -e "  1. Use ./scripts/build-all.sh to build all services"
-    echo -e "  2. Use ./scripts/init.sh for full initialization including deployment"
-    echo -e "  3. Run ./scripts/test-endpoints.sh to verify deployment"
+    echo -e "  2. Use ./scripts/build-all.sh --skip-ai to build without AI service"
+    echo -e "  3. Use ./scripts/init.sh for full initialization including deployment"
+    echo -e "  4. Run ./scripts/test-endpoints.sh to verify deployment"
     
     print_banner "HAPPY BUILDING!"
 }
 
 # Main function
 main() {
+    # Check for help parameter
+    for arg in "$@"; do
+        case $arg in
+            --help|-h)
+                print_usage
+                exit 0
+                ;;
+        esac
+    done
+    
     print_banner "REFLEKT JOURNAL APP BUILD PROCESS"
     
     # Check prerequisites
@@ -674,6 +705,19 @@ check_common_cargo() {
     # No longer need to check for patches since we're using environment variables
 
     log_success "Common Cargo.toml configuration checked"
+}
+
+# Print usage
+print_usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo "Options:"
+    echo "  --help, -h           Show this help message and exit"
+    echo "  --clean              Clean all build artifacts before building"
+    echo "  --target TARGET      Set the target architecture (default: aarch64-unknown-linux-musl)"
+    echo "  --skip-common        Skip building the common library"
+    echo "  --skip-ai            Skip building the AI service (avoids compiling torch-sys dependencies)"
+    echo "  --rust-version VER   Set the Rust version to use (default: 1.85.0)"
+    echo "  --lambda-runtime RT  Set the Lambda runtime (default: provided.al2023)"
 }
 
 main "$@"
