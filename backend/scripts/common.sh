@@ -6,16 +6,9 @@
 # Script Environment Setup
 ########################################
 
-# Determine script and project directories
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-    # Being sourced
-    COMMON_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-else
-    # Being executed directly
-    COMMON_SCRIPT_DIR="$(cd "$(dirname "${0}")" && pwd)"
-fi
-
-BACKEND_DIR="$(dirname "$COMMON_SCRIPT_DIR")"
+# Current directories
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 DEFAULT_LOG_DIR="$BACKEND_DIR/logs"
 DEFAULT_ENV_FILE="$BACKEND_DIR/.env"
 DEFAULT_TOKEN_FILE="$BACKEND_DIR/.token"

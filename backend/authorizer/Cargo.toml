@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Use the consolidated common package 
+# Use the consolidated common package which already includes all needed dependencies
 journal-common = { path = "../common" }
 
-# No need for other dependencies as they're all in common now
+# No need for duplicating dependencies that are already in common

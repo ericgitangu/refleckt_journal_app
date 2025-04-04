@@ -11,6 +11,7 @@ A serverless microservices-based backend architecture powering the Reflekt Journ
 - [🛠️ Getting Started](#️-getting-started)
 - [📜 Scripts](#-scripts)
 - [⚙️ Lambda Build System](#️-lambda-build-system)
+- [🔧 Scripts and Build System](#-scripts-and-build-system)
 - [☁️ AWS Deployment](#️-aws-deployment)
 - [🧪 Testing](#-testing)
 - [🔧 Configuration](#-configuration)
@@ -199,13 +200,30 @@ This provides basic AI functionality without external API calls, suitable for de
    docker run -p 8000:8000 amazon/dynamodb-local
    ```
 
-## 📜 Scripts
+## 🔧 Scripts and Build System
 
-The `scripts/` directory contains various utilities for building, deploying, testing, and managing the backend services.
+### Directory Structure
+
+The project uses a consistent directory structure for scripts and logging:
+
+```
+backend/
+├── scripts/           # Build and deployment scripts
+│   ├── build-all.sh   # Builds all services
+│   ├── common.sh      # Common utility functions
+│   ├── init.sh        # Initializes the entire backend
+│   └── deploy-stack.sh # Deploys to AWS
+├── logs/              # All logging is consolidated here
+│   ├── build/         # Build logs
+│   ├── init/          # Initialization logs
+│   └── services/      # Runtime service logs
+├── common/            # Shared code library
+└── [services]/        # Individual service directories
+```
 
 ### Common Utilities (`common.sh`)
 
-Common utility functions used across all scripts:
+Shared utility functions used across all scripts:
 
 ```bash
 # Source the utilities
@@ -219,15 +237,64 @@ log_error "Message"     # Error level logging
 log_debug "Message"     # Debug level logging (requires LOG_LEVEL=0)
 
 # AWS utilities
-check_aws_credentials  # Verify AWS credentials
-check_sam_cli         # Verify SAM CLI installation
-validate_aws_region   # Validate AWS region
-validate_stack_name   # Validate CloudFormation stack name
+aws_check_credentials   # Verify AWS credentials
+aws_get_stack_outputs   # Get CloudFormation stack outputs
+aws_verify_template     # Validate CloudFormation template
 
-# Command execution
-run_cmd "command"      # Run command with timeout and logging
-wait_for_endpoint     # Wait for HTTP endpoint to become available
+# Helper functions
+generate_random_string  # Generate random string for secrets
+wait_for_url            # Wait for endpoint to become available
 ```
+
+### Build System
+
+We've implemented an optimized build system using `cargo-lambda` for AWS Lambda function compilation and packaging.
+
+#### Key Build System Features
+
+1. **Specialized for Lambda**: Using `cargo-lambda` which is purpose-built for AWS Lambda development
+2. **ARM64 Standardization**: Exclusively targeting ARM64 architecture for better performance and lower cost
+3. **Simplified Workflow**: Handles both compilation and packaging in a single step
+4. **No Root Required**: Tools are installed locally within the project directory
+
+#### OpenSSL-Based Cryptography
+
+This project uses OpenSSL for all cryptographic operations, including JWT validation. We've chosen OpenSSL for its:
+
+1. Better cross-platform compatibility, especially on ARM64
+2. Comprehensive cryptographic functionality
+3. Well-maintained and widely used implementation
+
+By using OpenSSL with its vendored feature, we avoid platform-specific cryptographic dependencies and ensure consistent behavior across all deployment environments.
+
+#### ARM64-Only Approach
+
+We've standardized on ARM64 (aarch64) as our exclusive target architecture for several reasons:
+
+1. **Cost Efficiency**: ARM64 Lambda functions are ~20% cheaper than x86_64
+2. **Better Performance**: Often provides better performance per dollar
+3. **Native Mac Support**: Works better with Apple Silicon (M1/M2/M3) Macs
+4. **Fewer Compatibility Issues**: Architecture-specific cryptography issues are avoided by using OpenSSL
+5. **Future-Proof**: AWS is heavily investing in ARM-based solutions
+6. **Simplified Setup**: By standardizing on one architecture, we avoid complexity and potential issues
+
+#### Rust Toolchain Configuration
+
+All services use a consistent `rust-toolchain.toml` file:
+
+```toml
+[toolchain]
+channel = "1.85.0"
+components = ["rustfmt", "clippy"]
+targets = ["aarch64-unknown-linux-musl"]
+profile = "minimal"
+```
+
+This configuration:
+- Pins the Rust version to 1.85.0
+- Includes necessary components (rustfmt, clippy)
+- Specifies only the ARM64 target
+- Uses the minimal profile for faster installation
 
 ### Build Script (`build-all.sh`)
 
@@ -245,8 +312,65 @@ The build script:
 - Sets up the necessary Rust cross-compilation environment
 - Builds the common library first
 - Builds each service using Makefiles or cargo-lambda
-- Logs all build output for debugging
+- Logs all build output to logs/build/ for debugging
 - Verifies Lambda packages
+
+### Initialization Script (`init.sh`)
+
+Sets up and deploys the entire backend stack:
+
+```bash
+# Initialize the backend
+./scripts/init.sh
+
+# Initialize with specific options
+./scripts/init.sh -s staging -r us-west-2
+```
+
+The init script:
+1. Checks prerequisites and AWS credentials
+2. Sets up the Lambda build environment
+3. Builds all services with cargo-lambda
+4. Deploys the CloudFormation stack
+5. Updates environment files for development
+6. Creates test users and credentials
+7. Tests endpoints to verify deployment
+8. Configures the frontend to use the new backend
+
+### Deployment Script (`deploy-stack.sh`)
+
+Deploys the backend stack to AWS:
+
+```bash
+# Deploy to dev environment
+./scripts/deploy-stack.sh -s dev
+
+# Deploy with options
+./scripts/deploy-stack.sh -s dev -r us-east-1 -b my-deploy-bucket -j my-jwt-secret
+```
+
+Available options:
+- `-n`: Stack name (default: reflekt-journal)
+- `-s`: Stage (dev, staging, prod)
+- `-r`: AWS Region
+- `-b`: S3 bucket for deployment artifacts
+- `-j`: JWT secret (generated randomly if not provided)
+
+### Local Tools Installation
+
+Tools are installed locally to avoid requiring root/sudo privileges:
+
+```bash
+cd backend
+./scripts/setup-aarch64-tools.sh
+source setup-env.sh  # If you open a new terminal
+```
+
+This script:
+- Downloads and installs necessary tools to the local `.local/bin` directory
+- Creates a `setup-env.sh` script with necessary environment variables
+- Does NOT require root/sudo privileges
+- Sets the PATH to include the local tools directory
 
 ### Test Endpoints Script (`test-endpoints.sh`)
 
@@ -267,157 +391,17 @@ The test script:
 - Tests all service endpoints (entries, settings, analytics, ai, prompts)
 - Performs CRUD operations on resources
 - Logs all requests and responses for debugging
-- Saves detailed logs to the test-logs directory
+- Saves detailed logs to the logs directory
 
-### Deployment Script (`deploy-stack.sh`)
+### Logger Configuration
 
-Deploys the backend stack to AWS:
+All scripts use a consistent logging system that writes to the `logs/` directory:
 
-```bash
-# Deploy to dev environment
-./scripts/deploy-stack.sh -s dev
+- `logs/build/`: Contains logs from the build process
+- `logs/init/`: Contains logs from initialization and deployment
+- `logs/services/`: Contains runtime logs from services
 
-# Deploy with options
-./scripts/deploy-stack.sh -s dev -r us-east-1 -b my-deploy-bucket
-```
-
-### Lambda Verification Script (`verify-lambda.sh`)
-
-Verifies Lambda function builds and configurations:
-
-```bash
-# Verify all Lambda functions
-./scripts/verify-lambda.sh
-
-# Verify specific function
-./scripts/verify-lambda.sh prompts-service
-```
-
-## ⚙️ Lambda Build System
-
-We've implemented an optimized build system using `cargo-lambda` for AWS Lambda function compilation and packaging.
-
-### Key Build System Features
-
-1. **Specialized for Lambda**: Using `cargo-lambda` which is purpose-built for AWS Lambda development
-2. **ARM64 Standardization**: Exclusively targeting ARM64 architecture for better performance and lower cost
-3. **Simplified Workflow**: Handles both compilation and packaging in a single step
-4. **No Root Required**: Tools are installed locally within the project directory
-
-### Rust Toolchain Configuration
-
-All services use a consistent `rust-toolchain.toml` file:
-
-```toml
-[toolchain]
-channel = "1.85.0"
-components = ["rustfmt", "clippy"]
-targets = ["aarch64-unknown-linux-musl"]
-profile = "minimal"
-```
-
-This configuration:
-- Pins the Rust version to 1.85.0
-- Includes necessary components (rustfmt, clippy)
-- Specifies only the ARM64 target
-- Uses the minimal profile for faster installation
-
-### Architecture-Specific Settings
-
-The build system uses architecture-specific settings via `.cargo/config.toml`:
-
-```toml
-[target.aarch64-unknown-linux-musl]
-rustflags = []
-env = { 
-  "CC_aarch64_unknown_linux_musl" = "clang", 
-  "AR_aarch64_unknown_linux_musl" = "llvm-ar", 
-  "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS" = "-Clink-self-contained=yes -Clinker=rust-lld" 
-}
-
-[target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-feature=-avx512f"]
-env = { "CFLAGS" = "-mno-avx512f" }
-```
-
-This addresses common issues with ARM64 builds, particularly with the `ring` crate, by:
-- Using clang/LLVM toolchain for ARM64 builds
-- Setting specific environment variables required by the ring crate
-- Removing x86_64-specific AVX512 flags that cause errors on ARM
-
-### Why ARM64 Only?
-
-We've standardized on ARM64 (aarch64) for several reasons:
-
-1. **Cost Efficiency**: ARM64 Lambda functions are ~20% cheaper than x86_64
-2. **Better Performance**: Often provides better performance per dollar
-3. **Native Mac Support**: Works better with Apple Silicon (M1/M2/M3) Macs
-4. **Fewer Compatibility Issues**: Avoids some x86_64-specific issues (like AVX512)
-5. **Future-Proof**: AWS is heavily investing in ARM-based solutions
-6. **Simplified Setup**: By standardizing on one architecture, we avoid complexity
-
-### Build System Components
-
-The Lambda build system includes:
-- `build-all.sh`: Builds all services using cargo-lambda
-- `setup-aarch64-tools.sh`: Installs necessary tools locally for ARM64 builds
-- `setup-toolchain.sh`: Ensures consistent toolchain configuration
-- `setup-env.sh`: Generated by setup script to set environment variables
-- `Makefile`: Provides easy-to-use commands for building and deploying
-
-### Local Tools Installation
-
-Tools are installed locally to avoid requiring root/sudo privileges:
-
-```bash
-cd backend
-./scripts/setup-aarch64-tools.sh
-source setup-env.sh  # If you open a new terminal
-```
-
-This script:
-- Downloads and installs LLVM/clang to the local `.local/bin` directory
-- Creates a `setup-env.sh` script with necessary environment variables
-- Does NOT require root/sudo privileges
-- Sets the PATH to include the local tools directory
-
-### Maintaining Consistent Toolchain
-
-To ensure all services have the correct toolchain configuration:
-
-```bash
-cd backend
-./scripts/setup-toolchain.sh
-```
-
-### Building Lambda Functions
-
-```bash
-# Build all services
-cd backend
-make build-all
-
-# Build a specific service
-cd backend
-make build-lambda-SERVICE  # Replace SERVICE with the service name
-```
-
-### Troubleshooting Lambda Builds
-
-If you encounter build failures with the `ring` crate on ARM64:
-
-1. Make sure you've run `./scripts/setup-aarch64-tools.sh` to install clang/LLVM locally
-2. Ensure the environment is set up correctly by sourcing `source setup-env.sh`
-3. Verify the correct environment variables are set:
-   - CC_aarch64_unknown_linux_musl=clang
-   - AR_aarch64_unknown_linux_musl=llvm-ar
-   - CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS
-4. Check that the PATH includes the local tools directory: `echo $PATH | grep .local/bin`
-
-For general issues:
-1. **Missing Toolchain Files**: Run `./scripts/setup-toolchain.sh` to ensure all services have the correct configuration
-2. **Version Mismatch**: Verify that Rust 1.85.0 is installed with `rustup toolchain list`
-3. **Build Logs**: Check the logs in `backend/build-logs/` for detailed error information
+This consolidated logging structure makes it easier to find and diagnose issues.
 
 ## ☁️ AWS Deployment
 
@@ -480,8 +464,8 @@ The test script performs comprehensive testing including:
 All API requests and responses are logged for debugging:
 
 ```bash
-# View logs in the test-logs directory
-cat ./test-logs/create_entry-response.json
+# View logs in the logs directory
+cat ./logs/test_logs/create_entry-response.json
 ```
 
 ### Load Testing
@@ -552,7 +536,7 @@ Common issues and solutions:
 3. **Build Failures**
    ```bash
    # Check build logs
-   cat ./build-logs/entry-service-build.log
+   cat ./logs/build/entry-service-build.log
    
    # Try cleaning and rebuilding
    ./scripts/build-all.sh --clean

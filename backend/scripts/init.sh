@@ -2,10 +2,10 @@
 set -eo pipefail
 
 # Script constants
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(dirname "$0")"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 SCRIPTS_DIR="$BACKEND_DIR/scripts"
-LOG_DIR="$BACKEND_DIR/init-logs"
+LOG_DIR="$BACKEND_DIR/logs/init"
 ENV_FILE="$BACKEND_DIR/.env"
 TOKEN_FILE="$BACKEND_DIR/.token"
 STACK_NAME=${STACK_NAME:-reflekt-journal}
@@ -34,6 +34,31 @@ source "$SCRIPTS_DIR/utils.sh"
 # Create logs directory
 mkdir -p "$LOG_DIR"
 rm -rf "$LOG_DIR"/*
+
+# Trap handler for unexpected failures
+handle_error() {
+    local line=$1
+    local status=$2
+    local command=$3
+    
+    log_error "Initialization failed with exit status $status at line $line: $command"
+    log_error "See logs in $LOG_DIR for details"
+    
+    # Create a summary of the error in the log directory
+    {
+        echo "=== INITIALIZATION FAILURE SUMMARY ==="
+        echo "Timestamp: $(date)"
+        echo "Failed at line: $line"
+        echo "Exit status: $status"
+        echo "Command: $command"
+        echo "==========================="
+    } > "$LOG_DIR/init_error_summary.log"
+    
+    exit $status
+}
+
+# Set up trap to catch failures
+trap 'handle_error ${LINENO} $? "$BASH_COMMAND"' ERR
 
 ########################################
 # Helper Functions

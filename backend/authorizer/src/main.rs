@@ -3,14 +3,12 @@ use aws_lambda_events::apigw::{
     ApiGatewayCustomAuthorizerResponse, IamPolicyStatement,
 };
 use aws_lambda_runtime::{run, service_fn, Error, LambdaEvent};
-// Replace jsonwebtoken with jwt and openssl
-// use jsonwebtoken::{decode, DecodingKey, Validation};
-use jwt::{Claims, Header, Token, VerifyWithKey};
-use openssl::{hash::MessageDigest, pkey::PKey, sign::Verifier};
+// Use types re-exported from common
+use journal_common::{jwt::{Header, Token, VerifyWithKey}, hmac::{Hmac, Mac}, sha2::Sha256, chrono};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct JwtClaims {
     sub: String,
     email: String,
@@ -109,19 +107,21 @@ fn extract_token(event: &ApiGatewayCustomAuthorizerRequest) -> Result<String, Er
     Err("No token found in request".into())
 }
 
-// Updated validate_token function to use jwt crate with OpenSSL
+// Update the validate_token function to use the new JWT implementation
 fn validate_token(token: &str, secret: &str) -> Result<JwtClaims, Error> {
-    // Create key from secret
-    let key = PKey::hmac(secret.as_bytes())
+    // Create a HMAC-SHA256 key
+    type HmacSha256 = Hmac<Sha256>;
+    let key = HmacSha256::new_from_slice(secret.as_bytes())
         .map_err(|e| format!("Invalid key: {}", e))?;
     
-    // Parse the token
-    let token: Token<Header, JwtClaims, _> = Token::parse(token)
-        .map_err(|e| format!("Invalid token format: {}", e))?;
-    
-    // Verify the token
-    let claims = token.verify_with_key(&key)
+    // Parse and verify the token
+    let verified_token = Token::<Header, JwtClaims, _>::parse_unverified(token)
+        .map_err(|e| format!("Invalid token format: {}", e))?
+        .verify_with_key(&key)
         .map_err(|e| format!("Invalid token signature: {}", e))?;
+    
+    // Get claims from the token
+    let claims = verified_token.claims().clone();
     
     // Check expiration
     let now = chrono::Utc::now().timestamp();

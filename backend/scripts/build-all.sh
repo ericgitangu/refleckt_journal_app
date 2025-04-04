@@ -1,24 +1,60 @@
 #!/bin/bash
-# Script to build all Lambda services in the backend for WSL2 Ubuntu environment
+# Script to build all Lambda functions in the project
 
 set -eo pipefail
 
-# Directory containing this script
-SCRIPT_DIR="$(dirname "$0")"
-BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
+# Import common functions
+source "$(dirname "$0")/common.sh"
 
-# Source common helper functions
-source "$SCRIPT_DIR/common.sh"
+# Get backend directory from common.sh
+BACKEND_DIR=${BACKEND_DIR:-$(cd "$(dirname "$0")/.." && pwd)}
+SCRIPTS_DIR="$BACKEND_DIR/scripts"
+
+# Set up log directory within the logs structure
+LOG_DIR="$BACKEND_DIR/logs/build"
+
+# Create log directory
+mkdir -p "$LOG_DIR"
+
+# Trap handler for unexpected failures
+handle_error() {
+    local line=$1
+    local status=$2
+    local command=$3
+    
+    log_error "Build failed with exit status $status at line $line: $command"
+    log_error "See logs in $LOG_DIR for details"
+    
+    # Create a summary of the error in the log directory
+    {
+        echo "=== BUILD FAILURE SUMMARY ==="
+        echo "Timestamp: $(date)"
+        echo "Failed at line: $line"
+        echo "Exit status: $status"
+        echo "Command: $command"
+        echo "==========================="
+    } > "$LOG_DIR/build_error_summary.log"
+    
+    exit $status
+}
+
+# Set up trap to catch failures
+trap 'handle_error ${LINENO} $? "$BASH_COMMAND"' ERR
+
+# Parse arguments
+TARGET=${TARGET:-"aarch64-unknown-linux-musl"}
+LAMBDA_RUNTIME=${LAMBDA_RUNTIME:-"provided.al2023"}
+SKIP_COMMON=${SKIP_COMMON:-false}
+RUST_VERSION=${RUST_VERSION:-"1.85.0"}
+DEBUG=${DEBUG:-false}
+TARGET_SERVICES=()
 
 # Script constants
-LOG_DIR="$BACKEND_DIR/build-logs"
 REQUIRED_SPACE_MB=500
 LOCAL_BIN="$BACKEND_DIR/.local/bin"
-RUST_VERSION="1.85.0"
 RUSTUP_TOOLCHAIN_BIN="$HOME/.rustup/toolchains/${RUST_VERSION}-x86_64-apple-darwin/bin"
 
 # Create directories
-mkdir -p "$LOG_DIR"
 mkdir -p "$LOCAL_BIN"
 
 # Verify the Rust version is correct

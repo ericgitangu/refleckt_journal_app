@@ -4,13 +4,20 @@ use aws_sdk_s3::Client as S3Client;
 use aws_sdk_secretsmanager::Client as SecretsClient;
 use aws_sdk_eventbridge::Client as EventBridgeClient;
 use aws_lambda_events::encodings::Body;
-use aws_lambda_events::http::{HeaderMap, HeaderValue, Response, StatusCode};
-use jwt::{Claims, Header, Token, VerifyWithKey};
-use openssl::{hash::MessageDigest, pkey::PKey, sign::Verifier};
+use aws_lambda_events::http::{HeaderMap, Response, StatusCode};
+use jwt::{Header, Token, VerifyWithKey};
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
 use tokio::sync::OnceCell;
+
+// Re-export commonly used dependencies
+pub use jwt;
+pub use hmac;
+pub use sha2;
+pub use chrono;
 
 // Singleton clients for AWS services
 static DYNAMO_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
@@ -45,7 +52,7 @@ impl fmt::Display for JournalError {
 impl Error for JournalError {}
 
 // JWT Claims structure matching NextAuth tokens
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct JwtClaims {
     pub sub: String,
     pub email: String,
@@ -129,17 +136,19 @@ pub async fn get_events_client() -> EventBridgeClient {
 
 // Validate JWT token with new JWT library
 pub fn validate_token(token: &str, jwt_secret: &str) -> Result<JwtClaims, JournalError> {
-    // Create key from secret
-    let key = PKey::hmac(jwt_secret.as_bytes())
+    // Create a HMAC-SHA256 key
+    type HmacSha256 = Hmac<Sha256>;
+    let key = HmacSha256::new_from_slice(jwt_secret.as_bytes())
         .map_err(|e| JournalError::AuthError(format!("Invalid key: {}", e)))?;
     
-    // Parse the token
-    let token: Token<Header, JwtClaims, _> = Token::parse(token)
-        .map_err(|e| JournalError::AuthError(format!("Invalid token format: {}", e)))?;
-    
-    // Verify the token
-    let claims = token.verify_with_key(&key)
+    // Parse and verify the token
+    let verified_token = Token::<Header, JwtClaims, _>::parse_unverified(token)
+        .map_err(|e| JournalError::AuthError(format!("Invalid token format: {}", e)))?
+        .verify_with_key(&key)
         .map_err(|e| JournalError::AuthError(format!("Invalid token signature: {}", e)))?;
+    
+    // Get claims from the token
+    let claims = verified_token.claims().clone();
     
     // Check expiration
     let now = chrono::Utc::now().timestamp();

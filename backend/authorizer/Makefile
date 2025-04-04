@@ -16,6 +16,7 @@ COMMON_PATH := ../common
 
 # Cross-compilation settings
 TARGET ?= aarch64-unknown-linux-musl
+RUSTUP_TOOLCHAIN ?= 1.85.0
 
 # Build profile
 PROFILE ?= release
@@ -26,16 +27,16 @@ all: package verify-lambda
 # Setup cross-compilation environment
 setup-cross:
 	@echo "Setting up cross-compilation environment..."
-	@rustup target add $(TARGET)
+	@rustup target add --toolchain $(RUSTUP_TOOLCHAIN) $(TARGET)
 	@echo "✅ Cross-compilation environment set up for $(TARGET)"
 
 # Ensure the common library is built first
 build-common:
 	@echo "Building common library..."
 	@if [ -f "$(COMMON_PATH)/Makefile" ]; then \
-		$(MAKE) -C $(COMMON_PATH) build-musl TARGET=$(TARGET); \
+		$(MAKE) -C $(COMMON_PATH) build-musl TARGET=$(TARGET) RUSTUP_TOOLCHAIN=$(RUSTUP_TOOLCHAIN); \
 	else \
-		cd $(COMMON_PATH) && cargo build --target $(TARGET) --release && cd -; \
+		cd $(COMMON_PATH) && rustup run $(RUSTUP_TOOLCHAIN) cargo build --target $(TARGET) --release && cd -; \
 	fi
 
 # Build the service
@@ -43,35 +44,38 @@ build: build-common
 	@echo "Building $(SERVICE_NAME)..."
 	@if command -v cargo-lambda &> /dev/null; then \
 		echo "Using cargo-lambda for build..."; \
-		cargo lambda build --release --output-format zip; \
+		rustup run $(RUSTUP_TOOLCHAIN) cargo lambda build --release --output-format zip; \
 	else \
 		echo "Using standard cargo for build..."; \
-		cargo build --release; \
+		rustup run $(RUSTUP_TOOLCHAIN) cargo build --release; \
 	fi
 	@echo "✅ $(SERVICE_NAME) built successfully"
 
-# Build with musl for Lambda compatibility
-build-musl: setup-cross build-common
+# Build with musl for Lambda compatibility using the cross-build script
+build-musl: build-common
 	@echo "Building $(SERVICE_NAME) for Lambda compatibility with target $(TARGET)..."
-	@if command -v cargo-lambda &> /dev/null; then \
-		echo "Using cargo-lambda for cross-compilation..."; \
-		cargo lambda build --target $(TARGET) --release --output-format zip; \
+	@if [ -f "../scripts/cross-build.sh" ]; then \
+		echo "Using cross-build script for reliable cross-compilation..."; \
+		TARGET=$(TARGET) RUSTUP_TOOLCHAIN=$(RUSTUP_TOOLCHAIN) PROFILE=$(PROFILE) ../scripts/cross-build.sh $(SERVICE_NAME) $(PACKAGE_DIR); \
 	else \
-		echo "Using standard cargo for cross-compilation..."; \
-		cargo build --target $(TARGET) --release; \
+		echo "Cross-build script not found, using standard cargo..."; \
+		rustup run $(RUSTUP_TOOLCHAIN) cargo build --target $(TARGET) --release; \
+		mkdir -p $(PACKAGE_DIR); \
+		cp target/$(TARGET)/release/$(SERVICE_NAME) $(PACKAGE_DIR)/bootstrap; \
+		chmod +x $(PACKAGE_DIR)/bootstrap; \
 	fi
 	@echo "✅ $(SERVICE_NAME) built successfully for Lambda"
 
 # Run tests
 test:
 	@echo "Testing $(SERVICE_NAME)..."
-	cargo test
+	rustup run $(RUSTUP_TOOLCHAIN) cargo test
 	@echo "✅ Tests completed"
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning $(SERVICE_NAME)..."
-	cargo clean
+	rustup run $(RUSTUP_TOOLCHAIN) cargo clean
 	rm -rf $(PACKAGE_DIR)
 	@echo "✅ Clean completed"
 
@@ -79,13 +83,11 @@ clean:
 package: build-musl
 	@echo "Packaging $(SERVICE_NAME) for AWS Lambda deployment..."
 	@mkdir -p $(PACKAGE_DIR)
-	@if command -v cargo-lambda &> /dev/null && [ -f "target/lambda/$(SERVICE_NAME).zip" ]; then \
-		echo "Using cargo-lambda zip package..."; \
-		cp target/lambda/$(SERVICE_NAME).zip $(PACKAGE_DIR)/$(SERVICE_NAME).zip; \
-	else \
+	@if [ -f "target/$(SERVICE_NAME).zip" ]; then \
+		echo "Using existing zip package..."; \
+		cp target/$(SERVICE_NAME).zip $(PACKAGE_DIR)/$(SERVICE_NAME).zip; \
+	elif [ -f "$(PACKAGE_DIR)/bootstrap" ] && [ -x "$(PACKAGE_DIR)/bootstrap" ]; then \
 		echo "Creating bootstrap package..."; \
-		cp target/$(TARGET)/release/$(SERVICE_NAME) $(PACKAGE_DIR)/bootstrap || cp target/release/$(SERVICE_NAME) $(PACKAGE_DIR)/bootstrap; \
-		chmod +x $(PACKAGE_DIR)/bootstrap; \
 		cd $(PACKAGE_DIR) && zip -j ../$(SERVICE_NAME).zip bootstrap; \
 	fi
 	@echo "✅ Lambda deployment package created at target/$(SERVICE_NAME).zip"
