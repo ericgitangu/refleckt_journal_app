@@ -29,6 +29,16 @@ tracing-subscriber = "0.3"
 version = "0.10.71"
 features = ["vendored"]
 
+# PyTorch dependencies
+tch = { version = "0.17.0", features = ["download-libtorch"] }
+# Add feature flag to control PyTorch compilation
+torch-sys = { version = "0.17.0", features = ["download-libtorch"], optional = true }
+
+[features]
+default = ["torch"]
+torch = ["torch-sys"]
+no-torch = []
+
 [[bin]]
 name = "journal-ai-service"
 path = "src/main.rs"

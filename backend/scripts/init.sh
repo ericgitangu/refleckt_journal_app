@@ -531,6 +531,26 @@ build_service() {
     CURRENT_LOG_FILE="$LOG_DIR/$service_name-build.log"
     log_info "Building $service_name..."
     
+    # Special handling for AI service
+    if [ "$service_name" = "ai-service" ]; then
+        log_info "Building AI service with specialized script..."
+        if [ -f "$SCRIPTS_DIR/build-ai-service.sh" ]; then
+            bash "$SCRIPTS_DIR/build-ai-service.sh" 2>&1 | tee "$LOG_DIR/$service_name-build.log"
+            
+            if [ ${PIPESTATUS[0]} -ne 0 ]; then
+                log_error "AI service build failed. Check $LOG_DIR/$service_name-build.log for details."
+                cat "$LOG_DIR/$service_name-build.log"
+                exit 1
+            fi
+            
+            log_success "AI service built successfully with specialized script"
+            return 0
+        else
+            log_warning "build-ai-service.sh not found, falling back to standard build..."
+            # Continue with standard build...
+        fi
+    }
+    
     # Only proceed if directory exists and contains Cargo.toml
     if [ ! -d "$service_dir" ] || [ ! -f "$service_dir/Cargo.toml" ]; then
         log_warning "Skipping $service_name: not a valid Rust project"

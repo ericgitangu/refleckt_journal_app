@@ -272,6 +272,27 @@ if ! command -v aarch64-linux-musl-gcc &>/dev/null; then
     fi
 fi
 
+# PyTorch configuration for ai-service
+if [ -n "${BUILD_AI_SERVICE:-}" ] && [ "$BUILD_AI_SERVICE" != "false" ]; then
+    echo "Setting up PyTorch environment variables for ai-service..."
+    export LIBTORCH_USE_PYTORCH=1
+    export LIBTORCH_CXX11_ABI=1
+    export TORCH_CUDA_VERSION=None
+    export LIBTORCH_STATIC=0
+    
+    # Check for LIBTORCH_DIR and set if it exists
+    if [ -d "/usr/local/libtorch" ]; then
+        export LIBTORCH="/usr/local/libtorch"
+        echo "Using system PyTorch installation at $LIBTORCH"
+    elif [ -d "$HOME/.local/lib/libtorch" ]; then
+        export LIBTORCH="$HOME/.local/lib/libtorch"
+        echo "Using user PyTorch installation at $LIBTORCH"
+    else
+        echo "Warning: No libtorch installation found. The ai-service may fail to build."
+        echo "Consider installing PyTorch C++ libraries or use --skip-ai flag."
+    fi
+fi
+
 echo "Environment variables set up for Rust Lambda cross-compilation:"
 echo "- TARGET: $TARGET"
 echo "- RUST_VERSION: $RUST_VERSION"
