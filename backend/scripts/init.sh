@@ -14,6 +14,7 @@ STAGE=${STAGE:-"dev"}
 STACK_NAME=${STACK_NAME:-"reflekt-${STAGE}"}
 REGION=${AWS_REGION:-"us-east-1"}
 TOKEN_FILE="$LOG_DIR/token.txt"
+LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
 
 # Source common utility functions
 source "$SCRIPTS_DIR/common.sh"
@@ -763,8 +764,25 @@ print_completion_message() {
 setup_llvm_ar() {
     log_info "Setting up lightweight llvm-ar..."
     
+    # Define LOCAL_BIN_DIR if not already set
+    if [ -z "$LOCAL_BIN_DIR" ]; then
+        LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
+        log_warning "LOCAL_BIN_DIR was not set, defaulting to $LOCAL_BIN_DIR"
+    fi
+    
+    # Verify directory path is valid
+    if [ -z "$LOCAL_BIN_DIR" ]; then
+        log_error "LOCAL_BIN_DIR is still empty after attempting to set default. Cannot proceed."
+        return 1
+    fi
+    
     # Create local bin directory if it doesn't exist
-    mkdir -p "$LOCAL_BIN_DIR"
+    log_info "Creating local bin directory at: $LOCAL_BIN_DIR"
+    if ! mkdir -p "$LOCAL_BIN_DIR"; then
+        log_error "Failed to create directory: $LOCAL_BIN_DIR"
+        log_error "Check file permissions and path validity"
+        return 1
+    fi
 
     # Check if we're on macOS
     if [ "$(uname)" = "Darwin" ]; then

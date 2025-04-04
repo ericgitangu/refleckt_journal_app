@@ -112,9 +112,14 @@ TARGET_SERVICES=()
 REQUIRED_SPACE_MB=${REQUIRED_SPACE_MB:-500}
 
 # Create local bin dir with proper error handling
-if [ -z "$LOCAL_BIN" ]; then
+# First check LOCAL_BIN_DIR from other scripts, then LOCAL_BIN
+if [ -n "$LOCAL_BIN_DIR" ]; then
+    LOCAL_BIN="$LOCAL_BIN_DIR"
+    log_info "Using LOCAL_BIN_DIR value for LOCAL_BIN: $LOCAL_BIN"
+elif [ -z "$LOCAL_BIN" ]; then
     LOCAL_BIN="$BACKEND_DIR/.local/bin"
-    log_warning "LOCAL_BIN was not set, defaulting to $LOCAL_BIN"
+    LOCAL_BIN_DIR="$LOCAL_BIN"  # Set for compatibility with other scripts
+    log_warning "Neither LOCAL_BIN nor LOCAL_BIN_DIR was set, defaulting to $LOCAL_BIN"
 fi
 
 # Ensure LOCAL_BIN directory exists with proper permissions

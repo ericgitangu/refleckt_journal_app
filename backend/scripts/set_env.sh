@@ -7,6 +7,11 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 
+# Set up local bin directory variables for cross-script compatibility
+export LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
+export LOCAL_BIN="$LOCAL_BIN_DIR"
+echo "Setting LOCAL_BIN_DIR and LOCAL_BIN to: $LOCAL_BIN_DIR"
+
 # Detect OS type
 OS_TYPE="$(uname -s | tr '[:upper:]' '[:lower:]')"
 echo "Detected OS: $OS_TYPE"
