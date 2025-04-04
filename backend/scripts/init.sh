@@ -877,25 +877,31 @@ create_lightweight_llvm_ar() {
     if [ -n "$found_ar" ]; then
         log_info "Found system ar at $found_ar"
         
-        # Create a wrapper script
-        cat > "$LOCAL_BIN_DIR/llvm-ar" << EOF
+        # In WSL, don't create a wrapper script that will have permission issues
+        if [ "$in_wsl" = true ]; then
+            log_info "WSL environment detected - using system ar directly without wrapper"
+            export AR="$found_ar" 
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="$found_ar"
+            export PATH="$(dirname "$found_ar"):$PATH"
+            log_success "Environment variables set to use system ar directly in WSL"
+            # Skip wrapper creation and testing entirely
+            return 0
+        else
+            # For non-WSL, create and test a wrapper script
+            cat > "$LOCAL_BIN_DIR/llvm-ar" << EOF
 #!/bin/bash
 # Lightweight llvm-ar replacement
 exec $found_ar "\$@"
 EOF
-        chmod +x "$LOCAL_BIN_DIR/llvm-ar"
-        
-        # Test the wrapper immediately to ensure it works
-        if ! "$LOCAL_BIN_DIR/llvm-ar" --version &>/dev/null; then
-            if [ "$in_wsl" = true ]; then
-                log_warning "Permission issue in WSL - wrapper script not working, will download binary instead"
-                download_needed=true
-            else
+            chmod +x "$LOCAL_BIN_DIR/llvm-ar"
+            
+            # Test the wrapper immediately to ensure it works
+            if ! "$LOCAL_BIN_DIR/llvm-ar" --version &>/dev/null; then
                 log_warning "Wrapper script not working, will try to download binary instead"
                 download_needed=true
+            else
+                log_success "Created and tested llvm-ar wrapper using system ar at $found_ar"
             fi
-        else
-            log_success "Created and tested llvm-ar wrapper using system ar at $found_ar"
         fi
     else
         # No ar found, we'll need to download it
