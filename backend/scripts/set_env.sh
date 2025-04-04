@@ -50,6 +50,18 @@ detect_openssl_dir() {
         fi
     done
     
+    # WSL-specific paths
+    if [ "$WSL_DETECTED" = true ]; then
+        # Check WSL-specific OpenSSL paths
+        for dir in "/usr/include/x86_64-linux-gnu/openssl"; do
+            if [ -d "$dir" ]; then
+                # For multi-arch setups like x86_64-linux-gnu, use parent of parent
+                echo "$(dirname "$(dirname "$dir")")"
+                return 0
+            fi
+        done
+    fi
+    
     # Check using openssl executable
     if command -v openssl &>/dev/null; then
         # Try to get version info and extract from there
@@ -89,13 +101,22 @@ detect_openssl_dir() {
             echo "/usr/local"
             return 0
         fi
+        
+        # For multi-arch Linux systems, try to find the right path
+        if [ -d "/usr/include/x86_64-linux-gnu/openssl" ]; then
+            echo "/usr"
+            return 0
+        fi
+        
         echo "/usr"  # Default fallback for Linux
     fi
 }
 
 # For WSL, make sure libssl-dev is installed
 if [ "$WSL_DETECTED" = true ]; then
-    if [ ! -f "/usr/include/openssl/opensslconf.h" ] && [ ! -f "/usr/local/include/openssl/opensslconf.h" ]; then
+    if [ ! -f "/usr/include/openssl/opensslconf.h" ] && 
+       [ ! -f "/usr/local/include/openssl/opensslconf.h" ] && 
+       [ ! -f "/usr/include/x86_64-linux-gnu/openssl/opensslconf.h" ]; then
         echo "WARNING: OpenSSL development headers not found in WSL environment."
         echo "Run 'sudo apt-get update && sudo apt-get install -y libssl-dev' to install them."
     fi
@@ -104,6 +125,35 @@ fi
 # Set OPENSSL_DIR based on our enhanced detection
 export OPENSSL_DIR=$(detect_openssl_dir)
 echo "OPENSSL_DIR set to $OPENSSL_DIR"
+
+# Special handling for WSL - set additional OpenSSL environment variables
+if [ "$WSL_DETECTED" = true ]; then
+    # For WSL, often we need to explicitly set OPENSSL_LIB_DIR
+    if [ -d "/usr/lib/x86_64-linux-gnu" ] && [ -f "/usr/lib/x86_64-linux-gnu/libssl.so" ]; then
+        export OPENSSL_LIB_DIR="/usr/lib/x86_64-linux-gnu"
+        echo "WSL detected: Setting OPENSSL_LIB_DIR to $OPENSSL_LIB_DIR"
+    fi
+    
+    # Force static linking for OpenSSL in WSL environments
+    export OPENSSL_STATIC=1
+    export OPENSSL_INCLUDE_DIR="$OPENSSL_DIR/include"
+    
+    # Print diagnostic information about OpenSSL in WSL
+    echo "WSL OpenSSL configuration:"
+    echo "- OPENSSL_DIR: $OPENSSL_DIR"
+    echo "- OPENSSL_INCLUDE_DIR: $OPENSSL_INCLUDE_DIR"
+    echo "- OPENSSL_LIB_DIR: ${OPENSSL_LIB_DIR:-not set}"
+    echo "- OPENSSL_STATIC: $OPENSSL_STATIC"
+    
+    # Verify OpenSSL headers exist
+    if [ -f "$OPENSSL_DIR/include/openssl/opensslconf.h" ]; then
+        echo "✓ Found OpenSSL headers at standard location: $OPENSSL_DIR/include/openssl/opensslconf.h"
+    elif [ -f "/usr/include/x86_64-linux-gnu/openssl/opensslconf.h" ]; then
+        echo "✓ Found OpenSSL headers at multi-arch location: /usr/include/x86_64-linux-gnu/openssl/opensslconf.h"
+    else
+        echo "⚠ WARNING: OpenSSL headers still not found. You may need to run: sudo apt-get install -y libssl-dev"
+    fi
+fi
 
 # Handle system ar and cross-compiler differently based on OS
 if [ "$OS_TYPE" = "darwin" ]; then

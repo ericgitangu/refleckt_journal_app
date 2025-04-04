@@ -139,10 +139,50 @@ check_prerequisites() {
     
     # Function to check if OpenSSL headers are installed
     check_openssl_headers() {
-        if [ ! -f "/usr/include/openssl/opensslconf.h" ] && [ ! -f "/usr/local/include/openssl/opensslconf.h" ]; then
-            return 1
+        # Try multiple header names that might exist
+        local possible_header_files=(
+            "opensslconf.h"
+            "ssl.h"
+            "crypto.h"
+        )
+        
+        # Common OpenSSL include directories
+        local possible_include_dirs=(
+            "/usr/include/openssl"
+            "/usr/local/include/openssl"
+            "/usr/local/ssl/include/openssl"
+            "/opt/homebrew/opt/openssl@3/include/openssl"
+            "/usr/local/opt/openssl@3/include/openssl"
+            "/usr/local/opt/openssl@1.1/include/openssl"
+        )
+        
+        # Add WSL-specific paths
+        if grep -q Microsoft /proc/version 2>/dev/null; then
+            possible_include_dirs+=("/usr/include/x86_64-linux-gnu/openssl")
         fi
-        return 0
+        
+        # Print diagnostic information
+        log_info "Checking for OpenSSL headers in these directories:"
+        for dir in "${possible_include_dirs[@]}"; do
+            log_info "  - $dir"
+            # If directory exists, list its contents
+            if [ -d "$dir" ]; then
+                log_info "    (Directory exists, contents: $(ls -1 "$dir" | grep -E 'conf|ssl|crypto' | tr '\n' ' '))"
+            fi
+        done
+        
+        # Check if any of the possible header files exist in any of the possible directories
+        for dir in "${possible_include_dirs[@]}"; do
+            for header in "${possible_header_files[@]}"; do
+                if [ -f "$dir/$header" ]; then
+                    log_success "Found OpenSSL header: $dir/$header"
+                    return 0  # Headers found
+                fi
+            done
+        done
+        
+        # No headers found after checking all locations
+        return 1
     }
     
     # Install OpenSSL headers if missing
@@ -207,8 +247,35 @@ check_prerequisites() {
         # Verify installation
         if ! check_openssl_headers; then
             log_error "OpenSSL headers still not found after installation attempt."
+            
+            # Print detailed diagnostic information
+            log_info "Checking installed packages related to OpenSSL:"
+            if command -v dpkg &>/dev/null; then
+                dpkg -l | grep -i ssl | grep -i dev
+            elif command -v rpm &>/dev/null; then
+                rpm -qa | grep -i ssl | grep -i devel
+            fi
+            
+            log_info "OpenSSL binary information:"
+            if command -v openssl &>/dev/null; then
+                openssl version
+                openssl version -d
+            fi
+            
+            # Check environment variables
+            log_info "OPENSSL_DIR environment variable: $OPENSSL_DIR"
+            if [ -n "$OPENSSL_DIR" ]; then
+                log_info "Checking $OPENSSL_DIR/include/openssl directory:"
+                ls -la "$OPENSSL_DIR/include/openssl" 2>/dev/null || echo "Directory not found"
+            fi
+            
             log_error "Try installing manually or check your system configuration."
+            log_info "For Ubuntu/Debian: sudo apt-get install -y libssl-dev"
+            log_info "For Fedora/RHEL: sudo dnf install -y openssl-devel"
+            log_info "For macOS: brew install openssl@3"
             exit 1
+        else
+            log_success "OpenSSL development headers verified successfully."
         fi
     else
         log_success "OpenSSL development headers found."
