@@ -117,8 +117,19 @@ if [ -n "$LOCAL_BIN_DIR" ]; then
     LOCAL_BIN="$LOCAL_BIN_DIR"
     log_info "Using LOCAL_BIN_DIR value for LOCAL_BIN: $LOCAL_BIN"
 elif [ -z "$LOCAL_BIN" ]; then
-    LOCAL_BIN="$BACKEND_DIR/.local/bin"
-    LOCAL_BIN_DIR="$LOCAL_BIN"  # Set for compatibility with other scripts
+    # Check if running in WSL
+    if grep -q Microsoft /proc/version 2>/dev/null || grep -q WSL /proc/version 2>/dev/null; then
+        # Running in WSL - use Linux home directory to avoid Windows filesystem permission issues
+        WSL_DETECTED=true
+        WSL_HOME=$(eval echo ~$USER)
+        LOCAL_BIN="$WSL_HOME/.local/refleckt_bin"
+        LOCAL_BIN_DIR="$LOCAL_BIN"  # Set for compatibility with other scripts
+        log_warning "WSL detected - using Linux filesystem path: $LOCAL_BIN"
+    else
+        # Not in WSL - use default path
+        LOCAL_BIN="$BACKEND_DIR/.local/bin"
+        LOCAL_BIN_DIR="$LOCAL_BIN"  # Set for compatibility with other scripts
+    fi
     log_warning "Neither LOCAL_BIN nor LOCAL_BIN_DIR was set, defaulting to $LOCAL_BIN"
 fi
 
@@ -133,6 +144,13 @@ fi
 # Set up lightweight llvm-ar without installing developer tools
 setup_llvm_ar() {
     log_info "Setting up lightweight ar environment for cross-compilation..."
+    
+    # Check if running in WSL
+    local in_wsl=false
+    if [[ -n "${WSL_DETECTED:-}" ]] || grep -q Microsoft /proc/version 2>/dev/null || grep -q WSL /proc/version 2>/dev/null; then
+        in_wsl=true
+        log_info "WSL environment detected, using Linux-specific handling"
+    fi
     
     # Check if we're on macOS
     if [ "$(uname)" = "Darwin" ]; then
@@ -154,7 +172,7 @@ setup_llvm_ar() {
             exit 1
         fi
     else
-        log_info "Non-macOS system detected"
+        log_info "Linux/WSL system detected"
         
         # Check if ar is available
         if command -v ar &> /dev/null; then
@@ -163,6 +181,27 @@ setup_llvm_ar() {
             export AR="$AR_PATH"
             export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="$AR_PATH"
             log_success "Environment variables set correctly"
+            
+            # For WSL, verify that ar is actually executable from the LOCAL_BIN path
+            if [ "$in_wsl" = true ]; then
+                # Create a test wrapper script
+                mkdir -p "$LOCAL_BIN"
+                cat > "$LOCAL_BIN/llvm-ar" << EOF
+#!/bin/bash
+exec $AR_PATH "\$@"
+EOF
+                chmod +x "$LOCAL_BIN/llvm-ar"
+                
+                # Test if it works
+                if ! "$LOCAL_BIN/llvm-ar" --version &>/dev/null; then
+                    log_warning "Permission issue in WSL - using binary directly as a workaround"
+                    export PATH="$(dirname $AR_PATH):$PATH"
+                    log_info "Added system ar directory to PATH: $(dirname $AR_PATH)"
+                else
+                    log_success "Created working wrapper in $LOCAL_BIN/llvm-ar"
+                    export PATH="$LOCAL_BIN:$PATH"
+                fi
+            fi
         else
             log_error "System ar not found in PATH"
             log_error "Please install binutils package for your system"

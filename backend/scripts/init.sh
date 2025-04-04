@@ -14,7 +14,6 @@ STAGE=${STAGE:-"dev"}
 STACK_NAME=${STACK_NAME:-"reflekt-${STAGE}"}
 REGION=${AWS_REGION:-"us-east-1"}
 TOKEN_FILE="$LOG_DIR/token.txt"
-LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
 
 # Source common utility functions
 source "$SCRIPTS_DIR/common.sh"
@@ -766,7 +765,17 @@ setup_llvm_ar() {
     
     # Define LOCAL_BIN_DIR if not already set
     if [ -z "$LOCAL_BIN_DIR" ]; then
-        LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
+        # Check if running in WSL
+        if grep -q Microsoft /proc/version 2>/dev/null || grep -q WSL /proc/version 2>/dev/null; then
+            # Running in WSL - use Linux home directory to avoid Windows filesystem permission issues
+            WSL_DETECTED=true
+            WSL_HOME=$(eval echo ~$USER)
+            LOCAL_BIN_DIR="$WSL_HOME/.local/refleckt_bin"
+            log_warning "WSL detected - using Linux filesystem path for LOCAL_BIN_DIR: $LOCAL_BIN_DIR"
+        else
+            # Not in WSL - use default path
+            LOCAL_BIN_DIR="$BACKEND_DIR/.local/bin"
+        fi
         log_warning "LOCAL_BIN_DIR was not set, defaulting to $LOCAL_BIN_DIR"
     fi
     
@@ -842,6 +851,14 @@ create_lightweight_llvm_ar() {
     local arch="$(uname -m)"
     local download_needed=false
     
+    # Check if running in WSL
+    local in_wsl=false
+    if [[ -n "${WSL_DETECTED:-}" ]] || grep -q Microsoft /proc/version 2>/dev/null || grep -q WSL /proc/version 2>/dev/null; then
+        in_wsl=true
+        log_info "WSL environment detected, using Linux-specific handling"
+        os_type="linux"
+    fi
+    
     # Check if ar exists in standard locations
     local found_ar=""
     for ar_path in "/usr/bin/ar" "/bin/ar" "/usr/local/bin/ar"; do
@@ -867,7 +884,19 @@ create_lightweight_llvm_ar() {
 exec $found_ar "\$@"
 EOF
         chmod +x "$LOCAL_BIN_DIR/llvm-ar"
-        log_success "Created llvm-ar wrapper using system ar at $found_ar"
+        
+        # Test the wrapper immediately to ensure it works
+        if ! "$LOCAL_BIN_DIR/llvm-ar" --version &>/dev/null; then
+            if [ "$in_wsl" = true ]; then
+                log_warning "Permission issue in WSL - wrapper script not working, will download binary instead"
+                download_needed=true
+            else
+                log_warning "Wrapper script not working, will try to download binary instead"
+                download_needed=true
+            fi
+        else
+            log_success "Created and tested llvm-ar wrapper using system ar at $found_ar"
+        fi
     else
         # No ar found, we'll need to download it
         download_needed=true
@@ -875,34 +904,34 @@ EOF
     
     # Download ar binary if needed
     if [ "$download_needed" = true ]; then
-        log_warning "No system ar found, attempting to download a prebuilt binary..."
+        log_warning "No working system ar found, attempting to download a prebuilt binary..."
         
         # Create temp directory for downloads
         local tmp_dir=$(mktemp -d)
         local download_url=""
-        local binary_name="ar"
+        local binary_path=""
         
-        # Set platform-specific download URLs
+        # Set platform-specific download URLs - using latest verified links for LLVM 17.0.6
         if [ "$os_type" = "darwin" ]; then
             if [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
                 # macOS arm64
-                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-arm64-apple-darwin21.0.tar.xz"
-                binary_path="clang+llvm-15.0.7-arm64-apple-darwin21.0/bin/llvm-ar"
+                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-arm64-apple-darwin.tar.xz"
+                binary_path="clang+llvm-17.0.6-arm64-apple-darwin/bin/llvm-ar"
             else
                 # macOS x86_64
-                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz"
-                binary_path="clang+llvm-15.0.7-x86_64-apple-darwin21.0/bin/llvm-ar"
+                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-apple-darwin.tar.xz"
+                binary_path="clang+llvm-17.0.6-x86_64-apple-darwin/bin/llvm-ar"
             fi
         else
-            # Linux
+            # Linux or WSL
             if [ "$arch" = "x86_64" ]; then
                 # Linux x86_64
-                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-linux-gnu-ubuntu-18.04.tar.xz"
-                binary_path="clang+llvm-15.0.7-x86_64-linux-gnu-ubuntu-18.04/bin/llvm-ar"
+                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz"
+                binary_path="clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04/bin/llvm-ar"
             elif [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then
                 # Linux arm64
-                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-aarch64-linux-gnu.tar.xz"
-                binary_path="clang+llvm-15.0.7-aarch64-linux-gnu/bin/llvm-ar"
+                download_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-aarch64-linux-gnu-ubuntu-22.04.tar.xz"
+                binary_path="clang+llvm-17.0.6-aarch64-linux-gnu-ubuntu-22.04/bin/llvm-ar"
             else
                 log_error "Unsupported architecture: $arch. Cannot download prebuilt binary."
                 log_error "Please install binutils manually with your package manager."
@@ -949,8 +978,17 @@ EOF
         local extracted_binary="$tmp_dir/$binary_path"
         if [ ! -f "$extracted_binary" ]; then
             log_error "Binary not found in extracted archive: $extracted_binary"
-            rm -rf "$tmp_dir"
-            return 1
+            log_error "Archive structure may have changed. Searching for llvm-ar..."
+            
+            # Try to find the binary elsewhere in the archive
+            local found_binary=$(find "$tmp_dir" -name "llvm-ar" -type f | head -n 1)
+            if [ -n "$found_binary" ]; then
+                log_info "Found llvm-ar at alternative path: $found_binary"
+                extracted_binary="$found_binary"
+            else
+                rm -rf "$tmp_dir"
+                return 1
+            fi
         fi
         
         log_info "Installing $extracted_binary to $LOCAL_BIN_DIR/llvm-ar"
@@ -967,6 +1005,12 @@ EOF
         log_success "llvm-ar is working correctly"
     else
         log_error "llvm-ar installation failed. The binary doesn't work."
+        
+        if [ "$in_wsl" = true ]; then
+            log_error "In WSL, ensure you're using a Linux filesystem path (not /mnt/c/...)"
+            log_error "Current path: $LOCAL_BIN_DIR"
+            log_error "Try setting LOCAL_BIN_DIR to a path in your Linux home directory before running this script"
+        fi
         
         # Create a fallback error wrapper if the binary doesn't work
         cat > "$LOCAL_BIN_DIR/llvm-ar" << 'EOF'
@@ -986,6 +1030,9 @@ EOF
     # Set environment variables for the new ar binary
     export AR="$LOCAL_BIN_DIR/llvm-ar"
     export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_AR="$LOCAL_BIN_DIR/llvm-ar"
+    
+    # Add to PATH to ensure it's available
+    export PATH="$LOCAL_BIN_DIR:$PATH"
     
     return 0
 }
