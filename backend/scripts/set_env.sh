@@ -16,6 +16,14 @@ echo "Setting LOCAL_BIN_DIR and LOCAL_BIN to: $LOCAL_BIN_DIR"
 OS_TYPE="$(uname -s | tr '[:upper:]' '[:lower:]')"
 echo "Detected OS: $OS_TYPE"
 
+# Check if running in WSL
+if grep -q Microsoft /proc/version 2>/dev/null || grep -q WSL /proc/version 2>/dev/null; then
+    WSL_DETECTED=true
+    echo "WSL environment detected, applying WSL-specific settings"
+else
+    WSL_DETECTED=false
+fi
+
 # Rust version to use
 export RUST_VERSION=${RUST_VERSION:-"1.85.0"}
 
@@ -32,54 +40,70 @@ export RUSTSEC_IGNORE=1
 export OPENSSL_STATIC=1
 export OPENSSL_NO_VENDOR=1
 
-# Detect OpenSSL location in a more flexible manner based on OS
-if command -v openssl &>/dev/null; then
-    # Get the directory of the openssl binary
-    OPENSSL_BIN_DIR=$(dirname $(which openssl))
-    
-    # Set OPENSSL_DIR to the parent directory of the bin directory
-    export OPENSSL_DIR=$(dirname "$OPENSSL_BIN_DIR")
-    
-    echo "OPENSSL_DIR automatically set to $OPENSSL_DIR (detected from $(which openssl))"
-else
-    # Platform-specific OpenSSL locations
-    if [ "$OS_TYPE" = "darwin" ]; then
-        # macOS Homebrew locations
-        if [ -d "/usr/local/opt/openssl@3" ]; then
-            export OPENSSL_DIR="/usr/local/opt/openssl@3"
-        elif [ -d "/usr/local/opt/openssl@1.1" ]; then
-            export OPENSSL_DIR="/usr/local/opt/openssl@1.1"
-        elif [ -d "/opt/homebrew/opt/openssl@3" ]; then
-            export OPENSSL_DIR="/opt/homebrew/opt/openssl@3"
-        elif [ -d "/opt/homebrew/opt/openssl@1.1" ]; then
-            export OPENSSL_DIR="/opt/homebrew/opt/openssl@1.1"
-        elif [ -d "/usr/local" ]; then
-            # Default OpenSSL location on macOS with Homebrew
-            export OPENSSL_DIR="/usr/local"
-        else
-            echo "Warning: Could not detect OpenSSL location automatically on macOS."
-            echo "Using default OPENSSL_DIR=/usr/local"
-            export OPENSSL_DIR="/usr/local"
+# Enhanced OpenSSL detection for all environments including WSL
+detect_openssl_dir() {
+    # First check for common header locations
+    for dir in "/usr/include/openssl" "/usr/local/include/openssl" "/usr/local/opt/openssl/include/openssl" "/opt/homebrew/opt/openssl@3/include/openssl"; do
+        if [ -d "$dir" ]; then
+            echo "$(dirname "$dir")"
+            return 0
         fi
-    elif [ "$OS_TYPE" = "linux" ]; then
-        # Linux standard locations
-        if [ -d "/usr/include/openssl" ]; then
-            export OPENSSL_DIR="/usr"
-        elif [ -d "/usr/local/include/openssl" ]; then
-            export OPENSSL_DIR="/usr/local"
-        else
-            echo "Warning: Could not detect OpenSSL location automatically on Linux."
-            echo "Using default OPENSSL_DIR=/usr"
-            export OPENSSL_DIR="/usr"
+    done
+    
+    # Check using openssl executable
+    if command -v openssl &>/dev/null; then
+        # Try to get version info and extract from there
+        local openssl_version_path=$(openssl version -d | cut -d' ' -f2 | tr -d '"')
+        if [ -d "$openssl_version_path/include/openssl" ]; then
+            echo "$openssl_version_path"
+            return 0
         fi
-    else
-        # Default fallback
-        echo "Warning: Unknown OS type $OS_TYPE. Using default OpenSSL location."
-        export OPENSSL_DIR="/usr"
+        
+        # Get the directory of the openssl binary
+        local openssl_bin_dir=$(dirname $(which openssl))
+        # Set OPENSSL_DIR to the parent directory of the bin directory
+        local parent_dir=$(dirname "$openssl_bin_dir")
+        
+        if [ -d "$parent_dir/include/openssl" ]; then
+            echo "$parent_dir"
+            return 0
+        fi
     fi
     
-    echo "OPENSSL_DIR set to $OPENSSL_DIR"
+    # OS-specific fallbacks
+    if [ "$OS_TYPE" = "darwin" ]; then
+        # macOS Homebrew common locations
+        for dir in "/usr/local/opt/openssl@3" "/usr/local/opt/openssl@1.1" "/opt/homebrew/opt/openssl@3" "/opt/homebrew/opt/openssl@1.1"; do
+            if [ -d "$dir" ]; then
+                echo "$dir"
+                return 0
+            fi
+        done
+        echo "/usr/local"  # Default fallback for macOS
+    else
+        # Linux standard locations
+        if [ -d "/usr/include/openssl" ]; then
+            echo "/usr"
+            return 0
+        elif [ -d "/usr/local/include/openssl" ]; then
+            echo "/usr/local"
+            return 0
+        fi
+        echo "/usr"  # Default fallback for Linux
+    fi
+}
+
+# For WSL, make sure libssl-dev is installed
+if [ "$WSL_DETECTED" = true ]; then
+    if [ ! -f "/usr/include/openssl/opensslconf.h" ] && [ ! -f "/usr/local/include/openssl/opensslconf.h" ]; then
+        echo "WARNING: OpenSSL development headers not found in WSL environment."
+        echo "Run 'sudo apt-get update && sudo apt-get install -y libssl-dev' to install them."
+    fi
 fi
+
+# Set OPENSSL_DIR based on our enhanced detection
+export OPENSSL_DIR=$(detect_openssl_dir)
+echo "OPENSSL_DIR set to $OPENSSL_DIR"
 
 # Handle system ar and cross-compiler differently based on OS
 if [ "$OS_TYPE" = "darwin" ]; then

@@ -134,6 +134,86 @@ check_prerequisites() {
     
     log_info "Detected OS: $os_type, Architecture: $arch"
     
+    # Check for OpenSSL development headers
+    log_info "Checking for OpenSSL development headers..."
+    
+    # Function to check if OpenSSL headers are installed
+    check_openssl_headers() {
+        if [ ! -f "/usr/include/openssl/opensslconf.h" ] && [ ! -f "/usr/local/include/openssl/opensslconf.h" ]; then
+            return 1
+        fi
+        return 0
+    }
+    
+    # Install OpenSSL headers if missing
+    if ! check_openssl_headers; then
+        log_warning "OpenSSL development headers not found, attempting to install..."
+        
+        if [ "$os_type" = "linux" ]; then
+            # Linux installation
+            if command -v apt-get &> /dev/null; then
+                # Debian/Ubuntu
+                log_info "Installing OpenSSL development headers via apt..."
+                if sudo apt-get update && sudo apt-get install -y libssl-dev; then
+                    log_success "OpenSSL development headers installed successfully."
+                else
+                    log_error "Failed to install OpenSSL headers. Please install manually with: sudo apt-get install libssl-dev"
+                    exit 1
+                fi
+            elif command -v dnf &> /dev/null; then
+                # Fedora/RHEL
+                log_info "Installing OpenSSL development headers via dnf..."
+                if sudo dnf install -y openssl-devel; then
+                    log_success "OpenSSL development headers installed successfully."
+                else
+                    log_error "Failed to install OpenSSL headers. Please install manually with: sudo dnf install openssl-devel"
+                    exit 1
+                fi
+            elif command -v yum &> /dev/null; then
+                # CentOS/older RHEL
+                log_info "Installing OpenSSL development headers via yum..."
+                if sudo yum install -y openssl-devel; then
+                    log_success "OpenSSL development headers installed successfully."
+                else
+                    log_error "Failed to install OpenSSL headers. Please install manually with: sudo yum install openssl-devel"
+                    exit 1
+                fi
+            else
+                log_error "No supported package manager found. Please install OpenSSL development headers manually:"
+                log_error "On Debian/Ubuntu: sudo apt-get install libssl-dev"
+                log_error "On Fedora/RHEL: sudo dnf install openssl-devel"
+                exit 1
+            fi
+        elif [ "$os_type" = "darwin" ]; then
+            # macOS installation
+            if command -v brew &> /dev/null; then
+                log_info "Installing OpenSSL via Homebrew..."
+                if brew install openssl@3; then
+                    log_success "OpenSSL installed successfully via Homebrew."
+                else
+                    log_error "Failed to install OpenSSL via Homebrew. Please install manually with: brew install openssl@3"
+                    exit 1
+                fi
+            else
+                log_error "Homebrew not found. Please install Homebrew first or install OpenSSL manually."
+                exit 1
+            fi
+        else
+            log_error "Unsupported operating system for automatic OpenSSL installation: $os_type"
+            log_error "Please install OpenSSL development headers manually."
+            exit 1
+        fi
+        
+        # Verify installation
+        if ! check_openssl_headers; then
+            log_error "OpenSSL headers still not found after installation attempt."
+            log_error "Try installing manually or check your system configuration."
+            exit 1
+        fi
+    else
+        log_success "OpenSSL development headers found."
+    fi
+    
     # Check if we need an aarch64 cross-compiler
     if [[ "${TARGET:-aarch64-unknown-linux-musl}" == *"aarch64"* ]]; then
         log_info "Checking for aarch64 cross-compiler..."
