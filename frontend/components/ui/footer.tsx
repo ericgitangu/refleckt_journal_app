@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Github, Twitter, Linkedin, Mail, Globe } from "lucide-react";
+import { LiveStatusIndicator } from "@/components/status/StatusIndicator";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -28,6 +29,9 @@ export function Footer() {
               Refleckt Journal
             </span>
           </div>
+
+          {/* Live Status Indicator */}
+          <LiveStatusIndicator size="xs" showLabel={true} />
 
           {/* Social links */}
           <div className="flex items-center gap-5 sm:gap-6 text-muted-foreground">

@@ -5,6 +5,7 @@ import {
   BarChart,
   Brain,
   MessageSquare,
+  Activity,
 } from "lucide-react";
 
 export interface NavItem {
@@ -62,6 +63,14 @@ export const navigation: NavItem[] = [
     icon: Settings,
     description: "Manage your account and preferences",
     requiresAuth: true,
+    showInNav: true,
+  },
+  {
+    title: "System Status",
+    href: "/status",
+    icon: Activity,
+    description: "View AWS service health and metrics",
+    requiresAuth: false,
     showInNav: true,
   },
 ];

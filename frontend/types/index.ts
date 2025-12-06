@@ -22,4 +22,7 @@ export type { UserSettings as SettingsConfig } from './settings';
 export * from './toast';
 
 // General types
-export * from './global'; 
+export * from './global';
+
+// Status monitoring types
+export * from './status'; 
