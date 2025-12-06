@@ -116,6 +116,9 @@ export const authOptions: NextAuthOptions = {
           process.env.NEXT_PUBLIC_APP_URL
             ? new URL(process.env.NEXT_PUBLIC_APP_URL).host
             : null,
+          // Allow both production domains
+          "refleckt.vercel.app",
+          "reflect.ericgitangu.com",
         ].filter(Boolean) as string[];
 
         if (trustedHosts.includes(urlObj.host)) {
