@@ -1,13 +1,12 @@
 use aws_lambda_events::apigw::{ApiGatewayProxyRequest, ApiGatewayProxyResponse};
-use aws_lambda_events::encodings::Body;
-use journal_common::lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use aws_sdk_dynamodb::model::AttributeValue;
+use aws_sdk_dynamodb::types::AttributeValue;
 use journal_common::{
-    error_response, extract_tenant_context, get_dynamo_client, json_response, publish_event, JournalError,
+    base64, chrono, error_response, extract_tenant_context, get_dynamo_client,
+    json_response, lambda_runtime::{run, service_fn, Error, LambdaEvent},
+    publish_event, serde_json, uuid::Uuid, JournalError,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use uuid::Uuid;
 
 // Entry model matching the frontend interface
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,11 +14,10 @@ struct Entry {
     id: String,
     title: String,
     content: String,
-    #[serde(rename = "createdAt")]
     created_at: String,
-    #[serde(rename = "updatedAt")]
     updated_at: String,
     #[serde(skip_serializing)]
+    #[allow(dead_code)]
     tenant_id: String,
     user_id: String,
     categories: Vec<String>,
@@ -60,6 +58,41 @@ struct EntryQueryParams {
     search_text: Option<String>,
     limit: Option<i32>,
     next_token: Option<String>,
+}
+
+// Search parameters matching frontend SearchEntryParams
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct SearchEntryParams {
+    text: Option<String>,
+    tags: Option<String>,  // comma-separated or single tag
+    from_date: Option<String>,
+    to_date: Option<String>,
+    mood: Option<String>,
+    sort_by: Option<String>,  // date_asc, date_desc, title_asc, title_desc
+    limit: Option<i32>,
+    page: Option<i32>,
+}
+
+// Tag count response matching frontend TagCount
+#[derive(Debug, Serialize)]
+struct TagCount {
+    tag: String,
+    count: i32,
+}
+
+// Suggest tags request
+#[derive(Debug, Deserialize)]
+struct SuggestTagsRequest {
+    content: String,
+    existing_tags: Option<Vec<String>>,
+}
+
+// Export format enum
+#[derive(Debug, Clone, Copy)]
+enum ExportFormat {
+    Json,
+    Markdown,
+    Pdf,
 }
 
 async fn create_entry(
@@ -235,7 +268,7 @@ async fn get_entry(
                     tags: item.get("tags").map(|v| v.as_ss().unwrap().clone()),
                     mood: item.get("mood").map(|v| v.as_s().unwrap().clone()),
                     location: item.get("location").map(|v| v.as_s().unwrap().clone()),
-                    word_count: item.get("word_count").and_then(|v| v.as_n().ok().map(|n| n.parse::<i32>().ok())),
+                    word_count: item.get("word_count").and_then(|v| v.as_n().ok().and_then(|n| n.parse::<i32>().ok())),
                     sentiment_score: item
                         .get("sentiment_score")
                         .and_then(|v| v.as_n().ok().map(|n| n.parse::<f64>().ok()))
@@ -263,10 +296,15 @@ async fn list_entries(
         Err(e) => return Ok(error_response(401, &e)),
     };
     
-    // Parse query parameters
-    let query_params = serde_qs::from_str::<EntryQueryParams>(
-        &event.query_string_parameters.unwrap_or_default().to_string()
-    ).unwrap_or_default();
+    // Parse query parameters directly from QueryMap
+    let query_params = EntryQueryParams {
+        category: event.query_string_parameters.first("category").map(String::from),
+        start_date: event.query_string_parameters.first("start_date").map(String::from),
+        end_date: event.query_string_parameters.first("end_date").map(String::from),
+        search_text: event.query_string_parameters.first("search_text").map(String::from),
+        limit: event.query_string_parameters.first("limit").and_then(|s| s.parse().ok()),
+        next_token: event.query_string_parameters.first("next_token").map(String::from),
+    };
     
     // Prepare DynamoDB query
     let dynamo_client = get_dynamo_client().await;
@@ -307,21 +345,25 @@ async fn list_entries(
     }
     
     if let Some(token) = &query_params.next_token {
-        // Parse exclusive start key from base64
-        if let Ok(decoded) = base64::decode(token) {
-            if let Ok(start_key) = serde_json::from_slice(&decoded) {
+        // Parse exclusive start key from base64 - convert string map back to AttributeValue map
+        use base64::Engine;
+        if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(token) {
+            if let Ok(string_key) = serde_json::from_slice::<std::collections::HashMap<String, String>>(&decoded) {
+                let start_key: std::collections::HashMap<String, AttributeValue> = string_key
+                    .into_iter()
+                    .map(|(k, v)| (k, AttributeValue::S(v)))
+                    .collect();
                 query = query.set_exclusive_start_key(Some(start_key));
             }
         }
     }
-    
+
     // Execute query
     match query.send().await {
         Ok(response) => {
             // Convert items to entries
-            let entries: Vec<Entry> = response
-                .items()
-                .unwrap_or_default()
+            let items = response.items();
+            let entries: Vec<Entry> = items
                 .iter()
                 .map(|item| {
                     Entry {
@@ -339,7 +381,7 @@ async fn list_entries(
                         tags: item.get("tags").map(|v| v.as_ss().unwrap().clone()),
                         mood: item.get("mood").map(|v| v.as_s().unwrap().clone()),
                         location: item.get("location").map(|v| v.as_s().unwrap().clone()),
-                        word_count: item.get("word_count").and_then(|v| v.as_n().ok().map(|n| n.parse::<i32>().ok())),
+                        word_count: item.get("word_count").and_then(|v| v.as_n().ok().and_then(|n| n.parse::<i32>().ok())),
                         sentiment_score: item
                             .get("sentiment_score")
                             .and_then(|v| v.as_n().ok().map(|n| n.parse::<f64>().ok()))
@@ -348,10 +390,16 @@ async fn list_entries(
                 })
                 .collect();
             
-            // Prepare pagination info
-            let next_token = response
-                .last_evaluated_key()
-                .map(|key| base64::encode(serde_json::to_string(key).unwrap_or_default()));
+            // Prepare pagination info - convert DynamoDB key to serializable format
+            use base64::Engine;
+            let next_token = response.last_evaluated_key().map(|key| {
+                // Convert AttributeValue map to simple string map for serialization
+                let simple_key: std::collections::HashMap<String, String> = key
+                    .iter()
+                    .filter_map(|(k, v)| v.as_s().ok().map(|s| (k.clone(), s.clone())))
+                    .collect();
+                base64::engine::general_purpose::STANDARD.encode(serde_json::to_string(&simple_key).unwrap_or_default())
+            });
             
             let response_body = serde_json::json!({
                 "items": entries,
@@ -401,7 +449,7 @@ async fn update_entry(
         .send()
         .await;
     
-    let item = match result {
+    let _item = match result {
         Ok(response) => {
             match response.item {
                 Some(item) => {
@@ -483,7 +531,7 @@ async fn update_entry(
         .key("tenant_id", AttributeValue::S(claims.tenant_id.clone()))
         .update_expression(&update_expression)
         .set_expression_attribute_values(Some(expression_values))
-        .return_values(aws_sdk_dynamodb::model::ReturnValue::AllNew)
+        .return_values(aws_sdk_dynamodb::types::ReturnValue::AllNew)
         .send()
         .await
     {
@@ -506,7 +554,7 @@ async fn update_entry(
                 tags: updated_item.get("tags").map(|v| v.as_ss().unwrap().clone()),
                 mood: updated_item.get("mood").map(|v| v.as_s().unwrap().clone()),
                 location: updated_item.get("location").map(|v| v.as_s().unwrap().clone()),
-                word_count: updated_item.get("word_count").and_then(|v| v.as_n().ok().map(|n| n.parse::<i32>().ok())),
+                word_count: updated_item.get("word_count").and_then(|v| v.as_n().ok().and_then(|n| n.parse::<i32>().ok())),
                 sentiment_score: updated_item
                     .get("sentiment_score")
                     .and_then(|v| v.as_n().ok().map(|n| n.parse::<f64>().ok()))
@@ -660,7 +708,7 @@ async fn get_entry_insights(
                 // Extract sentiment score
                 if let Some(AttributeValue::N(score)) = item.get("sentiment_score") {
                     if let Ok(score_f) = score.parse::<f64>() {
-                        insights.insert("sentimentScore".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(score_f).unwrap()));
+                        insights.insert("sentiment_score".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(score_f).unwrap()));
                     }
                 }
                 
@@ -679,7 +727,7 @@ async fn get_entry_insights(
                         .iter()
                         .map(|c| serde_json::Value::String(c.clone()))
                         .collect();
-                    insights.insert("suggestedCategories".to_string(), serde_json::Value::Array(category_values));
+                    insights.insert("suggested_categories".to_string(), serde_json::Value::Array(category_values));
                 }
                 
                 // Extract insights text
@@ -699,7 +747,7 @@ async fn get_entry_insights(
                 
                 // Extract created_at
                 if let Some(AttributeValue::S(created_at)) = item.get("created_at") {
-                    insights.insert("createdAt".to_string(), serde_json::Value::String(created_at.clone()));
+                    insights.insert("created_at".to_string(), serde_json::Value::String(created_at.clone()));
                 }
                 
                 Ok(json_response(200, &serde_json::Value::Object(insights)))
@@ -718,15 +766,499 @@ async fn get_entry_insights(
     }
 }
 
+// Search entries with full-text search and filters
+async fn search_entries(
+    event: ApiGatewayProxyRequest,
+) -> Result<ApiGatewayProxyResponse, Error> {
+    // Extract tenant context
+    let claims = match extract_tenant_context(&event.headers).await {
+        Ok(claims) => claims,
+        Err(e) => return Ok(error_response(401, &e)),
+    };
+
+    // Parse search parameters from query string
+    let params = SearchEntryParams {
+        text: event.query_string_parameters.first("text").map(String::from),
+        tags: event.query_string_parameters.first("tags").map(String::from),
+        from_date: event.query_string_parameters.first("from_date").map(String::from),
+        to_date: event.query_string_parameters.first("to_date").map(String::from),
+        mood: event.query_string_parameters.first("mood").map(String::from),
+        sort_by: event.query_string_parameters.first("sort_by").map(String::from),
+        limit: event.query_string_parameters.first("limit").and_then(|s| s.parse().ok()),
+        page: event.query_string_parameters.first("page").and_then(|s| s.parse().ok()),
+    };
+
+    let dynamo_client = get_dynamo_client().await;
+    let table_name = std::env::var("ENTRIES_TABLE").unwrap_or_else(|_| "reflekt-entries".to_string());
+
+    // Build filter expression components
+    let mut filter_parts: Vec<String> = Vec::new();
+    let mut expression_values: HashMap<String, AttributeValue> = HashMap::new();
+    let mut expression_names: HashMap<String, String> = HashMap::new();
+
+    // Add user filter (always required)
+    expression_values.insert(":tenant_id".to_string(), AttributeValue::S(claims.tenant_id.clone()));
+    expression_values.insert(":user_id".to_string(), AttributeValue::S(claims.sub.clone()));
+
+    // Text search (searches in title and content)
+    if let Some(text) = &params.text {
+        if !text.is_empty() {
+            let search_lower = text.to_lowercase();
+            filter_parts.push("(contains(#title_lower, :search_text) OR contains(#content_lower, :search_text))".to_string());
+            expression_values.insert(":search_text".to_string(), AttributeValue::S(search_lower));
+            expression_names.insert("#title_lower".to_string(), "title".to_string());
+            expression_names.insert("#content_lower".to_string(), "content".to_string());
+        }
+    }
+
+    // Tags filter
+    if let Some(tags_str) = &params.tags {
+        let tags: Vec<&str> = tags_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+        for (i, tag) in tags.iter().enumerate() {
+            filter_parts.push(format!("contains(tags, :tag{})", i));
+            expression_values.insert(format!(":tag{}", i), AttributeValue::S(tag.to_string()));
+        }
+    }
+
+    // Date range filter
+    if let Some(from_date) = &params.from_date {
+        filter_parts.push("created_at >= :from_date".to_string());
+        expression_values.insert(":from_date".to_string(), AttributeValue::S(from_date.clone()));
+    }
+
+    if let Some(to_date) = &params.to_date {
+        filter_parts.push("created_at <= :to_date".to_string());
+        expression_values.insert(":to_date".to_string(), AttributeValue::S(to_date.clone()));
+    }
+
+    // Mood filter
+    if let Some(mood) = &params.mood {
+        filter_parts.push("mood = :mood".to_string());
+        expression_values.insert(":mood".to_string(), AttributeValue::S(mood.clone()));
+    }
+
+    // Build the query
+    let mut query = dynamo_client
+        .query()
+        .table_name(table_name)
+        .index_name("UserIndex")
+        .key_condition_expression("tenant_id = :tenant_id AND user_id = :user_id");
+
+    // Add filter expression if there are filters
+    if !filter_parts.is_empty() {
+        query = query.filter_expression(filter_parts.join(" AND "));
+    }
+
+    // Add expression attribute values
+    for (k, v) in expression_values {
+        query = query.expression_attribute_values(k, v);
+    }
+
+    // Add expression attribute names if needed
+    if !expression_names.is_empty() {
+        for (k, v) in expression_names {
+            query = query.expression_attribute_names(k, v);
+        }
+    }
+
+    // Apply pagination
+    let limit = params.limit.unwrap_or(20).min(100);
+    let page = params.page.unwrap_or(1).max(1);
+
+    // For pagination, we need to scan through pages
+    // DynamoDB doesn't support offset-based pagination natively
+    query = query.limit(limit * page);
+
+    // Execute query
+    match query.send().await {
+        Ok(response) => {
+            let items = response.items();
+
+            // Convert items to entries
+            let mut entries: Vec<Entry> = items
+                .iter()
+                .map(|item| Entry {
+                    id: item.get("id").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    title: item.get("title").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    content: item.get("content").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    created_at: item.get("created_at").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    updated_at: item.get("updated_at").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    tenant_id: item.get("tenant_id").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    user_id: item.get("user_id").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    categories: item.get("categories").and_then(|v| v.as_ss().ok()).cloned().unwrap_or_default(),
+                    tags: item.get("tags").and_then(|v| v.as_ss().ok()).cloned(),
+                    mood: item.get("mood").and_then(|v| v.as_s().ok()).cloned(),
+                    location: item.get("location").and_then(|v| v.as_s().ok()).cloned(),
+                    word_count: item.get("word_count").and_then(|v| v.as_n().ok().and_then(|n| n.parse().ok())),
+                    sentiment_score: item.get("sentiment_score").and_then(|v| v.as_n().ok().and_then(|n| n.parse().ok())),
+                })
+                .collect();
+
+            // Apply sorting
+            if let Some(sort_by) = &params.sort_by {
+                match sort_by.as_str() {
+                    "date_asc" => entries.sort_by(|a, b| a.created_at.cmp(&b.created_at)),
+                    "date_desc" => entries.sort_by(|a, b| b.created_at.cmp(&a.created_at)),
+                    "title_asc" => entries.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
+                    "title_desc" => entries.sort_by(|a, b| b.title.to_lowercase().cmp(&a.title.to_lowercase())),
+                    _ => entries.sort_by(|a, b| b.created_at.cmp(&a.created_at)), // default: date_desc
+                }
+            } else {
+                entries.sort_by(|a, b| b.created_at.cmp(&a.created_at)); // default: date_desc
+            }
+
+            // Apply pagination (skip to correct page)
+            let start_index = ((page - 1) * limit) as usize;
+            let paginated_entries: Vec<Entry> = entries.into_iter().skip(start_index).take(limit as usize).collect();
+
+            let response_body = serde_json::json!({
+                "items": paginated_entries,
+                "page": page,
+                "limit": limit,
+            });
+
+            Ok(json_response(200, &response_body))
+        }
+        Err(e) => Ok(error_response(
+            500,
+            &JournalError::DatabaseError(format!("Failed to search entries: {}", e)),
+        )),
+    }
+}
+
+// Export entries in various formats
+async fn export_entries(
+    event: ApiGatewayProxyRequest,
+) -> Result<ApiGatewayProxyResponse, Error> {
+    // Extract tenant context
+    let claims = match extract_tenant_context(&event.headers).await {
+        Ok(claims) => claims,
+        Err(e) => return Ok(error_response(401, &e)),
+    };
+
+    // Get format from query parameters
+    let format_str = event.query_string_parameters.first("format").unwrap_or("json");
+    let format = match format_str.to_lowercase().as_str() {
+        "json" => ExportFormat::Json,
+        "markdown" | "md" => ExportFormat::Markdown,
+        "pdf" => ExportFormat::Pdf,
+        _ => return Ok(error_response(400, &JournalError::ValidationError(
+            "Invalid format. Supported formats: json, markdown, pdf".into()
+        ))),
+    };
+
+    // Fetch all entries for the user
+    let dynamo_client = get_dynamo_client().await;
+    let table_name = std::env::var("ENTRIES_TABLE").unwrap_or_else(|_| "reflekt-entries".to_string());
+
+    let result = dynamo_client
+        .query()
+        .table_name(table_name)
+        .index_name("UserIndex")
+        .key_condition_expression("tenant_id = :tenant_id AND user_id = :user_id")
+        .expression_attribute_values(":tenant_id", AttributeValue::S(claims.tenant_id.clone()))
+        .expression_attribute_values(":user_id", AttributeValue::S(claims.sub.clone()))
+        .send()
+        .await;
+
+    match result {
+        Ok(response) => {
+            let items = response.items();
+            let entries: Vec<Entry> = items
+                .iter()
+                .map(|item| Entry {
+                    id: item.get("id").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    title: item.get("title").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    content: item.get("content").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    created_at: item.get("created_at").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    updated_at: item.get("updated_at").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    tenant_id: item.get("tenant_id").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    user_id: item.get("user_id").and_then(|v| v.as_s().ok()).cloned().unwrap_or_default(),
+                    categories: item.get("categories").and_then(|v| v.as_ss().ok()).cloned().unwrap_or_default(),
+                    tags: item.get("tags").and_then(|v| v.as_ss().ok()).cloned(),
+                    mood: item.get("mood").and_then(|v| v.as_s().ok()).cloned(),
+                    location: item.get("location").and_then(|v| v.as_s().ok()).cloned(),
+                    word_count: item.get("word_count").and_then(|v| v.as_n().ok().and_then(|n| n.parse().ok())),
+                    sentiment_score: item.get("sentiment_score").and_then(|v| v.as_n().ok().and_then(|n| n.parse().ok())),
+                })
+                .collect();
+
+            // Generate export content based on format
+            match format {
+                ExportFormat::Json => {
+                    let json_content = serde_json::to_string_pretty(&entries).unwrap_or_default();
+
+                    let mut headers = aws_lambda_events::http::HeaderMap::new();
+                    headers.insert("content-type", "application/json".parse().unwrap());
+                    headers.insert("content-disposition", "attachment; filename=\"journal-entries.json\"".parse().unwrap());
+
+                    Ok(ApiGatewayProxyResponse {
+                        status_code: 200,
+                        headers,
+                        multi_value_headers: Default::default(),
+                        body: Some(aws_lambda_events::encodings::Body::Text(json_content)),
+                        is_base64_encoded: false,
+                    })
+                }
+                ExportFormat::Markdown => {
+                    let mut markdown = String::from("# Journal Entries\n\n");
+                    markdown.push_str(&format!("Exported on: {}\n\n", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
+                    markdown.push_str("---\n\n");
+
+                    for entry in entries {
+                        markdown.push_str(&format!("## {}\n\n", entry.title));
+                        markdown.push_str(&format!("**Date:** {}\n\n", entry.created_at));
+
+                        if let Some(mood) = &entry.mood {
+                            markdown.push_str(&format!("**Mood:** {}\n\n", mood));
+                        }
+
+                        if let Some(tags) = &entry.tags {
+                            if !tags.is_empty() {
+                                markdown.push_str(&format!("**Tags:** {}\n\n", tags.join(", ")));
+                            }
+                        }
+
+                        markdown.push_str(&format!("{}\n\n", entry.content));
+                        markdown.push_str("---\n\n");
+                    }
+
+                    let mut headers = aws_lambda_events::http::HeaderMap::new();
+                    headers.insert("content-type", "text/markdown; charset=utf-8".parse().unwrap());
+                    headers.insert("content-disposition", "attachment; filename=\"journal-entries.md\"".parse().unwrap());
+
+                    Ok(ApiGatewayProxyResponse {
+                        status_code: 200,
+                        headers,
+                        multi_value_headers: Default::default(),
+                        body: Some(aws_lambda_events::encodings::Body::Text(markdown)),
+                        is_base64_encoded: false,
+                    })
+                }
+                ExportFormat::Pdf => {
+                    // For PDF, we return a simple text representation
+                    // In production, you'd use a PDF generation library or service
+                    let mut content = String::from("JOURNAL ENTRIES EXPORT\n");
+                    content.push_str(&format!("Exported: {}\n", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
+                    content.push_str(&"=".repeat(50));
+                    content.push_str("\n\n");
+
+                    for entry in entries {
+                        content.push_str(&format!("TITLE: {}\n", entry.title));
+                        content.push_str(&format!("DATE: {}\n", entry.created_at));
+
+                        if let Some(mood) = &entry.mood {
+                            content.push_str(&format!("MOOD: {}\n", mood));
+                        }
+
+                        if let Some(tags) = &entry.tags {
+                            if !tags.is_empty() {
+                                content.push_str(&format!("TAGS: {}\n", tags.join(", ")));
+                            }
+                        }
+
+                        content.push_str("\n");
+                        content.push_str(&entry.content);
+                        content.push_str("\n\n");
+                        content.push_str(&"-".repeat(50));
+                        content.push_str("\n\n");
+                    }
+
+                    let mut headers = aws_lambda_events::http::HeaderMap::new();
+                    headers.insert("content-type", "text/plain; charset=utf-8".parse().unwrap());
+                    headers.insert("content-disposition", "attachment; filename=\"journal-entries.txt\"".parse().unwrap());
+
+                    Ok(ApiGatewayProxyResponse {
+                        status_code: 200,
+                        headers,
+                        multi_value_headers: Default::default(),
+                        body: Some(aws_lambda_events::encodings::Body::Text(content)),
+                        is_base64_encoded: false,
+                    })
+                }
+            }
+        }
+        Err(e) => Ok(error_response(
+            500,
+            &JournalError::DatabaseError(format!("Failed to fetch entries for export: {}", e)),
+        )),
+    }
+}
+
+// Get all tags with counts for the user
+async fn get_tags(
+    event: ApiGatewayProxyRequest,
+) -> Result<ApiGatewayProxyResponse, Error> {
+    // Extract tenant context
+    let claims = match extract_tenant_context(&event.headers).await {
+        Ok(claims) => claims,
+        Err(e) => return Ok(error_response(401, &e)),
+    };
+
+    let dynamo_client = get_dynamo_client().await;
+    let table_name = std::env::var("ENTRIES_TABLE").unwrap_or_else(|_| "reflekt-entries".to_string());
+
+    // Query all entries for the user to aggregate tags
+    let result = dynamo_client
+        .query()
+        .table_name(table_name)
+        .index_name("UserIndex")
+        .key_condition_expression("tenant_id = :tenant_id AND user_id = :user_id")
+        .expression_attribute_values(":tenant_id", AttributeValue::S(claims.tenant_id.clone()))
+        .expression_attribute_values(":user_id", AttributeValue::S(claims.sub.clone()))
+        .projection_expression("tags")
+        .send()
+        .await;
+
+    match result {
+        Ok(response) => {
+            // Aggregate tag counts
+            let mut tag_counts: HashMap<String, i32> = HashMap::new();
+
+            for item in response.items() {
+                if let Some(tags) = item.get("tags").and_then(|v| v.as_ss().ok()) {
+                    for tag in tags {
+                        *tag_counts.entry(tag.clone()).or_insert(0) += 1;
+                    }
+                }
+            }
+
+            // Convert to TagCount structs
+            let mut tags: Vec<TagCount> = tag_counts
+                .into_iter()
+                .map(|(tag, count)| TagCount { tag, count })
+                .collect();
+
+            // Sort by count descending, then alphabetically
+            tags.sort_by(|a, b| {
+                b.count.cmp(&a.count).then_with(|| a.tag.cmp(&b.tag))
+            });
+
+            Ok(json_response(200, &tags))
+        }
+        Err(e) => Ok(error_response(
+            500,
+            &JournalError::DatabaseError(format!("Failed to get tags: {}", e)),
+        )),
+    }
+}
+
+// Suggest tags based on content using simple keyword extraction
+async fn suggest_tags(
+    event: ApiGatewayProxyRequest,
+) -> Result<ApiGatewayProxyResponse, Error> {
+    // Extract tenant context
+    let claims = match extract_tenant_context(&event.headers).await {
+        Ok(claims) => claims,
+        Err(e) => return Ok(error_response(401, &e)),
+    };
+
+    // Parse request body
+    let body = match &event.body {
+        Some(b) => b,
+        None => return Ok(error_response(400, &JournalError::ValidationError("Missing request body".into()))),
+    };
+
+    let request: SuggestTagsRequest = match serde_json::from_str(body) {
+        Ok(req) => req,
+        Err(e) => return Ok(error_response(400, &JournalError::ValidationError(e.to_string()))),
+    };
+
+    let existing_tags: Vec<String> = request.existing_tags.unwrap_or_default();
+
+    // Get user's existing tags to suggest from their vocabulary
+    let dynamo_client = get_dynamo_client().await;
+    let table_name = std::env::var("ENTRIES_TABLE").unwrap_or_else(|_| "reflekt-entries".to_string());
+
+    let result = dynamo_client
+        .query()
+        .table_name(table_name)
+        .index_name("UserIndex")
+        .key_condition_expression("tenant_id = :tenant_id AND user_id = :user_id")
+        .expression_attribute_values(":tenant_id", AttributeValue::S(claims.tenant_id.clone()))
+        .expression_attribute_values(":user_id", AttributeValue::S(claims.sub.clone()))
+        .projection_expression("tags")
+        .send()
+        .await;
+
+    // Collect all user's tags
+    let user_tags: Vec<String> = match result {
+        Ok(response) => {
+            let mut all_tags: Vec<String> = Vec::new();
+            for item in response.items() {
+                if let Some(tags) = item.get("tags").and_then(|v| v.as_ss().ok()) {
+                    all_tags.extend(tags.iter().cloned());
+                }
+            }
+            all_tags
+        }
+        Err(_) => Vec::new(),
+    };
+
+    // Extract keywords from content
+    let content_lower = request.content.to_lowercase();
+    let words: Vec<&str> = content_lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() > 3)
+        .collect();
+
+    // Common stop words to filter out
+    let stop_words: std::collections::HashSet<&str> = [
+        "the", "and", "for", "are", "but", "not", "you", "all", "can", "had",
+        "her", "was", "one", "our", "out", "day", "get", "has", "him", "his",
+        "how", "its", "may", "new", "now", "old", "see", "way", "who", "boy",
+        "did", "own", "say", "she", "too", "use", "that", "with", "have", "this",
+        "will", "your", "from", "they", "been", "call", "come", "each", "find",
+        "long", "make", "many", "more", "than", "time", "very", "when", "what",
+        "which", "would", "about", "could", "other", "their", "there", "these",
+        "think", "thought", "today", "really", "feeling", "feel", "just", "like",
+        "want", "know", "going", "things", "being", "something", "always",
+    ].iter().cloned().collect();
+
+    // Count word frequencies
+    let mut word_freq: HashMap<String, i32> = HashMap::new();
+    for word in words {
+        if !stop_words.contains(word) {
+            *word_freq.entry(word.to_string()).or_insert(0) += 1;
+        }
+    }
+
+    // Get top keywords
+    let mut keywords: Vec<(String, i32)> = word_freq.into_iter().collect();
+    keywords.sort_by(|a, b| b.1.cmp(&a.1));
+
+    let mut suggested_tags: Vec<String> = Vec::new();
+
+    // First, check if any user's existing tags match content
+    for user_tag in &user_tags {
+        let tag_lower = user_tag.to_lowercase();
+        if content_lower.contains(&tag_lower) && !existing_tags.contains(user_tag) && !suggested_tags.contains(user_tag) {
+            suggested_tags.push(user_tag.clone());
+            if suggested_tags.len() >= 5 {
+                break;
+            }
+        }
+    }
+
+    // Then add top keywords as suggestions
+    for (keyword, _) in keywords.iter().take(10) {
+        if !existing_tags.iter().any(|t| t.to_lowercase() == *keyword)
+            && !suggested_tags.iter().any(|t| t.to_lowercase() == *keyword)
+            && suggested_tags.len() < 5
+        {
+            suggested_tags.push(keyword.clone());
+        }
+    }
+
+    Ok(json_response(200, &suggested_tags))
+}
+
 async fn handler(
     event: LambdaEvent<ApiGatewayProxyRequest>,
 ) -> Result<ApiGatewayProxyResponse, Error> {
-    // Set up tracing
-    tracing_subscriber::fmt::init();
-    
     // Extract path and method for routing
     let path = event.payload.path.as_deref().unwrap_or("");
-    let method = event.payload.http_method.as_deref().unwrap_or("");
+    let method = event.payload.http_method.as_str();
     
     tracing::info!("Handling request: {} {}", method, path);
     
@@ -734,45 +1266,88 @@ async fn handler(
     match (method, path) {
         // Health check endpoint
         ("GET", "/health") => health_check(event.payload).await,
-        
-        // Entry endpoints
+
+        // Search entries - must be before generic /entries/{id} route
+        ("GET", "/entries/search") => search_entries(event.payload).await,
+
+        // Export entries
+        ("GET", "/entries/export") => export_entries(event.payload).await,
+
+        // Get all tags with counts
+        ("GET", "/entries/tags") => get_tags(event.payload).await,
+
+        // Suggest tags for content
+        ("POST", "/entries/suggest-tags") => suggest_tags(event.payload).await,
+
+        // Entry CRUD endpoints
         ("POST", "/entries") => create_entry(event.payload).await,
-        ("GET", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
-            get_entry(event.payload).await
-        }
         ("GET", "/entries") => list_entries(event.payload).await,
-        ("PUT", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
-            update_entry(event.payload).await
-        }
-        ("DELETE", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
-            delete_entry(event.payload).await
-        }
-        
+
         // GET /entries/{id}/insights - Get AI insights for a specific entry
-        ("GET", p, Some("insights")) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
+        ("GET", p) if p.starts_with("/entries/") && p.ends_with("/insights") => {
             // Validate user has access to this entry
             let claims = match extract_tenant_context(&event.payload.headers).await {
                 Ok(claims) => claims,
                 Err(e) => return Ok(error_response(401, &e)),
             };
-            
-            let entry_id = p.split('/').nth(2).unwrap();
-            
+
+            // Extract entry_id from path like /entries/{id}/insights
+            let parts: Vec<&str> = p.split('/').collect();
+            if parts.len() != 4 {
+                return Ok(error_response(400, &JournalError::ValidationError("Invalid path".into())));
+            }
+            let entry_id = parts[2];
+
             // Check if user has permission to access this entry
             let dynamo_client = get_dynamo_client().await;
-            let entry = match get_entry_by_id(dynamo_client, entry_id, &claims.tenant_id).await {
-                Ok(entry) => entry,
-                Err(e) => return Ok(error_response(500, &e)),
-            };
-            
-            if entry.user_id != claims.sub {
-                return Ok(error_response(403, &JournalError::AuthorizationError("You do not have permission to access this entry's insights".into())));
+            let table_name = std::env::var("ENTRIES_TABLE").unwrap_or_else(|_| "reflekt-entries".to_string());
+
+            let result = dynamo_client
+                .get_item()
+                .table_name(&table_name)
+                .key("id", AttributeValue::S(entry_id.to_string()))
+                .key("tenant_id", AttributeValue::S(claims.tenant_id.clone()))
+                .send()
+                .await;
+
+            match result {
+                Ok(response) => {
+                    if let Some(item) = response.item {
+                        // Check that the user owns this entry
+                        let user_id = match item.get("user_id") {
+                            Some(AttributeValue::S(id)) => id,
+                            _ => return Ok(error_response(403, &JournalError::AuthorizationError("Not authorized to access this entry".into()))),
+                        };
+
+                        if user_id != &claims.sub {
+                            return Ok(error_response(403, &JournalError::AuthorizationError("You do not have permission to access this entry's insights".into())));
+                        }
+
+                        // Get insights for the entry
+                        get_entry_insights(&dynamo_client, entry_id, &claims.tenant_id).await
+                    } else {
+                        Ok(error_response(404, &JournalError::NotFoundError("Entry not found".into())))
+                    }
+                }
+                Err(e) => Ok(error_response(500, &JournalError::DatabaseError(format!("Failed to fetch entry: {}", e)))),
             }
-            
-            // Get insights for the entry
-            get_entry_insights(&dynamo_client, entry_id, &claims.tenant_id).await
         }
-        
+
+        // GET /entries/{id} - Get single entry
+        ("GET", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
+            get_entry(event.payload).await
+        }
+
+        // PUT /entries/{id} - Update entry
+        ("PUT", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
+            update_entry(event.payload).await
+        }
+
+        // DELETE /entries/{id} - Delete entry
+        ("DELETE", p) if p.starts_with("/entries/") && p.split('/').count() == 3 => {
+            delete_entry(event.payload).await
+        }
+
         // If no route matches, return 404
         _ => Ok(error_response(
             404,
@@ -783,5 +1358,12 @@ async fn handler(
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // Set up tracing - only called once during Lambda cold start
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .without_time()
+        .init();
+
     run(service_fn(handler)).await
 }

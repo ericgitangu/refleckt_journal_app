@@ -1,8 +1,8 @@
 // AI Module for journal-common
-// This module is conditionally compiled when ai-features is enabled
+// This module provides AI-powered text analysis features
 
 #[cfg(feature = "ai-features")]
-use rust_bert::pipelines::sentiment::{SentimentModel, SentimentPolarity};
+use rust_bert::pipelines::sentiment::SentimentModel;
 
 /// Result of AI sentiment analysis
 pub struct SentimentAnalysis {
@@ -58,23 +58,25 @@ pub fn extract_keywords_basic(text: &str, max_keywords: usize) -> Vec<String> {
 
 #[cfg(feature = "ai-features")]
 pub fn analyze_sentiment(text: &str) -> anyhow::Result<SentimentAnalysis> {
-    // Load the sentiment analysis model
+    // Load the sentiment analysis model with default config (DistilBERT SST-2)
     let sentiment_model = SentimentModel::new(Default::default())?;
-    
-    // Analyze sentiment
-    let sentiments = sentiment_model.predict(&[text]);
-    
-    // Convert the sentiment polarity to a string and score
-    let (sentiment, score) = match sentiments[0] {
-        SentimentPolarity::Positive => ("positive".to_string(), 0.75),
-        SentimentPolarity::Negative => ("negative".to_string(), -0.75),
-        SentimentPolarity::Neutral => ("neutral".to_string(), 0.0),
+
+    // Analyze sentiment - predict returns Vec<Sentiment>
+    let sentiments = sentiment_model.predict([text]);
+
+    // Convert the sentiment result to our format
+    // rust-bert Sentiment has polarity (Positive/Negative) and score
+    let result = &sentiments[0];
+    let (sentiment, score) = if result.score > 0.5 {
+        ("positive".to_string(), result.score as f32)
+    } else {
+        ("negative".to_string(), -(1.0 - result.score) as f32)
     };
-    
+
     Ok(SentimentAnalysis {
         sentiment,
         score,
-        confidence: Some(0.85), // Fixed confidence as rust-bert doesn't provide this
+        confidence: Some(result.score as f32),
     })
 }
 

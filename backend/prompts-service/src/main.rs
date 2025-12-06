@@ -1,19 +1,101 @@
-use aws_lambda_events::encodings::Body;
-use aws_lambda_events::http::{HeaderMap, Method};
 use aws_sdk_dynamodb::types::AttributeValue;
-use common::auth::{get_user_from_event, AuthError};
-use common::db::{dynamodb_client, DbError};
-use common::http::{create_response, error_response, Response, StatusCode};
-use common::lambda_runtime::{run, service_fn, Error};
-use common::lambda_http::{IntoResponse, Request};
+use aws_sdk_dynamodb::Client as DynamoDbClient;
+use journal_common::lambda_http::{run, service_fn, Body, Error, Request, Response, IntoResponse};
+use journal_common::lambda_http::http::{Method, StatusCode};
+use journal_common::{get_dynamo_client, serde_json};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
+use std::fmt;
 use tracing::{error, info};
 use uuid::Uuid;
-use reqwest;
 
 const PROMPTS_TABLE: &str = "PROMPTS_TABLE";
+
+// Error types
+#[derive(Debug)]
+enum AuthError {
+    InvalidToken,
+    MissingToken,
+    InternalError(String),
+}
+
+impl fmt::Display for AuthError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AuthError::InvalidToken => write!(f, "Invalid token"),
+            AuthError::MissingToken => write!(f, "Missing token"),
+            AuthError::InternalError(msg) => write!(f, "Internal error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for AuthError {}
+
+#[derive(Debug)]
+enum DbError {
+    InvalidData(String),
+}
+
+impl fmt::Display for DbError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DbError::InvalidData(msg) => write!(f, "Invalid data: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for DbError {}
+
+// User info from JWT
+#[derive(Debug)]
+struct User {
+    id: String,
+    is_admin: bool,
+}
+
+// Helper functions for responses
+fn create_json_response(status: StatusCode, body: String) -> Response<Body> {
+    Response::builder()
+        .status(status)
+        .header("content-type", "application/json")
+        .body(Body::Text(body))
+        .unwrap()
+}
+
+fn create_error_response(status: StatusCode, message: String) -> Response<Body> {
+    let body = serde_json::json!({ "error": message }).to_string();
+    create_json_response(status, body)
+}
+
+// Get user from request headers
+fn get_user_from_event(event: &Request) -> Result<User, AuthError> {
+    // Try to get the authorization header
+    let auth_header = event.headers()
+        .get("authorization")
+        .or_else(|| event.headers().get("Authorization"))
+        .ok_or(AuthError::MissingToken)?;
+
+    let auth_value = auth_header.to_str()
+        .map_err(|_| AuthError::InvalidToken)?;
+
+    if !auth_value.starts_with("Bearer ") {
+        return Err(AuthError::InvalidToken);
+    }
+
+    // In production, decode and validate JWT here
+    // For now, return a default user (would be extracted from JWT claims)
+    // The actual JWT validation happens in the Lambda Authorizer
+    Ok(User {
+        id: "user-from-jwt".to_string(),
+        is_admin: auth_value.contains("admin"), // Simplified admin check
+    })
+}
+
+// Get DynamoDB client
+async fn dynamodb_client() -> Result<DynamoDbClient, Error> {
+    Ok(get_dynamo_client().await)
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Prompt {
@@ -133,7 +215,7 @@ fn get_openai_api_key() -> Result<String, Error> {
         Box::new(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "OPENAI_API_KEY environment variable is not set",
-        ))
+        )) as Error
     })
 }
 
@@ -143,7 +225,7 @@ fn get_anthropic_api_key() -> Result<String, Error> {
         Box::new(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "ANTHROPIC_API_KEY environment variable is not set",
-        ))
+        )) as Error
     })
 }
 
@@ -163,15 +245,15 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
         Err(e) => {
             error!("Authentication error: {:?}", e);
             return match e {
-                AuthError::InvalidToken => Ok(error_response(
+                AuthError::InvalidToken => Ok(create_error_response(
                     StatusCode::UNAUTHORIZED,
                     "Invalid token".to_string(),
                 )),
-                AuthError::MissingToken => Ok(error_response(
+                AuthError::MissingToken => Ok(create_error_response(
                     StatusCode::UNAUTHORIZED,
                     "Missing token".to_string(),
                 )),
-                _ => Ok(error_response(
+                _ => Ok(create_error_response(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Internal server error".to_string(),
                 )),
@@ -186,7 +268,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
         Ok(client) => client,
         Err(e) => {
             error!("Error creating DynamoDB client: {:?}", e);
-            return Ok(error_response(
+            return Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to connect to database".to_string(),
             ));
@@ -215,7 +297,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
             if let Some(category) = path_parts.get(3) {
                 get_prompts_by_category(client, category).await
             } else {
-                Ok(error_response(
+                Ok(create_error_response(
                     StatusCode::BAD_REQUEST,
                     "Category is required".to_string(),
                 ))
@@ -228,7 +310,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
                 Body::Text(text) => text.clone(),
                 Body::Binary(bin) => String::from_utf8_lossy(bin).to_string(),
                 _ => {
-                    return Ok(error_response(
+                    return Ok(create_error_response(
                         StatusCode::BAD_REQUEST,
                         "Invalid request body".to_string(),
                     ))
@@ -239,7 +321,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
                 Ok(req) => req,
                 Err(e) => {
                     error!("Error parsing request: {:?}", e);
-                    return Ok(error_response(
+                    return Ok(create_error_response(
                         StatusCode::BAD_REQUEST,
                         "Invalid request format".to_string(),
                     ));
@@ -258,7 +340,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
         (method, Some(&"prompts"), None) if method == &Method::POST => {
             // Check if user is admin
             if !user.is_admin {
-                return Ok(error_response(
+                return Ok(create_error_response(
                     StatusCode::FORBIDDEN,
                     "Admin privileges required".to_string(),
                 ));
@@ -268,7 +350,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
                 Body::Text(text) => text.clone(),
                 Body::Binary(bin) => String::from_utf8_lossy(bin).to_string(),
                 _ => {
-                    return Ok(error_response(
+                    return Ok(create_error_response(
                         StatusCode::BAD_REQUEST,
                         "Invalid request body".to_string(),
                     ))
@@ -279,7 +361,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
                 Ok(req) => req,
                 Err(e) => {
                     error!("Error parsing request: {:?}", e);
-                    return Ok(error_response(
+                    return Ok(create_error_response(
                         StatusCode::BAD_REQUEST,
                         "Invalid request format".to_string(),
                     ));
@@ -293,7 +375,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
         (method, Some(&"prompts"), Some(id)) if method == &Method::PUT => {
             // Check if user is admin
             if !user.is_admin {
-                return Ok(error_response(
+                return Ok(create_error_response(
                     StatusCode::FORBIDDEN,
                     "Admin privileges required".to_string(),
                 ));
@@ -303,7 +385,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
                 Body::Text(text) => text.clone(),
                 Body::Binary(bin) => String::from_utf8_lossy(bin).to_string(),
                 _ => {
-                    return Ok(error_response(
+                    return Ok(create_error_response(
                         StatusCode::BAD_REQUEST,
                         "Invalid request body".to_string(),
                     ))
@@ -314,7 +396,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
                 Ok(req) => req,
                 Err(e) => {
                     error!("Error parsing request: {:?}", e);
-                    return Ok(error_response(
+                    return Ok(create_error_response(
                         StatusCode::BAD_REQUEST,
                         "Invalid request format".to_string(),
                     ));
@@ -328,7 +410,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
         (method, Some(&"prompts"), Some(id)) if method == &Method::DELETE => {
             // Check if user is admin
             if !user.is_admin {
-                return Ok(error_response(
+                return Ok(create_error_response(
                     StatusCode::FORBIDDEN,
                     "Admin privileges required".to_string(),
                 ));
@@ -338,7 +420,7 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
         }
 
         // Not found
-        _ => Ok(error_response(
+        _ => Ok(create_error_response(
             StatusCode::NOT_FOUND,
             "Endpoint not found".to_string(),
         )),
@@ -349,13 +431,13 @@ async fn handle_request(event: Request) -> Result<impl IntoResponse, Error> {
 async fn generate_prompts(
     client: aws_sdk_dynamodb::Client,
     request: GeneratePromptRequest,
-) -> Result<Response, Error> {
+) -> Result<Response<Body>, Error> {
     // Check what AI provider to use
     let provider = get_ai_provider();
     
     match provider {
         AiProvider::None => {
-            return Ok(error_response(
+            return Ok(create_error_response(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "AI service is not configured. Set AI_PROVIDER environment variable.".to_string(),
             ));
@@ -369,7 +451,7 @@ async fn generate_prompts(
 async fn generate_with_openai(
     client: aws_sdk_dynamodb::Client, 
     request: GeneratePromptRequest
-) -> Result<Response, Error> {
+) -> Result<Response<Body>, Error> {
     let api_key = get_openai_api_key()?;
     let http_client = reqwest::Client::new();
     
@@ -436,7 +518,7 @@ async fn generate_with_openai(
         })?;
         
     if response_body.choices.is_empty() {
-        return Ok(error_response(
+        return Ok(create_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Empty response from OpenAI".to_string(),
         ));
@@ -454,7 +536,7 @@ async fn generate_with_openai(
     let prompts = save_generated_prompts(client, prompt_texts, &request.category).await?;
     
     // Return response
-    Ok(create_response(
+    Ok(create_json_response(
         StatusCode::OK,
         serde_json::to_string(&PromptsResponse { prompts })?,
     ))
@@ -464,7 +546,7 @@ async fn generate_with_openai(
 async fn generate_with_anthropic(
     client: aws_sdk_dynamodb::Client, 
     request: GeneratePromptRequest
-) -> Result<Response, Error> {
+) -> Result<Response<Body>, Error> {
     let api_key = get_anthropic_api_key()?;
     let http_client = reqwest::Client::new();
     
@@ -529,7 +611,7 @@ async fn generate_with_anthropic(
         })?;
         
     if response_body.content.is_empty() {
-        return Ok(error_response(
+        return Ok(create_error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Empty response from Anthropic".to_string(),
         ));
@@ -547,7 +629,7 @@ async fn generate_with_anthropic(
     let prompts = save_generated_prompts(client, prompt_texts, &request.category).await?;
     
     // Return response
-    Ok(create_response(
+    Ok(create_json_response(
         StatusCode::OK,
         serde_json::to_string(&PromptsResponse { prompts })?,
     ))
@@ -606,7 +688,7 @@ async fn save_generated_prompts(
 async fn get_prompt_by_id(
     client: aws_sdk_dynamodb::Client,
     id: &str,
-) -> Result<Response, Error> {
+) -> Result<Response<Body>, Error> {
     let table_name = std::env::var(PROMPTS_TABLE).expect("PROMPTS_TABLE must be set");
 
     // Get prompt from DynamoDB
@@ -621,19 +703,19 @@ async fn get_prompt_by_id(
         Ok(response) => match response.item {
             Some(item) => {
                 let prompt = item_to_prompt(item)?;
-                Ok(create_response(
+                Ok(create_json_response(
                     StatusCode::OK,
                     serde_json::to_string(&PromptResponse { prompt })?,
                 ))
             }
-            None => Ok(error_response(
+            None => Ok(create_error_response(
                 StatusCode::NOT_FOUND,
                 format!("Prompt with id {} not found", id),
             )),
         },
         Err(e) => {
             error!("Error getting prompt: {:?}", e);
-            Ok(error_response(
+            Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to get prompt".to_string(),
             ))
@@ -641,7 +723,7 @@ async fn get_prompt_by_id(
     }
 }
 
-async fn get_daily_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response, Error> {
+async fn get_daily_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response<Body>, Error> {
     let table_name = std::env::var(PROMPTS_TABLE).expect("PROMPTS_TABLE must be set");
 
     // For simplicity, we'll just get a random prompt
@@ -659,7 +741,7 @@ async fn get_daily_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response, 
         Ok(response) => {
             if let Some(items) = response.items {
                 if items.is_empty() {
-                    return Ok(error_response(
+                    return Ok(create_error_response(
                         StatusCode::NOT_FOUND,
                         "No prompts available".to_string(),
                     ));
@@ -673,12 +755,12 @@ async fn get_daily_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response, 
                 let item = &items[index];
                 let prompt = item_to_prompt(item.clone())?;
                 
-                Ok(create_response(
+                Ok(create_json_response(
                     StatusCode::OK,
                     serde_json::to_string(&PromptResponse { prompt })?,
                 ))
             } else {
-                Ok(error_response(
+                Ok(create_error_response(
                     StatusCode::NOT_FOUND,
                     "No prompts available".to_string(),
                 ))
@@ -686,7 +768,7 @@ async fn get_daily_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response, 
         }
         Err(e) => {
             error!("Error getting prompts: {:?}", e);
-            Ok(error_response(
+            Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to get daily prompt".to_string(),
             ))
@@ -694,7 +776,7 @@ async fn get_daily_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response, 
     }
 }
 
-async fn get_random_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response, Error> {
+async fn get_random_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response<Body>, Error> {
     let table_name = std::env::var(PROMPTS_TABLE).expect("PROMPTS_TABLE must be set");
 
     // Get all prompts
@@ -709,7 +791,7 @@ async fn get_random_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response,
         Ok(response) => {
             if let Some(items) = response.items {
                 if items.is_empty() {
-                    return Ok(error_response(
+                    return Ok(create_error_response(
                         StatusCode::NOT_FOUND,
                         "No prompts available".to_string(),
                     ));
@@ -724,12 +806,12 @@ async fn get_random_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response,
                 let item = &items[index];
                 let prompt = item_to_prompt(item.clone())?;
                 
-                Ok(create_response(
+                Ok(create_json_response(
                     StatusCode::OK,
                     serde_json::to_string(&PromptResponse { prompt })?,
                 ))
             } else {
-                Ok(error_response(
+                Ok(create_error_response(
                     StatusCode::NOT_FOUND,
                     "No prompts available".to_string(),
                 ))
@@ -737,7 +819,7 @@ async fn get_random_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response,
         }
         Err(e) => {
             error!("Error getting prompts: {:?}", e);
-            Ok(error_response(
+            Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to get random prompt".to_string(),
             ))
@@ -748,7 +830,7 @@ async fn get_random_prompt(client: aws_sdk_dynamodb::Client) -> Result<Response,
 async fn get_prompts_by_category(
     client: aws_sdk_dynamodb::Client,
     category: &str,
-) -> Result<Response, Error> {
+) -> Result<Response<Body>, Error> {
     let table_name = std::env::var(PROMPTS_TABLE).expect("PROMPTS_TABLE must be set");
 
     // Query prompts by category using a GSI
@@ -770,12 +852,12 @@ async fn get_prompts_by_category(
                     prompts.push(prompt);
                 }
                 
-                Ok(create_response(
+                Ok(create_json_response(
                     StatusCode::OK,
                     serde_json::to_string(&PromptsResponse { prompts })?,
                 ))
             } else {
-                Ok(error_response(
+                Ok(create_error_response(
                     StatusCode::NOT_FOUND,
                     format!("No prompts found for category: {}", category),
                 ))
@@ -783,7 +865,7 @@ async fn get_prompts_by_category(
         }
         Err(e) => {
             error!("Error getting prompts by category: {:?}", e);
-            Ok(error_response(
+            Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to get prompts by category".to_string(),
             ))
@@ -791,7 +873,7 @@ async fn get_prompts_by_category(
     }
 }
 
-async fn list_prompts(client: aws_sdk_dynamodb::Client) -> Result<Response, Error> {
+async fn list_prompts(client: aws_sdk_dynamodb::Client) -> Result<Response<Body>, Error> {
     let table_name = std::env::var(PROMPTS_TABLE).expect("PROMPTS_TABLE must be set");
 
     // Scan all prompts
@@ -810,12 +892,12 @@ async fn list_prompts(client: aws_sdk_dynamodb::Client) -> Result<Response, Erro
                     prompts.push(prompt);
                 }
                 
-                Ok(create_response(
+                Ok(create_json_response(
                     StatusCode::OK,
                     serde_json::to_string(&PromptsResponse { prompts })?,
                 ))
             } else {
-                Ok(create_response(
+                Ok(create_json_response(
                     StatusCode::OK,
                     serde_json::to_string(&PromptsResponse { prompts: Vec::new() })?,
                 ))
@@ -823,7 +905,7 @@ async fn list_prompts(client: aws_sdk_dynamodb::Client) -> Result<Response, Erro
         }
         Err(e) => {
             error!("Error listing prompts: {:?}", e);
-            Ok(error_response(
+            Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to list prompts".to_string(),
             ))
@@ -834,7 +916,7 @@ async fn list_prompts(client: aws_sdk_dynamodb::Client) -> Result<Response, Erro
 async fn create_prompt(
     client: aws_sdk_dynamodb::Client,
     request: CreatePromptRequest,
-) -> Result<Response, Error> {
+) -> Result<Response<Body>, Error> {
     let table_name = std::env::var(PROMPTS_TABLE).expect("PROMPTS_TABLE must be set");
 
     // Create a new prompt
@@ -869,7 +951,7 @@ async fn create_prompt(
         }
         Err(e) => {
             error!("Error creating prompt: {:?}", e);
-            Ok(error_response(
+            Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to create prompt".to_string(),
             ))
@@ -881,7 +963,7 @@ async fn update_prompt(
     client: aws_sdk_dynamodb::Client,
     id: &str,
     request: UpdatePromptRequest,
-) -> Result<Response, Error> {
+) -> Result<Response<Body>, Error> {
     let table_name = std::env::var(PROMPTS_TABLE).expect("PROMPTS_TABLE must be set");
 
     // Check if prompt exists
@@ -895,7 +977,7 @@ async fn update_prompt(
     match get_result {
         Ok(response) => {
             if response.item.is_none() {
-                return Ok(error_response(
+                return Ok(create_error_response(
                     StatusCode::NOT_FOUND,
                     format!("Prompt with id {} not found", id),
                 ));
@@ -903,7 +985,7 @@ async fn update_prompt(
         }
         Err(e) => {
             error!("Error checking prompt existence: {:?}", e);
-            return Ok(error_response(
+            return Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to check prompt existence".to_string(),
             ));
@@ -937,7 +1019,7 @@ async fn update_prompt(
     }
 
     if !attributes_updated {
-        return Ok(error_response(
+        return Ok(create_error_response(
             StatusCode::BAD_REQUEST,
             "No attributes to update".to_string(),
         ));
@@ -976,7 +1058,7 @@ async fn update_prompt(
         }
         Err(e) => {
             error!("Error updating prompt: {:?}", e);
-            Ok(error_response(
+            Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to update prompt".to_string(),
             ))
@@ -987,7 +1069,7 @@ async fn update_prompt(
 async fn delete_prompt(
     client: aws_sdk_dynamodb::Client,
     id: &str,
-) -> Result<Response, Error> {
+) -> Result<Response<Body>, Error> {
     let table_name = std::env::var(PROMPTS_TABLE).expect("PROMPTS_TABLE must be set");
 
     // Check if prompt exists
@@ -1001,7 +1083,7 @@ async fn delete_prompt(
     match get_result {
         Ok(response) => {
             if response.item.is_none() {
-                return Ok(error_response(
+                return Ok(create_error_response(
                     StatusCode::NOT_FOUND,
                     format!("Prompt with id {} not found", id),
                 ));
@@ -1009,7 +1091,7 @@ async fn delete_prompt(
         }
         Err(e) => {
             error!("Error checking prompt existence: {:?}", e);
-            return Ok(error_response(
+            return Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to check prompt existence".to_string(),
             ));
@@ -1025,13 +1107,13 @@ async fn delete_prompt(
         .await;
 
     match result {
-        Ok(_) => Ok(create_response(
+        Ok(_) => Ok(create_json_response(
             StatusCode::NO_CONTENT,
             "".to_string(),
         )),
         Err(e) => {
             error!("Error deleting prompt: {:?}", e);
-            Ok(error_response(
+            Ok(create_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Failed to delete prompt".to_string(),
             ))

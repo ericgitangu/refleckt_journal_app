@@ -51,3 +51,6 @@ target/
 
 # Cargo
 Cargo.lock
+
+# AI Instructions
+CLAUDE.md

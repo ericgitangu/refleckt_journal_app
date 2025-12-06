@@ -1,12 +1,12 @@
 use aws_lambda_events::apigw::{ApiGatewayProxyRequest, ApiGatewayProxyResponse};
 use journal_common::lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use aws_sdk_dynamodb::model::AttributeValue;
+use aws_sdk_dynamodb::types::AttributeValue;
 use journal_common::{
-    error_response, extract_tenant_context, get_dynamo_client, json_response, publish_event, JournalError,
+    error_response, extract_tenant_context, get_dynamo_client, json_response, publish_event, serde_json, JournalError,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc, Duration, Timelike};
 
 // Analytics data structures
 #[derive(Debug, Serialize)]
@@ -64,10 +64,12 @@ async fn get_analytics_summary(
         Err(e) => return Ok(error_response(401, &e)),
     };
     
-    // Parse query parameters
-    let query_params = serde_qs::from_str::<AnalyticsQueryParams>(
-        &event.query_string_parameters.unwrap_or_default().to_string()
-    ).unwrap_or_default();
+    // Parse query parameters directly from QueryMap
+    let query_params = AnalyticsQueryParams {
+        start_date: event.query_string_parameters.first("start_date").map(String::from),
+        end_date: event.query_string_parameters.first("end_date").map(String::from),
+        time_period: event.query_string_parameters.first("time_period").map(String::from),
+    };
     
     // Determine date range
     let end_date = match &query_params.end_date {
@@ -107,10 +109,13 @@ async fn get_analytics_summary(
     };
     
     // Get insights for the entries
+    let entry_ids: Vec<&str> = entries.iter()
+        .filter_map(|e| e.get("id").and_then(|v| v.as_s().ok()).map(|s| s.as_str()))
+        .collect();
     let insights = match get_user_insights(
         &claims.tenant_id,
         &claims.sub,
-        &entries.iter().map(|e| e["id"].as_s().unwrap()).collect::<Vec<_>>(),
+        &entry_ids,
     ).await {
         Ok(insights) => insights,
         Err(e) => return Ok(error_response(500, &e)),
@@ -177,12 +182,12 @@ async fn get_user_entries(
         .await
         .map_err(|e| JournalError::DatabaseError(format!("Failed to query entries: {}", e)))?;
     
-    Ok(result.items().unwrap_or_default().to_vec())
+    Ok(result.items().to_vec())
 }
 
 async fn get_user_insights(
     tenant_id: &str,
-    user_id: &str,
+    _user_id: &str,
     entry_ids: &[&str],
 ) -> Result<Vec<HashMap<String, AttributeValue>>, JournalError> {
     if entry_ids.is_empty() {
@@ -206,9 +211,15 @@ async fn get_user_insights(
             keys.push(key);
         }
         
+        use aws_sdk_dynamodb::types::KeysAndAttributes;
+        let keys_attrs = KeysAndAttributes::builder()
+            .set_keys(Some(keys))
+            .build()
+            .map_err(|e| JournalError::DatabaseError(format!("Failed to build KeysAndAttributes: {}", e)))?;
+
         let result = dynamo_client
             .batch_get_item()
-            .request_items(table_name.clone(), keys)
+            .request_items(table_name.clone(), keys_attrs)
             .send()
             .await
             .map_err(|e| JournalError::DatabaseError(format!("Failed to batch get insights: {}", e)))?;
@@ -234,7 +245,7 @@ fn calculate_entry_frequency(
     // Initialize all dates in range with zero
     let days = (end_date - start_date).num_days() + 1;
     for day_offset in 0..days {
-        let date = (start_date + Duration::days(day_offset)).date().format("%Y-%m-%d").to_string();
+        let date = (start_date + Duration::days(day_offset)).format("%Y-%m-%d").to_string();
         frequency_map.insert(date, 0);
     }
     
@@ -242,7 +253,7 @@ fn calculate_entry_frequency(
     for entry in entries {
         if let Some(AttributeValue::S(created_at)) = entry.get("created_at") {
             if let Ok(date_time) = created_at.parse::<DateTime<Utc>>() {
-                let date = date_time.date().format("%Y-%m-%d").to_string();
+                let date = date_time.format("%Y-%m-%d").to_string();
                 *frequency_map.entry(date).or_insert(0) += 1;
             }
         }
@@ -329,7 +340,7 @@ fn calculate_mood_trends(
             entry.get("id"),
         ) {
             if let Ok(date_time) = created_at.parse::<DateTime<Utc>>() {
-                let date = date_time.date().format("%Y-%m-%d").to_string();
+                let date = date_time.format("%Y-%m-%d").to_string();
                 
                 if let Some(score) = sentiment_map.get(entry_id) {
                     let (total, count) = mood_by_date.entry(date).or_insert((0.0, 0));
@@ -397,7 +408,7 @@ fn calculate_streaks(
     for entry in entries {
         if let Some(AttributeValue::S(created_at)) = entry.get("created_at") {
             if let Ok(date_time) = created_at.parse::<DateTime<Utc>>() {
-                let date = date_time.date().format("%Y-%m-%d").to_string();
+                let date = date_time.format("%Y-%m-%d").to_string();
                 entry_dates.insert(date);
             }
         }
@@ -412,7 +423,7 @@ fn calculate_streaks(
     dates.sort();
     
     // Today's date
-    let today = Utc::now().date().format("%Y-%m-%d").to_string();
+    let today = Utc::now().format("%Y-%m-%d").to_string();
     
     // Calculate longest streak
     let mut longest_streak = 0;
@@ -520,10 +531,12 @@ async fn get_mood_analytics(
         Err(e) => return Ok(error_response(401, &e)),
     };
     
-    // Parse query parameters - reuse same structure
-    let query_params = serde_qs::from_str::<AnalyticsQueryParams>(
-        &event.query_string_parameters.unwrap_or_default().to_string()
-    ).unwrap_or_default();
+    // Parse query parameters directly from QueryMap
+    let query_params = AnalyticsQueryParams {
+        start_date: event.query_string_parameters.first("start_date").map(String::from),
+        end_date: event.query_string_parameters.first("end_date").map(String::from),
+        time_period: event.query_string_parameters.first("time_period").map(String::from),
+    };
     
     // Determine date range (reuse code from summary)
     let end_date = match &query_params.end_date {
@@ -562,10 +575,13 @@ async fn get_mood_analytics(
         Err(e) => return Ok(error_response(500, &e)),
     };
     
+    let entry_ids: Vec<&str> = entries.iter()
+        .filter_map(|e| e.get("id").and_then(|v| v.as_s().ok()).map(|s| s.as_str()))
+        .collect();
     let insights = match get_user_insights(
         &claims.tenant_id,
         &claims.sub,
-        &entries.iter().map(|e| e["id"].as_s().unwrap()).collect::<Vec<_>>(),
+        &entry_ids,
     ).await {
         Ok(insights) => insights,
         Err(e) => return Ok(error_response(500, &e)),
@@ -666,15 +682,12 @@ async fn request_analytics_generation(
 async fn handler(
     event: LambdaEvent<ApiGatewayProxyRequest>,
 ) -> Result<ApiGatewayProxyResponse, Error> {
-    // Set up tracing
-    tracing_subscriber::fmt::init();
-    
-    let path = event.payload.path.clone().unwrap_or_default();
-    let method = event.payload.http_method.clone();
-    
+    let path = event.payload.path.as_deref().unwrap_or("");
+    let method = event.payload.http_method.as_str();
+
     tracing::info!("Handling request: {} {}", method, path);
-    
-    match (method.as_str(), path.as_str()) {
+
+    match (method, path) {
         ("GET", "/analytics") => get_analytics_summary(event.payload).await,
         ("POST", "/analytics") => request_analytics_generation(event.payload).await,
         ("GET", "/analytics/mood") => get_mood_analytics(event.payload).await,
@@ -688,5 +701,12 @@ async fn handler(
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // Set up tracing - only called once during Lambda cold start
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .without_time()
+        .init();
+
     run(service_fn(handler)).await
 }

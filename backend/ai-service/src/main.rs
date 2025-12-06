@@ -1,19 +1,13 @@
 use aws_lambda_events::event::cloudwatch_events::CloudWatchEvent;
 use journal_common::lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use aws_sdk_dynamodb::model::AttributeValue;
+use aws_sdk_dynamodb::types::AttributeValue;
 use journal_common::{
-    get_dynamo_client, get_s3_client, publish_event, JournalError,
-    EntryAnalysis as CommonEntryAnalysis,
-    SentimentAnalysis, KeywordAnalysis, InsightAnalysis,
-    analyze_text,
+    chrono, get_dynamo_client, publish_event, serde_json, JournalError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::env;
-use reqwest;
-use tracing;
-use tracing_subscriber;
 
 // Event data structure
 #[derive(Debug, Deserialize)]
@@ -57,7 +51,7 @@ struct OpenAIRequest {
     max_tokens: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct OpenAIMessage {
     role: String,
     content: String,
@@ -308,24 +302,12 @@ async fn analyze_with_anthropic(entry: &EntryEvent) -> Result<EntryAnalysis, Jou
     })
 }
 
-// Process entry with RustBert (or fallback to basic analysis)
+// Process entry with fallback analysis (basic text analysis without ML models)
+// Note: rust-bert is not available on Lambda ARM64, so we fallback to API-based analysis
 async fn analyze_with_rustbert(entry: &EntryEvent) -> Result<EntryAnalysis, JournalError> {
-    // Use the common library AI module functionality
-    let analysis = analyze_text(&entry.title, &entry.content);
-    
-    // Convert from common library format to service format
-    Ok(EntryAnalysis {
-        entry_id: entry.entry_id.clone(),
-        tenant_id: entry.tenant_id.clone(),
-        user_id: entry.user_id.clone(),
-        sentiment: analysis.sentiment.sentiment,
-        sentiment_score: analysis.sentiment.score,
-        keywords: analysis.keywords.keywords,
-        suggested_categories: analysis.keywords.categories,
-        insights: analysis.insights.insights,
-        reflections: analysis.insights.reflections,
-        provider: "rustbert".to_string(),
-    })
+    // Fallback to OpenAI when rust-bert is not available
+    tracing::warn!("rust-bert not available on Lambda ARM64, falling back to OpenAI");
+    analyze_with_openai(entry).await
 }
 
 async fn analyze_entry(
@@ -412,11 +394,12 @@ async fn save_analysis(
 async fn handler(
     event: LambdaEvent<CloudWatchEvent<Value>>,
 ) -> Result<(), Error> {
-    // Set up tracing
-    tracing_subscriber::fmt::init();
-    
     // Parse event
-    let entry_event = match serde_json::from_value::<EntryEvent>(event.payload.detail) {
+    let detail = event.payload.detail.ok_or_else(|| {
+        Box::new(JournalError::ValidationError("Missing event detail".to_string())) as Box<dyn std::error::Error + Send + Sync>
+    })?;
+
+    let entry_event = match serde_json::from_value::<EntryEvent>(detail) {
         Ok(entry) => entry,
         Err(e) => {
             tracing::error!("Failed to parse event: {}", e);
@@ -478,5 +461,12 @@ async fn handler(
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // Set up tracing - only called once during Lambda cold start
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .without_time()
+        .init();
+
     run(service_fn(handler)).await
 }

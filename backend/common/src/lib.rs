@@ -3,8 +3,9 @@ use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_s3::Client as S3Client;
 use aws_sdk_secretsmanager::Client as SecretsClient;
 use aws_sdk_eventbridge::Client as EventBridgeClient;
+use aws_lambda_events::apigw::ApiGatewayProxyResponse;
 use aws_lambda_events::encodings::Body;
-use aws_lambda_events::http::{HeaderMap, Response, StatusCode};
+use aws_lambda_events::http::HeaderMap;
 use jwt::{Header, Token, VerifyWithKey};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -20,6 +21,16 @@ pub use sha2;
 pub use chrono;
 pub use lambda_runtime;
 pub use lambda_http;
+pub use base64;
+pub use uuid;
+pub use serde;
+pub use serde_json;
+pub use serde_qs;
+pub use tokio;
+pub use tracing;
+pub use tracing_subscriber;
+pub use aws_lambda_events;
+pub use aws_sdk_dynamodb;
 
 // Singleton clients for AWS services
 static DYNAMO_CLIENT: OnceCell<DynamoDbClient> = OnceCell::const_new();
@@ -31,7 +42,10 @@ static EVENTS_CLIENT: OnceCell<EventBridgeClient> = OnceCell::const_new();
 #[derive(Debug)]
 pub enum JournalError {
     AuthError(String),
+    AuthorizationError(String),
+    ConfigurationError(String),
     DatabaseError(String),
+    ExternalApiError(String),
     ValidationError(String),
     NotFoundError(String),
     EventError(String),
@@ -42,7 +56,10 @@ impl fmt::Display for JournalError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             JournalError::AuthError(msg) => write!(f, "Auth error: {}", msg),
+            JournalError::AuthorizationError(msg) => write!(f, "Authorization error: {}", msg),
+            JournalError::ConfigurationError(msg) => write!(f, "Configuration error: {}", msg),
             JournalError::DatabaseError(msg) => write!(f, "Database error: {}", msg),
+            JournalError::ExternalApiError(msg) => write!(f, "External API error: {}", msg),
             JournalError::ValidationError(msg) => write!(f, "Validation error: {}", msg),
             JournalError::NotFoundError(msg) => write!(f, "Not found: {}", msg),
             JournalError::EventError(msg) => write!(f, "Event error: {}", msg),
@@ -65,26 +82,27 @@ pub struct JwtClaims {
 }
 
 // API Response helper
-pub fn json_response<T: Serialize>(status_code: i32, body: &T) -> Response<Body> {
+pub fn json_response<T: Serialize>(status_code: i32, body: &T) -> ApiGatewayProxyResponse {
     let body_str = serde_json::to_string(body).unwrap_or_else(|_| "{}".to_string());
-    
-    // Convert i32 to u16 for StatusCode
-    let status = StatusCode::from_u16(status_code as u16)
-        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    
-    Response::builder()
-        .status(status)
-        .header("content-type", "application/json")
-        .body(Body::Text(body_str))
-        .expect("Failed to build response")
+
+    let mut headers = aws_lambda_events::http::HeaderMap::new();
+    headers.insert("content-type", "application/json".parse().unwrap());
+
+    ApiGatewayProxyResponse {
+        status_code: status_code as i64,
+        headers,
+        multi_value_headers: Default::default(),
+        body: Some(Body::Text(body_str)),
+        is_base64_encoded: false,
+    }
 }
 
 // Error response helper
-pub fn error_response(status_code: i32, error: &JournalError) -> Response<Body> {
+pub fn error_response(status_code: i32, error: &JournalError) -> ApiGatewayProxyResponse {
     let error_body = serde_json::json!({
         "error": error.to_string(),
     });
-    
+
     json_response(status_code, &error_body)
 }
 

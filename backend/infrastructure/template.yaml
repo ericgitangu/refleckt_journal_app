@@ -54,11 +54,13 @@ Resources:
   EntryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/entry-service/
+      CodeUri: ../entry-service/target/lambda/journal-entry-service/
       Handler: bootstrap
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref EntriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InsightsTable
         - Statement:
             - Effect: Allow
               Action:
@@ -101,11 +103,35 @@ Resources:
             RestApiId: !Ref JournalApi
             Path: /entries/search
             Method: GET
+        ExportEntries:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries/export
+            Method: GET
+        GetTags:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries/tags
+            Method: GET
+        SuggestTags:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries/suggest-tags
+            Method: POST
+        GetEntryInsights:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /entries/{id}/insights
+            Method: GET
 
   SettingsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/settings-service/
+      CodeUri: ../settings-service/target/lambda/journal-settings-service/
       Handler: bootstrap
       Policies:
         - DynamoDBCrudPolicy:
@@ -153,7 +179,7 @@ Resources:
   AnalyticsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/analytics-service/
+      CodeUri: ../analytics-service/target/lambda/journal-analytics-service/
       Handler: bootstrap
       Policies:
         - DynamoDBCrudPolicy:
@@ -188,7 +214,7 @@ Resources:
   AiProcessingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/ai-service/
+      CodeUri: ../ai-service/target/lambda/journal-ai-service/
       Handler: bootstrap
       MemorySize: 1024
       Timeout: 60
@@ -217,7 +243,7 @@ Resources:
   AuthorizerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/authorizer/
+      CodeUri: ../authorizer/target/lambda/journal-authorizer/
       Handler: bootstrap
       Environment:
         Variables:
@@ -226,7 +252,7 @@ Resources:
   DbInitFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/db-init/
+      CodeUri: ../db-init/
       Handler: index.handler
       Runtime: nodejs18.x
       Policies:
@@ -242,7 +268,7 @@ Resources:
   PromptsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../backend/prompts-service/
+      CodeUri: ../prompts-service/target/lambda/journal-prompts-service/
       Handler: bootstrap
       Policies:
         - DynamoDBCrudPolicy:

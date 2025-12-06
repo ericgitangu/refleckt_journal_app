@@ -432,24 +432,17 @@ export const promptsApi = {
 };
 
 // AI API types and functions
-export interface Topic {
-  name: string;
-  confidence: number;
-  relatedTerms: string[];
-}
-
-export interface SentimentScore {
-  score: number;
-  label: string; // positive, negative, neutral
-  confidence: number;
-}
+// Note: These types match the backend ai-service response structure
 
 export interface EntryInsight {
   entryId: string;
-  topics: Topic[];
-  sentiment: SentimentScore;
-  keyPhrases: string[];
-  summaryText: string;
+  sentiment: string;  // positive, negative, neutral
+  sentimentScore: number;  // -1.0 to 1.0
+  keywords: string[];
+  suggestedCategories: string[];
+  insights?: string;
+  reflections?: string;
+  provider: string;  // openai, anthropic
   createdAt: string;
 }
 
@@ -462,42 +455,23 @@ export interface GeneratedPrompt {
 }
 
 // Special field mappings for AI-specific endpoints
+// Maps between frontend camelCase and backend snake_case for AI insights
 const insightsMappings: FieldMapping[] = [
   {
-    frontend: 'sentiment',
-    backend: 'sentiment_analysis',
-    toFrontend: (value: any) => ({
-      score: value.score,
-      label: value.classification,
-      confidence: value.confidence_score
-    }),
-    toBackend: (value: any) => ({
-      score: value.score,
-      classification: value.label,
-      confidence_score: value.confidence
-    })
+    frontend: 'entryId',
+    backend: 'entry_id'
   },
   {
-    frontend: 'topics',
-    backend: 'extracted_topics',
-    toFrontend: (value: any[]) => value.map(topic => ({
-      name: topic.topic_name,
-      confidence: topic.confidence_score,
-      relatedTerms: topic.related_terms || []
-    })),
-    toBackend: (value: any[]) => value.map(topic => ({
-      topic_name: topic.name,
-      confidence_score: topic.confidence,
-      related_terms: topic.relatedTerms || []
-    }))
+    frontend: 'sentimentScore',
+    backend: 'sentiment_score'
   },
   {
-    frontend: 'keyPhrases',
-    backend: 'key_phrases'
+    frontend: 'suggestedCategories',
+    backend: 'suggested_categories'
   },
   {
-    frontend: 'summaryText',
-    backend: 'summary'
+    frontend: 'createdAt',
+    backend: 'created_at'
   }
 ];
 

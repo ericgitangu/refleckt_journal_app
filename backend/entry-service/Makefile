@@ -1,5 +1,5 @@
 # Makefile for journal entry-service Lambda functions
-.PHONY: all build test clean package verify-lambda deploy setup-cross build-musl
+.PHONY: all build test clean package verify-lambda deploy setup-cross build-musl build-EntryFunction
 
 # Service name - customize for each service
 SERVICE_NAME := journal-entry-service
@@ -7,6 +7,9 @@ SERVICE_NAME := journal-entry-service
 # Build directories
 BUILD_DIR := ./target/lambda/$(SERVICE_NAME)
 PACKAGE_DIR := ./target/lambda
+
+# SAM CLI sets ARTIFACTS_DIR environment variable
+ARTIFACTS_DIR ?= .
 
 # AWS Region for deployment
 AWS_REGION ?= us-east-1
@@ -109,6 +112,15 @@ verify-lambda:
 		exit 1; \
 	fi
 	@echo "✅ Lambda package verified successfully"
+
+# SAM build target for AWS SAM CLI
+build-EntryFunction:
+	@echo "Building $(SERVICE_NAME) for SAM deployment to $(ARTIFACTS_DIR)..."
+	rustup run $(RUSTUP_TOOLCHAIN) cargo build --release
+	@mkdir -p $(ARTIFACTS_DIR)
+	cp target/release/$(SERVICE_NAME) $(ARTIFACTS_DIR)/bootstrap
+	@chmod +x $(ARTIFACTS_DIR)/bootstrap
+	@echo "✅ SAM build completed for $(SERVICE_NAME)"
 
 # Deploy the Lambda function
 deploy: package verify-lambda

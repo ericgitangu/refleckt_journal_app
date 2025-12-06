@@ -1,8 +1,8 @@
 use aws_lambda_events::apigw::{ApiGatewayProxyRequest, ApiGatewayProxyResponse};
 use journal_common::lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use aws_sdk_dynamodb::model::AttributeValue;
+use aws_sdk_dynamodb::types::AttributeValue;
 use journal_common::{
-    error_response, extract_tenant_context, get_dynamo_client, json_response, publish_event, JournalError,
+    error_response, extract_tenant_context, get_dynamo_client, json_response, serde_json, JournalError,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -99,15 +99,15 @@ async fn create_category(
     item.insert("id".to_string(), AttributeValue::S(category_id.clone()));
     item.insert("tenant_id".to_string(), AttributeValue::S(claims.tenant_id.clone()));
     item.insert("user_id".to_string(), AttributeValue::S(claims.sub.clone()));
-    item.insert("name".to_string(), AttributeValue::S(input.name));
-    
+    item.insert("name".to_string(), AttributeValue::S(input.name.clone()));
+
     // Add optional fields
-    if let Some(color) = input.color {
-        item.insert("color".to_string(), AttributeValue::S(color));
+    if let Some(ref color) = input.color {
+        item.insert("color".to_string(), AttributeValue::S(color.clone()));
     }
-    
-    if let Some(description) = input.description {
-        item.insert("description".to_string(), AttributeValue::S(description));
+
+    if let Some(ref description) = input.description {
+        item.insert("description".to_string(), AttributeValue::S(description.clone()));
     }
     
     // Save to DynamoDB
@@ -165,9 +165,8 @@ async fn get_categories(
     match result {
         Ok(response) => {
             // Convert items to categories
-            let categories: Vec<Category> = response
-                .items()
-                .unwrap_or_default()
+            let items = response.items();
+            let categories: Vec<Category> = items
                 .iter()
                 .map(|item| {
                     Category {
@@ -280,7 +279,7 @@ async fn update_category(
                         .update_expression(update_expression)
                         .set_expression_attribute_values(Some(expression_values))
                         .set_expression_attribute_names(Some(expression_names))
-                        .return_values("ALL_NEW")
+                        .return_values(aws_sdk_dynamodb::types::ReturnValue::AllNew)
                         .send()
                         .await
                     {
@@ -412,18 +411,18 @@ async fn get_settings(
                 let settings = UserSettings {
                     tenant_id: claims.tenant_id.clone(),
                     user_id: claims.sub.clone(),
-                    theme: item.get("theme").map(|v| v.as_s().unwrap().clone()),
-                    date_format: item.get("date_format").map(|v| v.as_s().unwrap().clone()),
+                    theme: item.get("theme").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                    date_format: item.get("date_format").and_then(|v| v.as_s().ok().map(|s| s.clone())),
                     notification_preferences: if let Some(AttributeValue::M(prefs)) = item.get("notification_preferences") {
                         Some(NotificationPreferences {
                             email_notifications: prefs.get("email_notifications")
-                                .map(|v| v.as_bool().unwrap_or(false))
+                                .and_then(|v| v.as_bool().ok().copied())
                                 .unwrap_or(false),
                             reminders_enabled: prefs.get("reminders_enabled")
-                                .map(|v| v.as_bool().unwrap_or(false))
+                                .and_then(|v| v.as_bool().ok().copied())
                                 .unwrap_or(false),
                             reminder_time: prefs.get("reminder_time")
-                                .map(|v| v.as_s().unwrap().clone()),
+                                .and_then(|v| v.as_s().ok().map(|s| s.clone())),
                         })
                     } else {
                         None
@@ -431,14 +430,14 @@ async fn get_settings(
                     display_preferences: if let Some(AttributeValue::M(prefs)) = item.get("display_preferences") {
                         Some(DisplayPreferences {
                             default_view: prefs.get("default_view")
-                                .map(|v| v.as_s().unwrap().clone()),
+                                .and_then(|v| v.as_s().ok().map(|s| s.clone())),
                             entries_per_page: prefs.get("entries_per_page")
                                 .and_then(|v| v.as_n().ok())
                                 .and_then(|n| n.parse::<i32>().ok()),
                             show_word_count: prefs.get("show_word_count")
-                                .map(|v| v.as_bool().unwrap_or(false)),
+                                .and_then(|v| v.as_bool().ok().copied()),
                             show_insights: prefs.get("show_insights")
-                                .map(|v| v.as_bool().unwrap_or(true)),
+                                .and_then(|v| v.as_bool().ok().copied()),
                         })
                     } else {
                         None
@@ -595,7 +594,7 @@ async fn update_settings(
         .key("user_id", AttributeValue::S(claims.sub.clone()))
         .update_expression(update_expression)
         .set_expression_attribute_values(Some(expression_values))
-        .return_values("ALL_NEW")
+        .return_values(aws_sdk_dynamodb::types::ReturnValue::AllNew)
         .send()
         .await
     {
@@ -606,18 +605,18 @@ async fn update_settings(
             let settings = UserSettings {
                 tenant_id: claims.tenant_id,
                 user_id: claims.sub,
-                theme: updated_item.get("theme").map(|v| v.as_s().unwrap().clone()),
-                date_format: updated_item.get("date_format").map(|v| v.as_s().unwrap().clone()),
+                theme: updated_item.get("theme").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                date_format: updated_item.get("date_format").and_then(|v| v.as_s().ok().map(|s| s.clone())),
                 notification_preferences: if let Some(AttributeValue::M(prefs)) = updated_item.get("notification_preferences") {
                     Some(NotificationPreferences {
                         email_notifications: prefs.get("email_notifications")
-                            .map(|v| v.as_bool().unwrap_or(false))
+                            .and_then(|v| v.as_bool().ok().copied())
                             .unwrap_or(false),
                         reminders_enabled: prefs.get("reminders_enabled")
-                            .map(|v| v.as_bool().unwrap_or(false))
+                            .and_then(|v| v.as_bool().ok().copied())
                             .unwrap_or(false),
                         reminder_time: prefs.get("reminder_time")
-                            .map(|v| v.as_s().unwrap().clone()),
+                            .and_then(|v| v.as_s().ok().map(|s| s.clone())),
                     })
                 } else {
                     None
@@ -625,14 +624,14 @@ async fn update_settings(
                 display_preferences: if let Some(AttributeValue::M(prefs)) = updated_item.get("display_preferences") {
                     Some(DisplayPreferences {
                         default_view: prefs.get("default_view")
-                            .map(|v| v.as_s().unwrap().clone()),
+                            .and_then(|v| v.as_s().ok().map(|s| s.clone())),
                         entries_per_page: prefs.get("entries_per_page")
                             .and_then(|v| v.as_n().ok())
                             .and_then(|n| n.parse::<i32>().ok()),
                         show_word_count: prefs.get("show_word_count")
-                            .map(|v| v.as_bool().unwrap_or(false)),
+                            .and_then(|v| v.as_bool().ok().copied()),
                         show_insights: prefs.get("show_insights")
-                            .map(|v| v.as_bool().unwrap_or(true)),
+                            .and_then(|v| v.as_bool().ok().copied()),
                     })
                 } else {
                     None
@@ -651,15 +650,12 @@ async fn update_settings(
 async fn handler(
     event: LambdaEvent<ApiGatewayProxyRequest>,
 ) -> Result<ApiGatewayProxyResponse, Error> {
-    // Set up tracing
-    tracing_subscriber::fmt::init();
-    
-    let path = event.payload.path.clone().unwrap_or_default();
-    let method = event.payload.http_method.clone();
-    
+    let path = event.payload.path.as_deref().unwrap_or("");
+    let method = event.payload.http_method.as_str();
+
     tracing::info!("Handling request: {} {}", method, path);
-    
-    match (method.as_str(), path.as_str()) {
+
+    match (method, path) {
         ("GET", "/settings/categories") => get_categories(event.payload).await,
         ("POST", "/settings/categories") => create_category(event.payload).await,
         ("PUT", p) if p.starts_with("/settings/categories/") => update_category(event.payload).await,
@@ -675,5 +671,12 @@ async fn handler(
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    // Set up tracing - only called once during Lambda cold start
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .without_time()
+        .init();
+
     run(service_fn(handler)).await
 }

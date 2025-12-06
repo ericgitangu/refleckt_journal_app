@@ -7,11 +7,7 @@ edition = "2021"
 # Use the consolidated common package which already includes all needed dependencies
 journal-common = { path = "../common", default-features = false, features = ["jwt-auth"] }
 
-# No need for OpenSSL here as it's already in common with identical settings
-
-# No need for aws-lambda-runtime as it's already in common (as lambda_runtime)
-
-[features]
-default = []
-
-# No need for patch section here as it's already in common
+# Direct dependencies required for derive macros and runtime
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.44.0", features = ["macros", "rt-multi-thread"] }
+aws_lambda_events = { version = "0.16.0", features = ["http"] }

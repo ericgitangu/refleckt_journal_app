@@ -1,233 +1,180 @@
 # ✨ Reflekt
 
-A modern, thoughtful journaling application with a React frontend and serverless AWS backend.
+A modern, AI-powered journaling application with Next.js frontend and serverless Rust microservices on AWS.
+
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://refleckt.vercel.app)
+[![Backend](https://img.shields.io/badge/backend-AWS-orange)](https://aws.amazon.com)
+[![Frontend](https://img.shields.io/badge/frontend-Vercel-black)](https://vercel.com)
 
 ## 📚 Table of Contents
 
-- [🌟 Introduction](#-introduction)
+- [🌟 Overview](#-overview)
 - [✨ Features](#-features)
 - [🏗️ Architecture](#️-architecture)
-- [🛠️ Technology Stack](#️-technology-stack)
-- [🚀 Getting Started](#-getting-started)
+- [🛠️ Tech Stack](#️-tech-stack)
+- [🚀 Quick Start](#-quick-start)
 - [💻 Development](#-development)
-- [🧪 Testing](#-testing)
 - [☁️ Deployment](#️-deployment)
-- [🔒 Authentication](#-authentication)
+- [💰 Cost Estimation](#-cost-estimation)
 - [👨‍💻 Author](#-author)
-- [📄 License](#-license)
 
-## 🌟 Introduction
+## 🌟 Overview
 
-Reflekt is a personal journaling application that helps users capture their thoughts, feelings, and experiences. With a clean, minimalist interface, powerful AI-driven insights, and a scalable serverless architecture, Reflekt makes journaling a pleasure while providing meaningful reflection opportunities.
+Reflekt is a personal journaling application featuring AI-powered insights, sentiment analysis, and reflective question generation. Built with a multi-tenant serverless architecture for scalability and cost efficiency.
+
+**🔗 Live:** [https://refleckt.vercel.app](https://refleckt.vercel.app)
 
 ## ✨ Features
 
-### 📔 Journal Management
-- Create, edit, and organize journal entries
-- Rich text formatting
-- Tag-based organization
-- Search through past entries
-
-### 🧠 AI-Powered Insights
-- Sentiment analysis of entries
-- Topic identification and trends
-- Reflective question suggestions
-- Entry summaries
-
-### 📊 Analytics and Tracking
-- Mood tracking over time
-- Journaling frequency statistics
-- Topic trends visualization
-- Writing patterns analysis
-
-### 🎨 Beautiful UI/UX
-- Clean, minimalist interface
-- Dark and light mode
-- Responsive design (desktop & mobile)
-- Customizable themes
-
-### 🔒 Security & Privacy
-- Secure authentication with AWS Cognito
-- Google OAuth integration
-- Private, encrypted content
-- User-controlled data sharing
+| Category | Features |
+|----------|----------|
+| 📔 **Journal** | CRUD entries, rich text, tags, search, export (JSON/Markdown) |
+| 🧠 **AI Insights** | Sentiment analysis, keyword extraction, reflective questions |
+| 📊 **Analytics** | Mood tracking, writing patterns, streaks, category trends |
+| 🎨 **UI/UX** | Dark/light mode, responsive design, minimalist interface |
+| 🔒 **Security** | JWT auth, multi-tenant isolation, encrypted data |
 
 ## 🏗️ Architecture
 
-Reflekt uses a modern, decoupled architecture:
+```
+┌─────────────────┐     ┌─────────────────────────────────────────┐
+│   Next.js 14    │────▶│           AWS API Gateway               │
+│   (Vercel)      │     │         + Lambda Authorizer             │
+└─────────────────┘     └──────────────┬──────────────────────────┘
+                                       │
+        ┌──────────────────────────────┼──────────────────────────────┐
+        │                              │                              │
+        ▼                              ▼                              ▼
+┌───────────────┐          ┌───────────────┐          ┌───────────────┐
+│ Entry Service │          │Settings Service│          │Analytics Svc  │
+│   (Rust)      │          │   (Rust)      │          │   (Rust)      │
+└───────┬───────┘          └───────────────┘          └───────────────┘
+        │
+        │ EventBridge
+        ▼
+┌───────────────┐          ┌───────────────┐
+│  AI Service   │          │Prompts Service│
+│   (Rust)      │          │   (Rust)      │
+└───────────────┘          └───────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      DynamoDB Tables                         │
+│  entries | insights | settings | categories | prompts        │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Frontend
-- Next.js for routing and SSR
-- React components with Hooks
-- SWR for state management
-- Tailwind CSS for styling
+### 🏢 Multi-Tenant Design
 
-### Backend
-- AWS Serverless architecture (Lambda, API Gateway)
-- Microservices organized by domain
-- Event-driven communication with EventBridge
-- DynamoDB for persistent storage
-- AWS Cognito for authentication
+- **Partition Strategy:** `tenant_id` + `user_id` composite keys
+- **Data Isolation:** JWT-enforced tenant boundaries
+- **GSI Pattern:** Efficient cross-tenant queries with UserIndex
 
-For detailed architecture diagrams:
-- [Frontend Architecture](frontend/README.md)
-- [Backend Architecture](backend/infrastructure/docs/architecture.md)
+## 🛠️ Tech Stack
 
-## 🛠️ Technology Stack
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS, shadcn/ui |
+| **Backend** | Rust (ARM64), AWS Lambda, API Gateway, DynamoDB |
+| **AI** | Anthropic API (claude-3-haiku) |
+| **Events** | Amazon EventBridge |
+| **Auth** | JWT + Custom Lambda Authorizer |
+| **IaC** | AWS SAM / CloudFormation |
 
-### Frontend
-- **Framework**: Next.js
-- **UI**: React, Tailwind CSS
-- **State**: SWR
-- **API Communication**: Axios
-- **Authentication**: AWS Cognito
-- **Languages**: TypeScript, CSS
-
-### Backend
-- **Compute**: AWS Lambda
-- **API**: AWS API Gateway
-- **Database**: Amazon DynamoDB
-- **Events**: Amazon EventBridge
-- **AI Services**: Amazon Comprehend
-- **Infrastructure**: AWS SAM, CloudFormation
-- **Authentication**: AWS Cognito
-- **Languages**: Node.js
-
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js (v18+)
-- Yarn package manager
-- AWS CLI (for backend deployment)
-- AWS SAM CLI (for backend local development)
-- AWS Account (for deployment)
-- Google Cloud Project (for OAuth)
 
-### Installation
+- Node.js 18+, Yarn
+- Rust 1.85.0+
+- AWS CLI + SAM CLI
+- Vercel CLI (optional)
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/reflekt-journal-app.git
-   cd reflekt-journal-app
-   ```
+### Frontend
 
-2. Install frontend dependencies:
-   ```bash
-   cd frontend
-   yarn install
-   ```
+```bash
+cd frontend
+cp .env.example .env.local
+yarn install && yarn dev
+```
 
-3. Install backend dependencies:
-   ```bash
-   cd ../backend
-   # For each service directory
-   for dir in */; do
-     (cd "$dir" && yarn install)
-   done
-   ```
+### Backend
 
-4. Set up Google OAuth:
-   - Create a project in Google Cloud Console
-   - Enable the Google+ API
-   - Create OAuth 2.0 credentials
-   - Add authorized origins and redirect URIs
-
-5. Start the frontend development server:
-   ```bash
-   cd ../frontend
-   yarn dev
-   ```
-
-6. Start the backend services locally:
-   ```bash
-   cd ../backend
-   sam local start-api
-   ```
+```bash
+cd backend
+source ./scripts/set_env.sh
+make build-all
+./scripts/deploy-stack.sh -s dev -r us-east-1
+```
 
 ## 💻 Development
 
-### Frontend Development
-```bash
-cd frontend
-yarn dev
-```
-The application will be available at http://localhost:3000
-
-### Backend Development
-```bash
-cd backend
-sam local start-api
-```
-The API will be available at http://localhost:3000/api
-
-## 🧪 Testing
-
-### Frontend Tests
-```bash
-cd frontend
-yarn test          # Run unit tests
-yarn cypress       # Run E2E tests
-```
-
-### Backend Tests
-```bash
-cd backend
-./scripts/test-endpoints.sh  # Test all endpoints
-```
+| Command | Description |
+|---------|-------------|
+| `yarn dev` | Start frontend (localhost:3000) |
+| `yarn test` | Run Jest tests |
+| `yarn cypress:headless` | E2E tests |
+| `make build-all` | Build all Rust services |
+| `sam local start-api` | Local API Gateway |
 
 ## ☁️ Deployment
 
-### Backend Deployment
-The backend uses a phased deployment approach:
+### Backend (AWS)
 
-1. Deploy core infrastructure:
-   ```bash
-   cd backend
-   ./scripts/setup-phased-deployment.sh
-   ```
+```bash
+cd backend
+source ./scripts/set_env.sh
+./scripts/deploy-stack.sh -s prod -r us-east-1
+```
 
-2. Deploy primary services:
-   ```bash
-   ./scripts/deploy-phased.sh -p primary
-   ```
-
-3. Deploy enhanced services:
-   ```bash
-   ./scripts/deploy-phased.sh -p enhanced
-   ```
-
-4. Deploy database:
-   ```bash
-   ./scripts/deploy-phased.sh -p database
-   ```
-
-### Frontend Deployment
-The frontend is optimized for deployment on Vercel:
+### Frontend (Vercel)
 
 ```bash
 cd frontend
 vercel --prod
 ```
 
-## 🔒 Authentication
+## 💰 Cost Estimation
 
-Reflekt uses AWS Cognito for authentication with the following features:
+**Low Traffic (~1K users, ~10K req/month):**
 
-1. **User Pool**: Manages user accounts and authentication
-2. **Identity Pool**: Provides temporary AWS credentials
-3. **Google Federation**: Allows users to sign in with their Google accounts
-4. **JWT Tokens**: Secure authentication tokens for API access
+| Service | Cost/Month |
+|---------|------------|
+| Lambda (ARM64) | ~$0.50 |
+| API Gateway | ~$3.50 |
+| DynamoDB (on-demand) | ~$2.00 |
+| EventBridge | ~$0.01 |
+| Anthropic API | ~$1.00 |
+| **Total** | **~$7/month** |
 
-For detailed authentication setup:
-- [Authentication Setup Guide](docs/auth-setup.md)
-- [Google OAuth Configuration](docs/google-oauth.md)
+*Vercel Hobby tier: Free*
+
+## 📁 Project Structure
+
+```
+reflekt-journal-app/
+├── frontend/           # Next.js 14 App Router
+│   ├── app/           # Pages & API routes
+│   ├── components/    # React components
+│   └── lib/           # Utilities
+├── backend/           # Rust microservices
+│   ├── entry-service/
+│   ├── ai-service/
+│   ├── analytics-service/
+│   ├── settings-service/
+│   ├── prompts-service/
+│   ├── authorizer/
+│   └── infrastructure/ # SAM templates
+└── docs/              # Documentation
+```
 
 ## 👨‍💻 Author
 
 **Eric Gitangu (Deveric)**
-- Email: [developer.ericgitangu@gmail.com](mailto:developer.ericgitangu@gmail.com)
-- Website: [https://developer.ericgitangu.com](https://developer.ericgitangu.com)
+
+[![Email](https://img.shields.io/badge/email-developer.ericgitangu%40gmail.com-blue)](mailto:developer.ericgitangu@gmail.com)
+[![Website](https://img.shields.io/badge/website-developer.ericgitangu.com-green)](https://developer.ericgitangu.com)
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) for details.

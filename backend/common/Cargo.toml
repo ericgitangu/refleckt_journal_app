@@ -5,12 +5,12 @@ edition = "2021"
 description = "Shared library for Reflekt Journal App services containing common dependencies and utilities"
 
 [dependencies]
-# AWS SDK dependencies with consistent versions
-aws-config = { version = "1.6.1", default-features = false, features = ["rustls"] }
-aws-sdk-dynamodb = "1.69.0"
-aws-sdk-s3 = "1.79.0"
-aws-sdk-secretsmanager = "1.66.0"
-aws-sdk-eventbridge = "1.65.0"
+# AWS SDK dependencies - pinned exactly to versions compatible with Rust 1.85.0
+aws-config = { version = "=1.5.8", default-features = false, features = ["rustls"] }
+aws-sdk-dynamodb = "=1.54.0"
+aws-sdk-s3 = "=1.60.0"
+aws-sdk-secretsmanager = "=1.50.0"
+aws-sdk-eventbridge = "=1.51.0"
 aws_lambda_events = { version = "0.16.0", features = ["http", "cloudwatch_events"] }
 
 # Lambda-related dependencies
@@ -32,8 +32,8 @@ uuid = { version = "1.4.1", features = ["v4", "serde"] }
 base64 = "0.22.1"  # Used by multiple services
 rand = "0.9.0"     # Updated to match prompts-service version
 
-# AI and ML libraries
-rust-bert = { version = "0.23.0", default-features = false, optional = true }
+# AI and ML libraries - enable remote feature for default model download
+rust-bert = { version = "0.23.0", default-features = true, optional = true }
 
 # Logging and tracing
 tracing = "0.1"
@@ -48,6 +48,9 @@ openssl = { version = "0.10.71", features = ["vendored"] }
 
 # Async runtime
 tokio = { version = "1.44.0", features = ["full"] }
+
+# Error handling
+anyhow = "1.0"
 
 [features]
 default = ["openssl", "jwt-auth"]

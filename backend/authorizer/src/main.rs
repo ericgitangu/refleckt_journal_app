@@ -1,14 +1,15 @@
 use aws_lambda_events::apigw::{
     ApiGatewayCustomAuthorizerPolicy, ApiGatewayCustomAuthorizerRequest,
-    ApiGatewayCustomAuthorizerResponse, IamPolicyStatement,
+    ApiGatewayCustomAuthorizerResponse,
 };
+use aws_lambda_events::event::iam::{IamPolicyStatement, IamPolicyEffect};
 // Import lambda_runtime through common instead of directly
 use journal_common::{
     lambda_runtime::{run, service_fn, Error, LambdaEvent},
-    jwt::{Header, Token, VerifyWithKey}, 
-    hmac::{Hmac, Mac}, 
-    sha2::Sha256, 
-    chrono
+    jwt::{Header, Token, VerifyWithKey},
+    hmac::{Hmac, Mac},
+    sha2::Sha256,
+    chrono, serde_json
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -49,58 +50,53 @@ async fn handler(
     };
     
     // Create authorized response
-    let account_id = std::env::var("AWS_ACCOUNT_ID")
-        .unwrap_or_else(|_| "123456789012".to_string());
-    
-    let region = std::env::var("AWS_REGION")
-        .unwrap_or_else(|_| "us-east-1".to_string());
-    
-    let api_id = event.payload.request_context.api_id
-        .unwrap_or_else(|| "api-id".to_string());
-    
-    let stage = event.payload.request_context.stage
-        .unwrap_or_else(|| "prod".to_string());
-    
-    // Effect: Allow
-    let effect = "Allow";
-    
+    // Parse method ARN to extract account, region, api_id, and stage
+    // Format: arn:aws:execute-api:{region}:{account-id}:{api-id}/{stage}/{method}/{resource}
+    let method_arn = event.payload.method_arn.as_ref()
+        .ok_or("Missing method_arn")?;
+
+    let parts: Vec<&str> = method_arn.split(':').collect();
+    let region = if parts.len() > 3 { parts[3] } else { "us-east-1" };
+    let account_id = if parts.len() > 4 { parts[4] } else { "123456789012" };
+
+    let path_parts: Vec<&str> = if parts.len() > 5 {
+        parts[5].split('/').collect()
+    } else {
+        vec![]
+    };
+    let api_id = if !path_parts.is_empty() { path_parts[0] } else { "api-id" };
+    let stage = if path_parts.len() > 1 { path_parts[1] } else { "prod" };
+
     // Resource: all resources (*) for this API
     let resource = format!(
-        "arn:aws:execute-api:{}:{}:{}/{}/*/",
+        "arn:aws:execute-api:{}:{}:{}/{}/*",
         region, account_id, api_id, stage
     );
     
     // Create response
+    let context_map = create_auth_context(&claims);
+    let context_json = serde_json::to_value(context_map)
+        .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+
     let response = ApiGatewayCustomAuthorizerResponse {
-        principal_id: claims.sub.clone(),
+        principal_id: Some(claims.sub.clone()),
         policy_document: ApiGatewayCustomAuthorizerPolicy {
-            version: "2012-10-17".to_string(),
+            version: Some("2012-10-17".to_string()),
             statement: vec![IamPolicyStatement {
-                effect: effect.to_string(),
+                effect: IamPolicyEffect::Allow,
                 action: vec!["execute-api:Invoke".to_string()],
                 resource: vec![resource],
+                condition: None,
             }],
         },
-        context: create_auth_context(&claims),
+        context: context_json,
         usage_identifier_key: None,
     };
-    
+
     Ok(response)
 }
 
 fn extract_token(event: &ApiGatewayCustomAuthorizerRequest) -> Result<String, Error> {
-    // Check if token is in Authorization header
-    if let Some(auth_header) = event.headers.get("Authorization") {
-        if auth_header.starts_with("Bearer ") {
-            return Ok(auth_header[7..].to_string());
-        }
-    }
-    
-    // Check if token is in query string parameters
-    if let Some(token) = event.query_string_parameters.get("token") {
-        return Ok(token.to_string());
-    }
-    
     // Check if token is in the authorizationToken field
     if let Some(token) = &event.authorization_token {
         if token.starts_with("Bearer ") {
@@ -108,7 +104,7 @@ fn extract_token(event: &ApiGatewayCustomAuthorizerRequest) -> Result<String, Er
         }
         return Ok(token.to_string());
     }
-    
+
     Err("No token found in request".into())
 }
 
@@ -150,16 +146,17 @@ fn create_auth_context(claims: &JwtClaims) -> HashMap<String, String> {
 
 fn unauthorized() -> ApiGatewayCustomAuthorizerResponse {
     ApiGatewayCustomAuthorizerResponse {
-        principal_id: "unauthorized".to_string(),
+        principal_id: Some("unauthorized".to_string()),
         policy_document: ApiGatewayCustomAuthorizerPolicy {
-            version: "2012-10-17".to_string(),
+            version: Some("2012-10-17".to_string()),
             statement: vec![IamPolicyStatement {
-                effect: "Deny".to_string(),
+                effect: IamPolicyEffect::Deny,
                 action: vec!["execute-api:Invoke".to_string()],
                 resource: vec!["*".to_string()],
+                condition: None,
             }],
         },
-        context: HashMap::new(),
+        context: serde_json::Value::Object(serde_json::Map::new()),
         usage_identifier_key: None,
     }
 }
