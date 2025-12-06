@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { apiRequest, handleApiError } from "@/lib/api-utils";
-import { getAuthSession } from "@/lib/auth-utils";
-import { getSession } from "next-auth/react";
 import { serverApiClient } from "@/lib/api-client";
 import { shouldUseMockData } from "@/lib/mock-utils";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
 
 // Mock prompts data for fallback
 const mockPrompts = {
@@ -91,7 +91,7 @@ export async function GET() {
 
   try {
     // Get auth session for token
-    const session = await getSession();
+    const session = await getServerSession(authOptions);
     if (!session?.accessToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
