@@ -8,7 +8,10 @@ import { SessionProvider } from "next-auth/react";
 import { TrpcProvider } from "@/app/providers/TrpcProvider";
 import { AuthProvider } from "@/lib/auth/auth-context";
 import { OfflineProvider } from "@/lib/offline/offline-context";
+import { SettingsProvider } from "@/context/SettingsContext";
 import { TrueErrorBoundary } from "@/components/ui/react-error-boundary";
+import { PWAInstallPrompt } from "@/components/pwa/PWAInstallPrompt";
+import { Toaster } from "@/components/ui/toaster";
 import { ReactNode } from "react";
 
 interface ProvidersProps {
@@ -34,13 +37,17 @@ export function Providers({ children }: ProvidersProps) {
             <TrpcProvider>
               <AuthProvider>
                 <OfflineProvider>
-                  <TrueErrorBoundary
-                    fallbackUI="full"
-                    title="Something went wrong"
-                    showDetails={true}
-                  >
-                    {children}
-                  </TrueErrorBoundary>
+                  <SettingsProvider>
+                    <TrueErrorBoundary
+                      fallbackUI="full"
+                      title="Something went wrong"
+                      showDetails={true}
+                    >
+                      {children}
+                      <PWAInstallPrompt />
+                      <Toaster />
+                    </TrueErrorBoundary>
+                  </SettingsProvider>
                 </OfflineProvider>
               </AuthProvider>
             </TrpcProvider>
