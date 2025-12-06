@@ -15,6 +15,7 @@ A modern, AI-powered journaling application with Next.js frontend and serverless
 - [🚀 Quick Start](#-quick-start)
 - [💻 Development](#-development)
 - [☁️ Deployment](#️-deployment)
+- [📡 Status Monitoring](#-status-monitoring)
 - [💰 Cost Estimation](#-cost-estimation)
 - [👨‍💻 Author](#-author)
 
@@ -33,6 +34,7 @@ Reflekt is a personal journaling application featuring AI-powered insights, sent
 | 📊 **Analytics** | Mood tracking, writing patterns, streaks, category trends |
 | 🎨 **UI/UX** | Dark/light mode, responsive design, minimalist interface |
 | 🔒 **Security** | JWT auth, multi-tenant isolation, encrypted data |
+| 📡 **Status Monitor** | Real-time AWS service health, DynamoDB stats, API metrics |
 
 ## 🏗️ Architecture
 
@@ -132,6 +134,36 @@ source ./scripts/set_env.sh
 ```bash
 cd frontend
 vercel --prod
+```
+
+## 📡 Status Monitoring
+
+Reflekt includes a production-grade AWS service status monitoring dashboard accessible at `/status`.
+
+### Features
+
+| Component | Metrics |
+|-----------|---------|
+| **Lambda Services** | Health status, latency, uptime, error rates |
+| **DynamoDB Tables** | Item counts, table sizes, GSI/LSI counts (via AWS SDK) |
+| **API Gateway** | Request counts, error rates, average latency |
+| **EventBridge** | Event bus status, rule counts |
+| **AI Service** | Provider status, analysis counts, token usage, cost estimates |
+| **Prompts Service** | Total prompts, category distribution |
+
+### Technical Implementation
+
+- **Real-time health checks** - Direct HTTP probes to all Lambda endpoints
+- **AWS SDK integration** - `DescribeTableCommand` for actual DynamoDB statistics
+- **Latency tracking** - In-memory history with percentile calculations (P50/P95/P99)
+- **Smart caching** - 30s TTL with stale-while-revalidate pattern
+- **Offline support** - LocalStorage caching with automatic refresh
+- **Visibility-aware polling** - Pauses when tab is hidden, refreshes on focus
+
+### Access
+
+```
+https://refleckt.vercel.app/status
 ```
 
 ## 💰 Cost Estimation

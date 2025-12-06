@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
+import { DynamoDBClient, DescribeTableCommand } from "@aws-sdk/client-dynamodb";
 import type {
   SystemStatus,
   ServiceHealth,
@@ -29,6 +30,10 @@ interface CacheEntry {
 }
 
 let statusCache: CacheEntry | null = null;
+
+// Persistent storage for latency history (in production, use Redis/DynamoDB)
+const latencyHistory: Map<string, { timestamp: number; latency: number }[]> = new Map();
+const MAX_HISTORY_POINTS = 60; // Keep 60 data points (1 hour at 1 min intervals)
 
 // Service endpoint configurations
 const API_BASE_URL =
@@ -88,15 +93,38 @@ const SERVICE_CONFIGS: Array<{
 
 // DynamoDB tables from CloudFormation
 const DYNAMODB_TABLES = [
-  { name: "reflekt-entries", displayName: "Entries Table" },
-  { name: "reflekt-categories", displayName: "Categories Table" },
-  { name: "reflekt-insights", displayName: "Insights Table" },
-  { name: "reflekt-settings", displayName: "Settings Table" },
-  { name: "reflekt-prompts", displayName: "Prompts Table" },
+  { name: "reflekt-entries", displayName: "Entries Table", countEndpoint: "/entries" },
+  { name: "reflekt-categories", displayName: "Categories Table", countEndpoint: "/settings/categories" },
+  { name: "reflekt-insights", displayName: "Insights Table", countEndpoint: null },
+  { name: "reflekt-settings", displayName: "Settings Table", countEndpoint: "/settings" },
+  { name: "reflekt-prompts", displayName: "Prompts Table", countEndpoint: "/prompts" },
 ];
 
 /**
- * Check health of a single service endpoint
+ * Store latency data point for a service
+ */
+function recordLatency(serviceId: string, latency: number) {
+  const now = Date.now();
+  const history = latencyHistory.get(serviceId) || [];
+  history.push({ timestamp: now, latency });
+
+  // Keep only last MAX_HISTORY_POINTS
+  while (history.length > MAX_HISTORY_POINTS) {
+    history.shift();
+  }
+
+  latencyHistory.set(serviceId, history);
+}
+
+/**
+ * Get latency history for a service
+ */
+function getLatencyHistory(serviceId: string): { timestamp: number; latency: number }[] {
+  return latencyHistory.get(serviceId) || [];
+}
+
+/**
+ * Check health of a single service endpoint - returns REAL data
  */
 async function checkServiceHealth(
   config: (typeof SERVICE_CONFIGS)[0],
@@ -106,6 +134,7 @@ async function checkServiceHealth(
   let status: ServiceHealthStatus = "unknown";
   let latency: number | null = null;
   let errorRate = 0;
+  let responseCode = 0;
 
   try {
     const headers: Record<string, string> = {
@@ -125,6 +154,7 @@ async function checkServiceHealth(
     );
 
     latency = Date.now() - startTime;
+    responseCode = response.status;
 
     if (response.status >= 200 && response.status < 300) {
       status = latency > 2000 ? "degraded" : "operational";
@@ -145,13 +175,16 @@ async function checkServiceHealth(
       if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
         status = "degraded";
         errorRate = 0.3;
+        responseCode = 408;
       } else if (error.response) {
         status =
           error.response.status >= 500 ? "major_outage" : "partial_outage";
         errorRate = error.response.status >= 500 ? 1.0 : 0.5;
+        responseCode = error.response.status;
       } else {
         status = "major_outage";
         errorRate = 1.0;
+        responseCode = 503;
       }
     } else {
       status = "unknown";
@@ -159,8 +192,29 @@ async function checkServiceHealth(
     }
   }
 
-  // Generate uptime history (simulated for now - in production, store in DB)
-  const uptimeHistory = generateUptimeHistory(status);
+  // Record this latency measurement
+  if (latency) {
+    recordLatency(config.id, latency);
+  }
+
+  // Build uptime history from real recorded latencies
+  const history = getLatencyHistory(config.id);
+  const uptimeHistory: UptimeDataPoint[] = history.map(h => ({
+    timestamp: new Date(h.timestamp).toISOString(),
+    status: h.latency > 2000 ? "degraded" : "operational",
+    latency: h.latency,
+    success: h.latency < 10000,
+  }));
+
+  // If no history yet, add current measurement
+  if (uptimeHistory.length === 0 && latency) {
+    uptimeHistory.push({
+      timestamp: new Date().toISOString(),
+      status,
+      latency,
+      success: status === "operational" || status === "degraded",
+    });
+  }
 
   return {
     id: config.id,
@@ -172,7 +226,7 @@ async function checkServiceHealth(
     uptime: calculateUptime(uptimeHistory),
     uptimeHistory,
     errorRate,
-    requestsPerMinute: Math.floor(Math.random() * 100) + 10,
+    requestsPerMinute: uptimeHistory.length, // Real count of checks made
     resourceType: "lambda",
     region: process.env.AWS_REGION || "us-east-1",
     endpoint: `${API_BASE_URL}${config.endpoint}`,
@@ -182,30 +236,9 @@ async function checkServiceHealth(
       timeout: config.id === "ai-service" ? 60 : 30,
       runtime: "provided.al2",
       architecture: "arm64",
+      lastResponseCode: responseCode,
     },
   };
-}
-
-/**
- * Generate simulated uptime history
- */
-function generateUptimeHistory(currentStatus: ServiceHealthStatus): UptimeDataPoint[] {
-  const history: UptimeDataPoint[] = [];
-  const now = Date.now();
-
-  for (let i = 23; i >= 0; i--) {
-    const timestamp = new Date(now - i * 3600000).toISOString();
-    const isRecent = i < 2;
-
-    history.push({
-      timestamp,
-      status: isRecent ? currentStatus : "operational",
-      latency: Math.floor(Math.random() * 200) + 50,
-      success: isRecent ? currentStatus === "operational" : Math.random() > 0.02,
-    });
-  }
-
-  return history;
 }
 
 /**
@@ -243,72 +276,117 @@ function determineOverallStatus(services: ServiceHealth[]): OverallStatus {
   return "all_operational";
 }
 
-/**
- * Generate DynamoDB table status (simulated - in production, use AWS SDK)
- */
-function generateDynamoDBStatus(): DynamoDBTableStatus[] {
-  const stage = process.env.STAGE || "dev";
+// Create DynamoDB client (lazy initialization)
+let dynamoClient: DynamoDBClient | null = null;
 
-  return DYNAMODB_TABLES.map((table) => ({
-    tableName: `${table.name}-${stage}`,
-    status: "ACTIVE" as const,
-    itemCount: Math.floor(Math.random() * 10000) + 100,
-    sizeBytes: Math.floor(Math.random() * 10000000) + 100000,
-    readCapacity: null,
-    writeCapacity: null,
-    billingMode: "PAY_PER_REQUEST" as const,
-    gsiCount: table.name.includes("entries") ? 2 : 1,
-    lsiCount: 0,
-  }));
+function getDynamoDBClient(): DynamoDBClient {
+  if (!dynamoClient) {
+    dynamoClient = new DynamoDBClient({
+      region: process.env.AWS_REGION || "us-east-1",
+    });
+  }
+  return dynamoClient;
 }
 
 /**
- * Generate API Gateway status
+ * Fetch real DynamoDB table stats using AWS SDK DescribeTableCommand
  */
-function generateAPIGatewayStatus(
-  services: ServiceHealth[],
-): APIGatewayStatus {
-  const avgLatency =
-    services.reduce((sum, s) => sum + (s.latency || 0), 0) / services.length;
-  const errorCount = services.filter(
-    (s) => s.status !== "operational",
-  ).length;
+async function fetchDynamoDBStatus(_token?: string): Promise<DynamoDBTableStatus[]> {
+  const stage = process.env.STAGE || "dev";
+  const client = getDynamoDBClient();
+
+  // Fetch table descriptions in parallel using AWS SDK
+  const tablePromises = DYNAMODB_TABLES.map(async (table) => {
+    const tableName = `${table.name}-${stage}`;
+    let itemCount = 0;
+    let sizeBytes = 0;
+    let tableStatus: "ACTIVE" | "CREATING" | "UPDATING" | "DELETING" | "INACCESSIBLE" = "ACTIVE";
+    let gsiCount = 0;
+    let lsiCount = 0;
+
+    try {
+      const command = new DescribeTableCommand({ TableName: tableName });
+      const response = await client.send(command);
+
+      if (response.Table) {
+        itemCount = response.Table.ItemCount || 0;
+        sizeBytes = response.Table.TableSizeBytes || 0;
+        tableStatus = (response.Table.TableStatus as typeof tableStatus) || "ACTIVE";
+        gsiCount = response.Table.GlobalSecondaryIndexes?.length || 0;
+        lsiCount = response.Table.LocalSecondaryIndexes?.length || 0;
+      }
+    } catch (error) {
+      // Table might not exist or we don't have permissions
+      console.warn(`Failed to describe table ${tableName}:`, error);
+      tableStatus = "INACCESSIBLE";
+    }
+
+    return {
+      tableName,
+      status: tableStatus,
+      itemCount,
+      sizeBytes,
+      readCapacity: null, // PAY_PER_REQUEST mode
+      writeCapacity: null,
+      billingMode: "PAY_PER_REQUEST" as const,
+      gsiCount,
+      lsiCount,
+    };
+  });
+
+  return Promise.all(tablePromises);
+}
+
+/**
+ * Calculate real API Gateway status from service health checks
+ */
+function calculateAPIGatewayStatus(services: ServiceHealth[]): APIGatewayStatus {
+  const validLatencies = services.filter(s => s.latency !== null).map(s => s.latency as number);
+  const avgLatency = validLatencies.length > 0
+    ? Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length)
+    : 0;
+
+  const errorCount = services.filter(s => s.status !== "operational" && s.status !== "degraded").length;
+  const totalChecks = services.reduce((sum, s) => sum + s.uptimeHistory.length, 0);
+  const successfulChecks = services.reduce(
+    (sum, s) => sum + s.uptimeHistory.filter(h => h.success).length,
+    0
+  );
 
   return {
     apiId: "nc9782vdlc",
     stageName: process.env.STAGE || "dev",
     status: errorCount === 0 ? "operational" : errorCount > 2 ? "partial_outage" : "degraded",
-    latency: Math.round(avgLatency),
-    requestCount: Math.floor(Math.random() * 1000) + 100,
-    errorCount: errorCount * 10,
-    throttledCount: Math.floor(Math.random() * 5),
-    cacheHitCount: Math.floor(Math.random() * 200),
-    cacheMissCount: Math.floor(Math.random() * 50),
+    latency: avgLatency,
+    requestCount: totalChecks,
+    errorCount: totalChecks - successfulChecks,
+    throttledCount: 0, // No throttling data available without CloudWatch
+    cacheHitCount: 0,
+    cacheMissCount: 0,
   };
 }
 
 /**
- * Generate EventBridge status
+ * EventBridge status - basic info since we can't query AWS directly
  */
-function generateEventBridgeStatus(): EventBridgeStatus {
+function getEventBridgeStatus(): EventBridgeStatus {
   return {
     eventBusName: "reflekt-journal-events",
-    status: "operational",
+    status: "operational", // Assume operational if services are working
     ruleCount: 3,
-    eventsPublished: Math.floor(Math.random() * 500) + 50,
-    eventsMatched: Math.floor(Math.random() * 450) + 45,
-    eventsDelivered: Math.floor(Math.random() * 440) + 44,
-    eventsFailed: Math.floor(Math.random() * 5),
+    eventsPublished: 0, // Would need CloudWatch metrics
+    eventsMatched: 0,
+    eventsDelivered: 0,
+    eventsFailed: 0,
   };
 }
 
 /**
- * Fetch real AI service metrics from insights table via analytics
+ * Fetch real AI service metrics from analytics endpoint
  */
 async function fetchAIMetrics(token?: string): Promise<AIServiceMetrics> {
   const provider = (process.env.AI_PROVIDER || "anthropic") as "anthropic" | "openai";
 
-  // Default metrics structure
   const defaultMetrics: AIServiceMetrics = {
     provider,
     providerStatus: "operational",
@@ -326,7 +404,6 @@ async function fetchAIMetrics(token?: string): Promise<AIServiceMetrics> {
   }
 
   try {
-    // Fetch analytics which includes AI insights data
     const response = await axios.get(`${API_BASE_URL}/analytics`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -337,8 +414,17 @@ async function fetchAIMetrics(token?: string): Promise<AIServiceMetrics> {
 
     if (response.data) {
       const data = response.data;
-      // Calculate from analytics response if available
       const entryCount = data.entry_count || 0;
+
+      // Estimate tokens based on average entry (250 input, 100 output)
+      const estimatedInputTokens = entryCount * 250;
+      const estimatedOutputTokens = entryCount * 100;
+      const totalTokens = estimatedInputTokens + estimatedOutputTokens;
+
+      // Claude Haiku pricing: $0.25/1M input, $1.25/1M output
+      const costEstimate = provider === "anthropic"
+        ? (estimatedInputTokens * 0.00000025) + (estimatedOutputTokens * 0.00000125)
+        : (totalTokens * 0.0000001); // GPT-4o-mini rough estimate
 
       return {
         provider,
@@ -346,14 +432,13 @@ async function fetchAIMetrics(token?: string): Promise<AIServiceMetrics> {
         totalAnalyses: entryCount,
         successfulAnalyses: entryCount,
         failedAnalyses: 0,
-        averageLatency: 850, // Measured from actual calls
+        averageLatency: 850,
         tokenUsage: {
-          input: entryCount * 250, // Estimated tokens per entry
-          output: entryCount * 100,
-          total: entryCount * 350,
+          input: estimatedInputTokens,
+          output: estimatedOutputTokens,
+          total: totalTokens,
         },
-        // Cost estimation: Claude Haiku pricing
-        costEstimate: Math.round((entryCount * 350 * 0.00025) * 100) / 100,
+        costEstimate: Math.round(costEstimate * 100) / 100,
         modelVersion: provider === "anthropic" ? "claude-3-haiku" : "gpt-4o-mini",
       };
     }
@@ -377,7 +462,7 @@ async function fetchPromptsMetrics(token?: string): Promise<PromptsMetrics> {
   };
 
   try {
-    // Fetch prompts - public endpoint doesn't require auth
+    const startTime = Date.now();
     const response = await axios.get(`${API_BASE_URL}/prompts`, {
       headers: {
         "Content-Type": "application/json",
@@ -386,6 +471,7 @@ async function fetchPromptsMetrics(token?: string): Promise<PromptsMetrics> {
       timeout: 10000,
       validateStatus: (s) => s < 500,
     });
+    const responseTime = Date.now() - startTime;
 
     if (response.status === 200 && response.data) {
       const prompts = response.data.prompts || response.data || [];
@@ -401,9 +487,9 @@ async function fetchPromptsMetrics(token?: string): Promise<PromptsMetrics> {
       return {
         totalPrompts: promptsArray.length,
         promptsByCategory: categoryCount,
-        dailyPromptsServed: promptsArray.length > 0 ? Math.min(promptsArray.length, 50) : 0,
-        randomPromptsServed: promptsArray.length > 0 ? Math.min(promptsArray.length * 2, 100) : 0,
-        averageResponseTime: 45, // Measured from actual calls
+        dailyPromptsServed: 0, // Would need tracking
+        randomPromptsServed: 0,
+        averageResponseTime: responseTime,
       };
     }
   } catch (error) {
@@ -487,23 +573,45 @@ async function fetchAnalyticsMetrics(token?: string): Promise<AnalyticsMetrics> 
 }
 
 /**
- * Generate realtime metrics
+ * Build realtime metrics from actual recorded latency history
  */
-function generateRealtimeMetrics(): RealtimeMetrics[] {
+function buildRealtimeMetrics(services: ServiceHealth[]): RealtimeMetrics[] {
   const metrics: RealtimeMetrics[] = [];
-  const now = Date.now();
 
-  for (let i = 59; i >= 0; i--) {
+  // Aggregate latency history across all services
+  const allHistory: Map<number, { latencies: number[]; errors: number }> = new Map();
+
+  for (const service of services) {
+    for (const point of service.uptimeHistory) {
+      const timestamp = new Date(point.timestamp).getTime();
+      const minute = Math.floor(timestamp / 60000) * 60000; // Round to minute
+
+      const existing = allHistory.get(minute) || { latencies: [], errors: 0 };
+      if (point.latency) existing.latencies.push(point.latency);
+      if (!point.success) existing.errors++;
+      allHistory.set(minute, existing);
+    }
+  }
+
+  // Convert to array and sort by timestamp
+  const sortedEntries = Array.from(allHistory.entries()).sort((a, b) => a[0] - b[0]);
+
+  for (const [timestamp, data] of sortedEntries) {
+    const latencies = data.latencies.sort((a, b) => a - b);
+    const p50 = latencies.length > 0 ? latencies[Math.floor(latencies.length * 0.5)] : 0;
+    const p95 = latencies.length > 0 ? latencies[Math.floor(latencies.length * 0.95)] : 0;
+    const p99 = latencies.length > 0 ? latencies[Math.floor(latencies.length * 0.99)] : 0;
+
     metrics.push({
-      timestamp: new Date(now - i * 60000).toISOString(),
-      requestsPerSecond: Math.random() * 10 + 1,
-      latencyP50: Math.floor(Math.random() * 100) + 30,
-      latencyP95: Math.floor(Math.random() * 200) + 80,
-      latencyP99: Math.floor(Math.random() * 500) + 150,
-      errorRate: Math.random() * 0.05,
-      activeConnections: Math.floor(Math.random() * 50) + 5,
-      cpuUsage: Math.random() * 30 + 5,
-      memoryUsage: Math.random() * 40 + 20,
+      timestamp: new Date(timestamp).toISOString(),
+      requestsPerSecond: latencies.length / 60,
+      latencyP50: p50,
+      latencyP95: p95,
+      latencyP99: p99,
+      errorRate: latencies.length > 0 ? data.errors / latencies.length : 0,
+      activeConnections: services.length,
+      cpuUsage: 0, // Not available without CloudWatch
+      memoryUsage: 0,
     });
   }
 
@@ -511,30 +619,41 @@ function generateRealtimeMetrics(): RealtimeMetrics[] {
 }
 
 /**
- * Generate historical metrics
+ * Build historical metrics from service data
  */
-function generateHistoricalMetrics(
+function buildHistoricalMetrics(
+  services: ServiceHealth[],
   period: HistoricalMetrics["period"],
 ): HistoricalMetrics {
-  const dataPoints = generateRealtimeMetrics();
+  const dataPoints = buildRealtimeMetrics(services);
+
+  // Calculate aggregates from real data
+  const allLatencies = services.flatMap(s => s.uptimeHistory.map(h => h.latency).filter(Boolean) as number[]);
+  const allSuccess = services.flatMap(s => s.uptimeHistory.map(h => h.success));
 
   return {
     period,
     dataPoints,
     aggregates: {
-      avgLatency: Math.floor(Math.random() * 100) + 50,
-      maxLatency: Math.floor(Math.random() * 500) + 200,
-      minLatency: Math.floor(Math.random() * 30) + 10,
-      totalRequests: Math.floor(Math.random() * 100000) + 10000,
-      totalErrors: Math.floor(Math.random() * 500) + 50,
-      avgErrorRate: Math.random() * 0.02,
-      uptimePercentage: 99.5 + Math.random() * 0.5,
+      avgLatency: allLatencies.length > 0
+        ? Math.round(allLatencies.reduce((a, b) => a + b, 0) / allLatencies.length)
+        : 0,
+      maxLatency: allLatencies.length > 0 ? Math.max(...allLatencies) : 0,
+      minLatency: allLatencies.length > 0 ? Math.min(...allLatencies) : 0,
+      totalRequests: allLatencies.length,
+      totalErrors: allSuccess.filter(s => !s).length,
+      avgErrorRate: allSuccess.length > 0
+        ? allSuccess.filter(s => !s).length / allSuccess.length
+        : 0,
+      uptimePercentage: allSuccess.length > 0
+        ? Math.round((allSuccess.filter(Boolean).length / allSuccess.length) * 10000) / 100
+        : 100,
     },
   };
 }
 
 /**
- * GET handler - fetch system status
+ * GET handler - fetch system status with REAL data
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -590,26 +709,27 @@ export async function GET(request: Request) {
     const overall = determineOverallStatus(services);
 
     // Fetch real metrics from backend APIs
-    const [aiMetrics, promptsMetrics, analyticsMetrics] = options.includeMetrics
+    const [aiMetrics, promptsMetrics, analyticsMetrics, dynamoDBTables] = options.includeMetrics
       ? await Promise.all([
           fetchAIMetrics(token),
           fetchPromptsMetrics(token),
           fetchAnalyticsMetrics(token),
+          fetchDynamoDBStatus(token),
         ])
-      : [null, null, null];
+      : [null, null, null, []];
 
     const systemStatus: SystemStatus = {
       overall,
       services,
-      dynamoDBTables: generateDynamoDBStatus(),
-      apiGateway: generateAPIGatewayStatus(services),
-      eventBridge: generateEventBridgeStatus(),
+      dynamoDBTables: dynamoDBTables || [],
+      apiGateway: calculateAPIGatewayStatus(services),
+      eventBridge: getEventBridgeStatus(),
       aiMetrics,
       promptsMetrics,
       analyticsMetrics,
-      realtimeMetrics: options.includeMetrics ? generateRealtimeMetrics() : [],
+      realtimeMetrics: options.includeMetrics ? buildRealtimeMetrics(services) : [],
       historicalMetrics: options.includeHistory
-        ? generateHistoricalMetrics(options.historyPeriod || "1h")
+        ? buildHistoricalMetrics(services, options.historyPeriod || "1h")
         : null,
       incidents: [],
       maintenanceWindows: [],
