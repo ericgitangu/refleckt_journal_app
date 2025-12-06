@@ -29,12 +29,21 @@ Reflekt is a personal journaling application featuring AI-powered insights, sent
 
 | Category | Features |
 |----------|----------|
-| 📔 **Journal** | CRUD entries, rich text, tags, search, export (JSON/Markdown) |
+| 📔 **Journal** | CRUD entries, rich text, smart color-coded tags, pagination, search |
 | 🧠 **AI Insights** | Sentiment analysis, keyword extraction, reflective questions |
-| 📊 **Analytics** | Mood tracking, writing patterns, streaks, category trends |
-| 🎨 **UI/UX** | Dark/light mode, responsive design, minimalist interface |
+| 📊 **Analytics** | Interactive charts (Recharts), mood trends, writing patterns, AI summaries |
+| 🎨 **UI/UX** | Dark/light theme, responsive design, skeleton loading, relative dates |
+| 💡 **Daily Prompts** | Refreshable prompts, "Get Another" for variety, category filtering |
 | 🔒 **Security** | JWT auth, multi-tenant isolation, encrypted data |
 | 📡 **Status Monitor** | Real-time AWS service health, DynamoDB stats, API metrics |
+
+### UI Highlights
+
+- **Smart Tag Colors** - Semantic color mapping with hash-based fallback for consistent, theme-aware tag badges
+- **Paginated Journal** - Configurable entries per page (5/10/20/50) with page navigation
+- **Interactive Analytics** - Area charts, line graphs, pie charts, and bar charts powered by Recharts
+- **Relative Dates** - Human-friendly timestamps ("Just now", "2 hours ago", "Yesterday")
+- **Mood Badges** - Visual mood indicators with emoji support
 
 ## 🏗️ Architecture
 
@@ -76,9 +85,9 @@ Reflekt is a personal journaling application featuring AI-powered insights, sent
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS, shadcn/ui |
+| **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS, shadcn/ui, Recharts |
 | **Backend** | Rust (ARM64), AWS Lambda, API Gateway, DynamoDB |
-| **AI** | Anthropic API (claude-3-haiku) |
+| **AI** | Anthropic API (claude-3-haiku), OpenAI (fallback) |
 | **Events** | Amazon EventBridge |
 | **Auth** | JWT + Custom Lambda Authorizer |
 | **IaC** | AWS SAM / CloudFormation |
@@ -185,19 +194,28 @@ https://refleckt.vercel.app/status
 
 ```
 reflekt-journal-app/
-├── frontend/           # Next.js 14 App Router
-│   ├── app/           # Pages & API routes
-│   ├── components/    # React components
-│   └── lib/           # Utilities
-├── backend/           # Rust microservices
-│   ├── entry-service/
-│   ├── ai-service/
-│   ├── analytics-service/
-│   ├── settings-service/
-│   ├── prompts-service/
-│   ├── authorizer/
-│   └── infrastructure/ # SAM templates
-└── docs/              # Documentation
+├── frontend/                    # Next.js 14 App Router
+│   ├── app/                     # Pages & API routes
+│   │   ├── analytics/           # Analytics dashboard with Recharts
+│   │   ├── journal/             # Journal entries with pagination
+│   │   └── status/              # AWS service monitoring
+│   ├── components/
+│   │   ├── ui/                  # shadcn/ui + custom components
+│   │   │   └── tag-badge.tsx    # Smart color-coded tag badges
+│   │   ├── ai/                  # AI insight components
+│   │   └── DailyPrompt.tsx      # Refreshable writing prompts
+│   └── lib/
+│       ├── tag-colors.ts        # Semantic tag color mapping
+│       └── date-utils.ts        # Relative date formatting
+├── backend/                     # Rust microservices (ARM64)
+│   ├── entry-service/           # Journal CRUD operations
+│   ├── ai-service/              # AI analysis (Anthropic/OpenAI)
+│   ├── analytics-service/       # Usage analytics
+│   ├── settings-service/        # User preferences
+│   ├── prompts-service/         # Writing prompts
+│   ├── authorizer/              # JWT Lambda authorizer
+│   └── infrastructure/          # SAM/CloudFormation templates
+└── docs/                        # Documentation
 ```
 
 ## 👨‍💻 Author
