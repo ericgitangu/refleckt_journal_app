@@ -382,6 +382,50 @@ flowchart TB
 - **Data Isolation:** JWT-enforced tenant boundaries
 - **GSI Pattern:** Efficient cross-tenant queries with UserIndex
 
+### 🔄 Dual API Pattern (tRPC + REST)
+
+The frontend uses a **dual API pattern** for resilience and type safety:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     React Components                        │
+│         trpc.getJournalEntries.useQuery()                  │
+│                         │                                   │
+│              ┌──────────┴──────────┐                       │
+│              ▼                     ▼                        │
+│     ┌─────────────────┐   ┌─────────────────┐              │
+│     │     tRPC        │   │    REST API     │              │
+│     │   (Fallback)    │   │   (Primary)     │              │
+│     │   Mock Data     │   │   AWS Lambda    │              │
+│     └────────┬────────┘   └────────┬────────┘              │
+│              │                     │                        │
+│              ▼                     ▼                        │
+│     /api/trpc/[trpc]        /api/entries                   │
+│              │                     │                        │
+│              ▼                     ▼                        │
+│     Next.js Server          AWS API Gateway                │
+│     (SuperJSON)              → Rust Lambda                 │
+│                              → DynamoDB                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Layer | tRPC | REST API |
+|-------|------|----------|
+| **Purpose** | Type-safe fallback | Production data |
+| **Data** | Mock entries | AWS DynamoDB |
+| **Endpoint** | `/api/trpc/*` | `/api/entries`, etc. |
+| **Serialization** | SuperJSON | JSON |
+
+**Current Implementation:**
+- **REST API** is primary - connects to AWS Lambda microservices
+- **tRPC** serves mock data as fallback when AWS is unavailable
+- Components try tRPC first, fall back to REST on error
+
+**Future Considerations:**
+- Migrate tRPC to wrap REST calls for end-to-end type safety
+- Use tRPC procedures as a BFF (Backend-for-Frontend) layer
+- Implement tRPC subscriptions for real-time updates
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
