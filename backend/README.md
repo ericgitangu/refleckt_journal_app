@@ -636,15 +636,31 @@ Common issues and solutions:
    export OPENSSL_DIR="/usr/local"  # or the correct path for your system
    ```
 
-5. **Ring/aws-lc-sys Compilation Errors**
-   Verify the patch section in common/Cargo.toml has the correct entries:
-   ```toml
-   [patch.crates-io]
-   # Use Anoma's fork of ring that avoids assembly code
-   ring = { git = "https://github.com/anoma/ring", branch = "0.16.20-assembly-free" }
-   # Make aws-lc-sys optional and use dummy implementation
-   aws-lc-sys = { git = "https://github.com/aws/aws-lc-rs", branch = "main", features = ["bindgen"] }
+5. **Ring/aws-lc-sys Cross-Compilation Errors (Illegal Instruction on Lambda)**
+
+   If your Lambda functions crash with `Runtime.ExitError: signal: illegal instruction`, the issue is that the binary contains x86 CPU instructions that don't work on ARM64 Lambda.
+
+   **Root Cause**: The default Zig cross-compiler in cargo-lambda doesn't properly handle crates with C components (like `ring`, `aws-lc-sys`).
+
+   **Solution**: Use the `cross` compiler instead of Zig:
+   ```bash
+   # CORRECT - Use cross compiler for ARM64
+   cargo lambda build --compiler cross --arm64 --release
+
+   # INCORRECT - This may produce binaries with x86 instructions
+   cargo lambda build --arm64 --release
+   cargo lambda build --target aarch64-unknown-linux-musl --release
    ```
+
+   **Prerequisites for cross compiler**:
+   - Docker must be installed and running
+   - The `cross` tool: `cargo install cross`
+
+   **Why this works**: The `cross` compiler runs the build inside a Docker container with the correct ARM64 toolchain, ensuring all C code (including ring's crypto) is compiled for the correct architecture.
+
+   For more details, see:
+   - [Cargo Lambda Cross-Compiling Guide](https://www.cargo-lambda.info/guide/cross-compiling.html)
+   - [AWS Lambda Rust Documentation](https://docs.aws.amazon.com/lambda/latest/dg/rust-package.html)
 
 6. **Deployment Failures**
    ```bash

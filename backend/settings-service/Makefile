@@ -51,11 +51,13 @@ build: build-common
 	@echo "✅ $(SERVICE_NAME) built successfully"
 
 # Build with musl for Lambda compatibility
+# NOTE: Using --compiler cross is required for crates with C dependencies (ring, aws-lc-sys)
+# The default Zig compiler doesn't properly cross-compile C code for ARM64
 build-musl: setup-cross build-common
-	@echo "Building $(SERVICE_NAME) for Lambda compatibility with target $(TARGET)..."
+	@echo "Building $(SERVICE_NAME) for Lambda compatibility with ARM64..."
 	@if command -v cargo-lambda &> /dev/null; then \
-		echo "Using cargo-lambda for cross-compilation..."; \
-		cargo lambda build --target $(TARGET) --release --output-format zip; \
+		echo "Using cargo-lambda with cross compiler for ARM64..."; \
+		cargo lambda build --compiler cross --arm64 --release --output-format zip; \
 	else \
 		echo "Using standard cargo for cross-compilation..."; \
 		cargo build --target $(TARGET) --release; \

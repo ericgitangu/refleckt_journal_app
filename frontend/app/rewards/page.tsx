@@ -145,7 +145,7 @@ export default function RewardsPage() {
           <CardContent className="p-4 text-center">
             <Star className="h-6 w-6 mx-auto text-yellow-500 mb-2" />
             <div className="text-2xl font-bold">
-              {stats.points_balance.toLocaleString()}
+              {(stats.points_balance ?? 0).toLocaleString()}
             </div>
             <div className="text-xs text-muted-foreground">Total Points</div>
           </CardContent>

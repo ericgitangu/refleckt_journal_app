@@ -16,12 +16,12 @@ export function LevelProgress({
   showTitle = true,
   size = "md",
 }: LevelProgressProps) {
-  const progress = getLevelProgress(stats.lifetime_points);
+  const progress = getLevelProgress(stats.lifetime_points ?? 0);
   const currentLevelInfo = LEVEL_THRESHOLDS.find(
-    (l) => l.level === stats.level
+    (l) => l.level === (stats.level ?? 1)
   );
   const nextLevelInfo = LEVEL_THRESHOLDS.find(
-    (l) => l.level === stats.level + 1
+    (l) => l.level === (stats.level ?? 1) + 1
   );
 
   const sizeClasses = {
@@ -71,7 +71,7 @@ export function LevelProgress({
         <div className="flex items-center gap-1 text-muted-foreground">
           <Star className="h-4 w-4 text-yellow-500" />
           <span className={classes.points}>
-            {stats.lifetime_points.toLocaleString()} pts
+            {(stats.lifetime_points ?? 0).toLocaleString()} pts
           </span>
         </div>
       </div>
@@ -80,18 +80,18 @@ export function LevelProgress({
 
       <div className="flex justify-between mt-2">
         <span className="text-xs text-muted-foreground">
-          {currentLevelInfo?.min_points.toLocaleString() || 0}
+          {(currentLevelInfo?.min_points ?? 0).toLocaleString()}
         </span>
         {nextLevelInfo ? (
           <span className="text-xs text-muted-foreground">
-            {stats.points_to_next_level.toLocaleString()} pts to Level{" "}
-            {stats.level + 1}
+            {(stats.points_to_next_level ?? 0).toLocaleString()} pts to Level{" "}
+            {(stats.level ?? 1) + 1}
           </span>
         ) : (
           <span className="text-xs text-primary font-medium">Max Level!</span>
         )}
         <span className="text-xs text-muted-foreground">
-          {nextLevelInfo?.min_points.toLocaleString() || "Max"}
+          {nextLevelInfo?.min_points?.toLocaleString() ?? "Max"}
         </span>
       </div>
     </div>

@@ -504,10 +504,10 @@ build_services() {
                 log_info "Using cross-build.sh to build $service..."
                 bash "$SCRIPTS_DIR/cross-build.sh" "$service" > "$LOG_DIR/$service-build.log" 2>&1
             else
-                # Build with cargo-lambda
-                CURRENT_OPERATION="building $service using cargo-lambda"
-                log_info "Using cargo-lambda to build $service..."
-                (cd "$BACKEND_DIR/$service" && cargo lambda build --release --target "$TARGET" --lambda-runtime "$LAMBDA_RUNTIME") > "$LOG_DIR/$service-build.log" 2>&1
+                # Build with cargo-lambda using cross compiler for ARM64
+                CURRENT_OPERATION="building $service using cargo-lambda with cross"
+                log_info "Using cargo-lambda with cross compiler for ARM64 to build $service..."
+                (cd "$BACKEND_DIR/$service" && cargo lambda build --compiler cross --arm64 --release) > "$LOG_DIR/$service-build.log" 2>&1
             fi
         fi
         

@@ -58,10 +58,10 @@ build: build-common
 
 # Build with musl for Lambda compatibility
 build-musl: setup-cross build-common
-	@echo "Building $(SERVICE_NAME) for Lambda compatibility with target $(TARGET) using Rust $(RUSTUP_TOOLCHAIN)..."
+	@echo "Building $(SERVICE_NAME) for Lambda compatibility with ARM64 using Rust $(RUSTUP_TOOLCHAIN)..."
 	@if command -v cargo-lambda &> /dev/null; then \
-		echo "Using cargo-lambda for cross-compilation..."; \
-		rustup run $(RUSTUP_TOOLCHAIN) cargo lambda build --target $(TARGET) --release --output-format zip; \
+		echo "Using cargo-lambda with cross compiler for ARM64..."; \
+		rustup run $(RUSTUP_TOOLCHAIN) cargo lambda build --compiler cross --arm64 --release --output-format zip; \
 	else \
 		echo "Using standard cargo for cross-compilation..."; \
 		rustup run $(RUSTUP_TOOLCHAIN) cargo build --target $(TARGET) --release; \

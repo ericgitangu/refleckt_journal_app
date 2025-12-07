@@ -421,7 +421,7 @@ function AIMetricsCard({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div>
           <p className="text-xs text-muted-foreground">Total Analyses</p>
-          <p className="text-2xl font-bold">{metrics.totalAnalyses.toLocaleString()}</p>
+          <p className="text-2xl font-bold">{(metrics.totalAnalyses ?? 0).toLocaleString()}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Success Rate</p>
@@ -442,15 +442,15 @@ function AIMetricsCard({
         <div className="flex gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Input:</span>{" "}
-            {metrics.tokenUsage.input.toLocaleString()}
+            {(metrics.tokenUsage?.input ?? 0).toLocaleString()}
           </div>
           <div>
             <span className="text-muted-foreground">Output:</span>{" "}
-            {metrics.tokenUsage.output.toLocaleString()}
+            {(metrics.tokenUsage?.output ?? 0).toLocaleString()}
           </div>
           <div>
             <span className="text-muted-foreground">Total:</span>{" "}
-            {metrics.tokenUsage.total.toLocaleString()}
+            {(metrics.tokenUsage?.total ?? 0).toLocaleString()}
           </div>
         </div>
       </div>
@@ -576,7 +576,7 @@ function DynamoDBTablesCard({
               <div>
                 <p className="font-medium text-sm">{table.tableName}</p>
                 <p className="text-xs text-muted-foreground">
-                  {table.itemCount.toLocaleString()} items
+                  {(table.itemCount ?? 0).toLocaleString()} items
                 </p>
               </div>
             </div>
