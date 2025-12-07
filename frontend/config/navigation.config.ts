@@ -6,6 +6,7 @@ import {
   Brain,
   MessageSquare,
   Activity,
+  Trophy,
 } from "lucide-react";
 
 export interface NavItem {
@@ -54,6 +55,14 @@ export const navigation: NavItem[] = [
     href: "/prompts",
     icon: MessageSquare,
     description: "Explore writing prompts and inspiration",
+    requiresAuth: true,
+    showInNav: true,
+  },
+  {
+    title: "Rewards",
+    href: "/rewards",
+    icon: Trophy,
+    description: "View your points, levels, and achievements",
     requiresAuth: true,
     showInNav: true,
   },

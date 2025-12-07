@@ -55,3 +55,10 @@ Cargo.lock
 # AI Instructions
 CLAUDE.md
 .vercel
+.env*.local
+
+# SAM build artifacts
+.aws-sam/
+
+# Personal/temp folders
+frontend/deveric/

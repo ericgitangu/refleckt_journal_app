@@ -471,7 +471,7 @@ build_services() {
         if is_service_built "$service"; then
             log_info "Skipping $service as it's already built."
             continue
-        }
+        fi
         
         CURRENT_OPERATION="building service $service"
         CURRENT_SERVICE="$service"

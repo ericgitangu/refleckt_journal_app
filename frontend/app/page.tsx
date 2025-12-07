@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, PenLine, Archive, Sparkles } from "lucide-react";
+import { BookOpen, PenLine, Archive, Sparkles, Trophy } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -76,7 +76,12 @@ export default function Home() {
               <FeatureCard
                 icon={<Sparkles className="h-6 w-6" />}
                 title="AI Insights"
-                description="Discover patterns and gain deeper understanding of your thoughts with AI-powered analysis"
+                description="Get on-demand AI analysis with sentiment, keywords, and reflective questions"
+              />
+              <FeatureCard
+                icon={<Trophy className="h-6 w-6" />}
+                title="Rewards & Streaks"
+                description="Earn points, unlock achievements, and track your journaling streaks to stay motivated"
               />
             </div>
 

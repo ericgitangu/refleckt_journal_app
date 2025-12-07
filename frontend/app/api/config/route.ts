@@ -8,11 +8,16 @@ interface PublicConfig {
     analytics: boolean;
     settings: boolean;
     ai: boolean;
+    gamification: boolean;
+    prompts: boolean;
   };
   features: {
     offlineMode: boolean;
     aiAnalysis: boolean;
     moodTracking: boolean;
+    gamification: boolean;
+    streaks: boolean;
+    achievements: boolean;
   };
   version: string;
 }
@@ -31,13 +36,18 @@ export async function GET() {
       analytics: true,
       settings: true,
       ai: true,
+      gamification: true,
+      prompts: true,
     },
     features: {
       offlineMode: true,
       aiAnalysis: true,
       moodTracking: true,
+      gamification: true,
+      streaks: true,
+      achievements: true,
     },
-    version: "1.0.0", // Should match package.json or be dynamically fetched
+    version: "1.1.0", // Gamification update
   };
 
   // If we're in development, we might want to provide more information

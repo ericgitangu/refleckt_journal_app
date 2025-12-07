@@ -10,11 +10,16 @@ interface ApiConfig {
     analytics: boolean;
     settings: boolean;
     ai: boolean;
+    gamification: boolean;
+    prompts: boolean;
   };
   features: {
     offlineMode: boolean;
     aiAnalysis: boolean;
     moodTracking: boolean;
+    gamification: boolean;
+    streaks: boolean;
+    achievements: boolean;
   };
   version: string;
   isLoaded: boolean;
@@ -29,11 +34,16 @@ const initialConfig: ApiConfig = {
     analytics: false,
     settings: false,
     ai: false,
+    gamification: false,
+    prompts: false,
   },
   features: {
     offlineMode: false,
     aiAnalysis: false,
     moodTracking: false,
+    gamification: false,
+    streaks: false,
+    achievements: false,
   },
   version: "",
   isLoaded: false,

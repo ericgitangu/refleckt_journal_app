@@ -11,7 +11,8 @@ import { trpc } from "@/app/hooks/useTRPC";
 import { ClientOnly } from "@/components/ClientOnly";
 import { TagBadge, MoodBadge } from "@/components/ui/tag-badge";
 import { formatCardDate, formatRelativeDate } from "@/lib/date-utils";
-import { RefreshCw, Plus, Calendar, Clock, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { RefreshCw, Plus, Calendar, Clock, Search, ChevronLeft, ChevronRight, Gift } from "lucide-react";
+import { PointsBadge } from "@/components/gamification";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -89,7 +90,7 @@ function JournalContent() {
   const fetchEntries = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
     try {
-      const response = await fetch("/api/journal-entries");
+      const response = await fetch("/api/entries");
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
@@ -220,22 +221,27 @@ function JournalContent() {
             {entries.length} {entries.length === 1 ? "entry" : "entries"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            title="Refresh entries"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          </Button>
-          <Button asChild>
-            <Link href="/journal/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Entry
-            </Link>
-          </Button>
+        <div className="flex items-center gap-4">
+          {/* Gamification Badge */}
+          <PointsBadge compact />
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              title="Refresh entries"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            </Button>
+            <Button asChild>
+              <Link href="/journal/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New Entry
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 

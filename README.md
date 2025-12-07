@@ -30,7 +30,8 @@ Reflekt is a personal journaling application featuring AI-powered insights, sent
 | Category | Features |
 |----------|----------|
 | 📔 **Journal** | CRUD entries, rich text, smart color-coded tags, pagination, search |
-| 🧠 **AI Insights** | Sentiment analysis, keyword extraction, reflective questions |
+| 🧠 **AI Insights** | On-demand sentiment analysis, keyword extraction, reflective questions |
+| 🏆 **Gamification** | Points system, levels, achievements, streaks, rewards dashboard |
 | 📊 **Analytics** | Interactive charts (Recharts), mood trends, writing patterns, AI summaries |
 | 🎨 **UI/UX** | Dark/light theme, responsive design, skeleton loading, relative dates |
 | 💡 **Daily Prompts** | Refreshable prompts, "Get Another" for variety, category filtering |
@@ -44,6 +45,8 @@ Reflekt is a personal journaling application featuring AI-powered insights, sent
 - **Interactive Analytics** - Area charts, line graphs, pie charts, and bar charts powered by Recharts
 - **Relative Dates** - Human-friendly timestamps ("Just now", "2 hours ago", "Yesterday")
 - **Mood Badges** - Visual mood indicators with emoji support
+- **Rewards Dashboard** - Track points, levels, achievements, and streaks in a dedicated page
+- **AI Opt-In Insights** - User-controlled AI analysis with "Get AI Insights" button per entry
 
 ## 🏗️ Architecture
 

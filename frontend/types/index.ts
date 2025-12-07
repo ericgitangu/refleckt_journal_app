@@ -25,4 +25,7 @@ export * from './toast';
 export * from './global';
 
 // Status monitoring types
-export * from './status'; 
+export * from './status';
+
+// Gamification types
+export * from './gamification'; 

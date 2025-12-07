@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { PointsBadge } from "@/components/gamification/points-badge";
 
 export function TopNavbar() {
   const { data: session } = useSession();
@@ -55,6 +56,9 @@ export function TopNavbar() {
 
         {/* Right-aligned items */}
         <div className="flex items-center space-x-2">
+          {/* Gamification Points Badge - only show when authenticated */}
+          {session && <PointsBadge compact />}
+
           {/* Theme Toggle */}
           <ThemeToggle />
 

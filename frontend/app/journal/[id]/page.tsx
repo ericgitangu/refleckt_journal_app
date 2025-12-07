@@ -1,17 +1,19 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useEntry, useUpdateEntry, useDeleteEntry } from "@/hooks/useEntries";
 import { useEntryInsights } from "@/hooks/useInsights";
 import EntryEditor from "@/components/journal/entry-editor";
 import InsightsPanel from "@/components/journal/insights-panel";
 import TagsInput from "@/components/journal/tags-input";
 import MoodSelector from "@/components/journal/mood-selector";
+import { InsightsRequestButton } from "@/components/journal/insights-request-button";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { useSettings } from "@/context/SettingsContext";
+import type { EntryInsights } from "@/types/insights";
 
 export default function EntryPage() {
   const { id } = useParams();
@@ -21,11 +23,24 @@ export default function EntryPage() {
   // Fetch entry data
   const { data: entry, isLoading, error } = useEntry(id as string);
 
-  // Fetch AI insights if enabled
-  const { data: insights, isLoading: insightsLoading } = useEntryInsights(
+  // Fetch AI insights - always try to fetch existing insights
+  const { data: insights, isLoading: insightsLoading, refetch: refetchInsights } = useEntryInsights(
     id as string,
-    { enabled: settings?.ai_insights_enabled ?? false },
+    { enabled: true }, // Always try to fetch existing insights
   );
+
+  // State for locally generated insights
+  const [localInsights, setLocalInsights] = useState<EntryInsights | null>(null);
+
+  // Callback when insights are generated
+  const handleInsightsGenerated = useCallback((newInsights: EntryInsights) => {
+    setLocalInsights(newInsights);
+    refetchInsights(); // Refresh from server
+  }, [refetchInsights]);
+
+  // Combined insights (prefer server data, fallback to local)
+  const displayInsights = insights || localInsights;
+  const hasInsights = !!displayInsights;
 
   // Form state
   const [title, setTitle] = useState("");
@@ -151,15 +166,36 @@ export default function EntryPage() {
         </div>
       </div>
 
-      {settings?.ai_insights_enabled && (
-        <div className="md:col-span-1">
-          <InsightsPanel
-            insights={insights}
-            isLoading={insightsLoading}
+      {/* AI Insights Panel - Always shown, with opt-in generation */}
+      <div className="md:col-span-1">
+        <div className="sticky top-8 space-y-4">
+          {/* Insights Request Button */}
+          <InsightsRequestButton
             entryId={id as string}
+            hasExistingInsights={hasInsights}
+            onInsightsGenerated={handleInsightsGenerated}
+            className="w-full"
           />
+
+          {/* Show insights panel if we have insights */}
+          {hasInsights && (
+            <InsightsPanel
+              insights={displayInsights}
+              isLoading={insightsLoading}
+              entryId={id as string}
+            />
+          )}
+
+          {/* Placeholder when no insights */}
+          {!hasInsights && !insightsLoading && (
+            <div className="p-6 border rounded-lg bg-muted/20 text-center">
+              <p className="text-sm text-muted-foreground">
+                Click the button above to get AI-powered insights about this entry.
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
