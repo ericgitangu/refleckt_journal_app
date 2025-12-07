@@ -7,6 +7,8 @@ const publicRoutes = [
   "/", // Root path
   "/api/health",
   "/api/config",
+  "/api/status", // System status endpoint
+  "/status", // Status page
   "/login",
   "/signup",
   "/auth",

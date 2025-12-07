@@ -1,4 +1,4 @@
-import apiClient from "./client";
+import axios from "axios";
 import type {
   GamificationStats,
   PointsTransaction,
@@ -8,6 +8,15 @@ import type {
   getLevelFromPoints,
   getPointsToNextLevel,
 } from "@/types/gamification";
+
+// Use local API routes to avoid CORS issues
+// These routes proxy to the backend with proper auth
+const localApiClient = axios.create({
+  baseURL: "",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 // Mock data for development until backend is ready
 const mockGamificationStats: GamificationStats = {
@@ -126,7 +135,8 @@ export const gamificationApi = {
     if (USE_MOCK) {
       return mockGamificationStats;
     }
-    const response = await apiClient.get("/gamification/stats");
+    // Use local API route to avoid CORS
+    const response = await localApiClient.get("/api/gamification");
     return response.data as GamificationStats;
   },
 
@@ -137,7 +147,8 @@ export const gamificationApi = {
     if (USE_MOCK) {
       return mockTransactions.slice(0, limit);
     }
-    const response = await apiClient.get(`/gamification/transactions?limit=${limit}`);
+    // Use local API route to avoid CORS
+    const response = await localApiClient.get(`/api/gamification/transactions?limit=${limit}`);
     return response.data as PointsTransaction[];
   },
 
@@ -146,7 +157,8 @@ export const gamificationApi = {
     if (USE_MOCK) {
       return mockGamificationStats.achievements;
     }
-    const response = await apiClient.get("/gamification/achievements");
+    // Use local API route to avoid CORS
+    const response = await localApiClient.get("/api/gamification/achievements");
     return response.data as Achievement[];
   },
 
@@ -158,7 +170,7 @@ export const gamificationApi = {
     if (USE_MOCK) {
       return { points: 10, newTotal: mockGamificationStats.points_balance + 10 };
     }
-    const response = await apiClient.post("/gamification/award", {
+    const response = await localApiClient.post("/api/gamification/award", {
       reason,
       entry_id: entryId,
     });
@@ -170,7 +182,7 @@ export const gamificationApi = {
     if (USE_MOCK) {
       return [];
     }
-    const response = await apiClient.post("/gamification/check-achievements");
+    const response = await localApiClient.post("/api/gamification/check-achievements");
     return response.data as Achievement[];
   },
 
@@ -182,7 +194,7 @@ export const gamificationApi = {
         longest: mockGamificationStats.longest_streak,
       };
     }
-    const response = await apiClient.post("/gamification/streak");
+    const response = await localApiClient.post("/api/gamification/streak");
     return response.data;
   },
 
@@ -209,8 +221,8 @@ export const gamificationApi = {
         },
       ];
     }
-    const response = await apiClient.get(
-      `/gamification/leaderboard?period=${period}`
+    const response = await localApiClient.get(
+      `/api/gamification/leaderboard?period=${period}`
     );
     return response.data;
   },

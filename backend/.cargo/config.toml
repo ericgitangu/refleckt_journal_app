@@ -4,7 +4,14 @@ rustflags = ["-C", "link-arg=-s"]
 [target.aarch64-unknown-linux-musl]
 linker = "aarch64-linux-musl-gcc"
 rustflags = [
-  "-C", "link-self-contained=yes"
+  "-C", "link-self-contained=yes",
+  "-C", "target-cpu=neoverse-n1"
+]
+
+[target.aarch64-unknown-linux-gnu]
+# Used by cargo-lambda with Zig backend for AWS Lambda ARM64
+rustflags = [
+  "-C", "target-cpu=neoverse-n1"
 ]
 
 [env]

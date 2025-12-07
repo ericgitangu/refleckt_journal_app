@@ -83,6 +83,13 @@ const SERVICE_CONFIGS: Array<{
     healthEndpoint: "/prompts",
   },
   {
+    id: "gamification-service",
+    name: "Gamification Service",
+    description: "Points, achievements and streaks",
+    endpoint: "/gamification/stats",
+    healthEndpoint: "/gamification/stats",
+  },
+  {
     id: "authorizer",
     name: "JWT Authorizer",
     description: "Authentication and authorization",
@@ -98,6 +105,7 @@ const DYNAMODB_TABLES = [
   { name: "reflekt-insights", displayName: "Insights Table", countEndpoint: null },
   { name: "reflekt-settings", displayName: "Settings Table", countEndpoint: "/settings" },
   { name: "reflekt-prompts", displayName: "Prompts Table", countEndpoint: "/prompts" },
+  { name: "reflekt-gamification", displayName: "Gamification Table", countEndpoint: "/gamification/stats" },
 ];
 
 /**

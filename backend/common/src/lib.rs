@@ -270,6 +270,10 @@ pub async fn publish_event(
 mod settings;
 pub use settings::*;
 
+// Gamification module
+pub mod gamification;
+pub use gamification::*;
+
 // AI module - conditionally compiled
 #[cfg(feature = "ai-features")]
 mod ai;

@@ -450,6 +450,7 @@ build_services() {
         "analytics-service"
         "prompts-service"
         "settings-service"
+        "gamification-service"
     )
     
     # Add AI service if not skipped

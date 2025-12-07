@@ -21,7 +21,7 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 512
-    Runtime: provided.al2
+    Runtime: provided.al2023
     Architectures:
       - arm64
     Environment:
@@ -268,6 +268,87 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref SettingsTable
 
+  GamificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../gamification-service/target/lambda/journal-gamification-service/
+      Handler: bootstrap
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref GamificationTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EntriesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - events:PutEvents
+              Resource: !GetAtt JournalEventBus.Arn
+      Events:
+        GetStats:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /gamification/stats
+            Method: GET
+        GetTransactions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /gamification/transactions
+            Method: GET
+        GetAchievements:
+          Type: Api
+          Properties:
+            RestApiId: !Ref JournalApi
+            Path: /gamification/achievements
+            Method: GET
+        # EventBridge events
+        EntryCreatedEvent:
+          Type: CloudWatchEvent
+          Properties:
+            EventBusName: !Ref JournalEventBus
+            Pattern:
+              source:
+                - reflekt.journal
+              detail-type:
+                - EntryCreated
+        EntryUpdatedEvent:
+          Type: CloudWatchEvent
+          Properties:
+            EventBusName: !Ref JournalEventBus
+            Pattern:
+              source:
+                - reflekt.journal
+              detail-type:
+                - EntryUpdated
+        EntryDeletedEvent:
+          Type: CloudWatchEvent
+          Properties:
+            EventBusName: !Ref JournalEventBus
+            Pattern:
+              source:
+                - reflekt.journal
+              detail-type:
+                - EntryDeleted
+        AIInsightEvent:
+          Type: CloudWatchEvent
+          Properties:
+            EventBusName: !Ref JournalEventBus
+            Pattern:
+              source:
+                - reflekt.journal
+              detail-type:
+                - AIInsightRequested
+        PromptUsedEvent:
+          Type: CloudWatchEvent
+          Properties:
+            EventBusName: !Ref JournalEventBus
+            Pattern:
+              source:
+                - reflekt.journal
+              detail-type:
+                - PromptUsed
+
   PromptsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -461,21 +542,23 @@ Resources:
       TableName: !Sub reflekt-gamification-${Stage}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: user_id
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
           AttributeType: S
         - AttributeName: tenant_id
           AttributeType: S
       KeySchema:
-        - AttributeName: user_id
+        - AttributeName: pk
           KeyType: HASH
-        - AttributeName: tenant_id
+        - AttributeName: sk
           KeyType: RANGE
       GlobalSecondaryIndexes:
         - IndexName: TenantIndex
           KeySchema:
             - AttributeName: tenant_id
               KeyType: HASH
-            - AttributeName: user_id
+            - AttributeName: pk
               KeyType: RANGE
           Projection:
             ProjectionType: ALL

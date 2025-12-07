@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CognitoProvider from "next-auth/providers/cognito";
+import { generateBackendToken } from "./jwt";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -29,57 +30,44 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   jwt: { secret: process.env.NEXTAUTH_SECRET },
   callbacks: {
-    async jwt({ token, account }) {
-      // Store the access token from the OAuth provider
-      if (account) {
-        token.accessToken = account.access_token;
+    async jwt({ token, account, user }) {
+      // On initial sign in, generate a backend JWT token
+      if (account && user) {
+        // Generate a backend-compatible JWT token
+        const backendToken = generateBackendToken({
+          id: user.id || token.sub || "",
+          email: user.email || "",
+          name: user.name || "",
+        });
+
+        token.accessToken = backendToken;
         token.refreshToken = account.refresh_token;
-        token.expiresAt = account.expires_at;
+        token.expiresAt = Math.floor(Date.now() / 1000) + 24 * 60 * 60; // 24 hours
         token.provider = account.provider;
+        token.backendToken = backendToken;
       }
 
-      // Check if token needs refreshing
+      // Check if backend token needs refreshing (24 hour expiry)
       const expiresAt = token.expiresAt as number;
       if (Date.now() < expiresAt * 1000) {
         return token;
       }
 
-      // Implement token refresh for Cognito
-      if (token.provider === "cognito" && token.refreshToken) {
-        try {
-          const response = await fetch(
-            `${process.env.COGNITO_ISSUER}/oauth2/token`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: new URLSearchParams({
-                grant_type: "refresh_token",
-                client_id: process.env.COGNITO_CLIENT_ID || "",
-                refresh_token: token.refreshToken as string,
-              }),
-            },
-          );
+      // Regenerate the backend token when it expires
+      // The backend token is generated from user info, so we can regenerate it
+      if (token.sub && token.email) {
+        const newBackendToken = generateBackendToken({
+          id: token.sub as string,
+          email: token.email as string,
+          name: token.name as string || "",
+        });
 
-          const refreshedTokens = await response.json();
-
-          if (!response.ok) {
-            throw refreshedTokens;
-          }
-
-          return {
-            ...token,
-            accessToken: refreshedTokens.access_token,
-            expiresAt: Math.floor(
-              Date.now() / 1000 + refreshedTokens.expires_in,
-            ),
-          };
-        } catch (error) {
-          console.error("Error refreshing access token", error);
-          // Return existing token even if expired as fallback
-          return token;
-        }
+        return {
+          ...token,
+          accessToken: newBackendToken,
+          backendToken: newBackendToken,
+          expiresAt: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
+        };
       }
 
       return token;

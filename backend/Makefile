@@ -2,7 +2,7 @@
 .PHONY: all build test clean deploy install-deps help setup-lambda build-all verify-all package-all
 
 # Services to build (in dependency order)
-SERVICES := common authorizer analytics-service ai-service entry-service prompts-service settings-service
+SERVICES := common authorizer analytics-service ai-service entry-service prompts-service settings-service gamification-service
 
 # Default AWS region
 AWS_REGION ?= us-east-1

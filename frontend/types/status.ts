@@ -27,6 +27,7 @@ export type ServiceType =
   | "analytics-service"
   | "ai-service"
   | "prompts-service"
+  | "gamification-service"
   | "authorizer"
   | "api-gateway"
   | "dynamodb"
