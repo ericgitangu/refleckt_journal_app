@@ -63,8 +63,8 @@ export default function NewJournalEntryPage() {
 
   const handleSave = async () => {
     try {
-      // Save the entry via the API
-      const response = await fetch("/api/journal-entries", {
+      // Save the entry via the API - uses real backend
+      const response = await fetch("/api/entries", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,6 +74,7 @@ export default function NewJournalEntryPage() {
           content,
           tags,
           mood,
+          categories: tags, // Backend expects categories
         }),
       });
 

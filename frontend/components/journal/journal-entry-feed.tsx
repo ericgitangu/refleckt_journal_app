@@ -40,7 +40,7 @@ export function JournalEntryFeed() {
   }, [error, toast]);
 
   const handleEdit = (id: string) => {
-    router.push(`/entries/edit/${id}`);
+    router.push(`/journal/${id}`);
   };
 
   const handleDelete = async () => {

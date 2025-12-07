@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import {
   Card,
@@ -21,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Edit, MoreVertical, Trash, Share } from "lucide-react";
+import { Edit, MoreVertical, Trash, Share, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { JournalEntry } from "@/hooks/use-journal-entries";
 
@@ -37,6 +38,11 @@ export function JournalEntryCard({
   onDelete,
 }: JournalEntryCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const router = useRouter();
+
+  const handleViewEntry = () => {
+    router.push(`/journal/${entry.id}`);
+  };
 
   const truncatedContent =
     entry.content.length > 200 && !isExpanded
@@ -51,7 +57,12 @@ export function JournalEntryCard({
     <Card className="mb-4 transition-all hover:shadow-md">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
-          <CardTitle className="text-xl">{entry.title}</CardTitle>
+          <CardTitle
+            className="text-xl cursor-pointer hover:text-primary transition-colors"
+            onClick={handleViewEntry}
+          >
+            {entry.title}
+          </CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -61,6 +72,10 @@ export function JournalEntryCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem onClick={handleViewEntry}>
+                <Eye className="mr-2 h-4 w-4" />
+                <span>View</span>
+              </DropdownMenuItem>
               {onEdit && (
                 <DropdownMenuItem onClick={() => onEdit(entry.id)}>
                   <Edit className="mr-2 h-4 w-4" />
