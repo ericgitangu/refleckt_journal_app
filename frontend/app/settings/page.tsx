@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { redirect, useRouter } from "next/navigation";
 import { ClientOnly } from "@/components/ClientOnly";
@@ -585,12 +586,14 @@ function SettingsContent() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                   {session?.user?.image ? (
-                    <img
+                    <Image
                       src={session.user.image}
                       alt="Profile"
-                      className="w-16 h-16 rounded-full"
+                      width={64}
+                      height={64}
+                      className="rounded-full object-cover"
                     />
                   ) : (
                     <User className="h-8 w-8 text-primary" />

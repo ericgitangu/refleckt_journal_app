@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { apiRequest, handleApiError } from "@/lib/api-utils";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 // GET: Fetch all categories
 export async function GET() {
   try {

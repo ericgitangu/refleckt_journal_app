@@ -5,6 +5,9 @@ import { shouldUseMockData } from "@/lib/mock-utils";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 // Mock prompts data for fallback
 const mockPrompts = {
   prompts: [

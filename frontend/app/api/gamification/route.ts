@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { serverApiClient } from "@/lib/api-client";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 // Mock data for when backend is unavailable
 const mockGamificationStats = {
   user_id: "user_1",

@@ -4,6 +4,9 @@ import { shouldUseMockData } from "@/lib/mock-utils";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 // GET: Fetch daily prompt
 export async function GET() {
   // Mock daily prompt with a thoughtful, engaging question

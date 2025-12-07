@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth/auth-options";
 import { ApiError } from "@/lib/api";
 import { createServerComponentClient } from "@/lib/api/server-client";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);

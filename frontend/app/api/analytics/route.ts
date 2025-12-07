@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { serverApiClient } from "@/lib/api-client";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 // GET: Fetch analytics data from real backend
 export async function GET(req: Request) {
   try {

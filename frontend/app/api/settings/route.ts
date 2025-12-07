@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { apiRequest, handleApiError } from "@/lib/api-utils";
 import { getAuthSession } from "@/lib/auth-utils";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 // Default settings for new users or fallback
 const defaultSettings = {
   theme: "system",

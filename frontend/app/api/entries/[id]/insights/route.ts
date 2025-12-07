@@ -5,6 +5,9 @@ import { ApiError } from "@/lib/api";
 import { createServerComponentClient } from "@/lib/api/server-client";
 import { cacheInsights } from "@/lib/offline/insights-cache";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 // Configure cache settings
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 

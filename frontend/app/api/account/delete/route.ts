@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 
+// Force dynamic rendering for routes using auth
+export const dynamic = "force-dynamic";
+
 // Account deletion reason storage (in production, this would go to a dedicated table)
 interface AccountDeletionRecord {
   userId: string;
