@@ -133,9 +133,9 @@ const transformPrompt = (prompt: any): Prompt => ({
   generated: prompt.generated,
 });
 
-// Get random prompt
+// Get random prompt - uses Next.js API route for fallback support
 export const getRandomPrompt = async () => {
-  const response = await axios.get(`${API_URL}/prompts/random`, {
+  const response = await axios.get('/api/prompts/random', {
     headers: createHeaders()
   });
   // API route returns response.data directly, which may contain { prompt: ... } or be the prompt itself
@@ -143,9 +143,9 @@ export const getRandomPrompt = async () => {
   return { prompt: transformPrompt(data.prompt) };
 };
 
-// Get daily prompt
+// Get daily prompt - uses Next.js API route for fallback support
 export const getDailyPrompt = async () => {
-  const response = await axios.get(`${API_URL}/prompts/daily`, {
+  const response = await axios.get('/api/prompts/daily', {
     headers: createHeaders()
   });
   // API route returns response.data directly, which may contain { prompt: ... } or be the prompt itself
@@ -153,17 +153,17 @@ export const getDailyPrompt = async () => {
   return { prompt: transformPrompt(data.prompt) };
 };
 
-// Get prompts by category
+// Get prompts by category - uses Next.js API route for fallback support
 export const getPromptsByCategory = async (category: string) => {
-  const response = await axios.get(`${API_URL}/prompts/category/${category}`, {
+  const response = await axios.get(`/api/prompts/category/${category}`, {
     headers: createHeaders()
   });
   return (response.data.prompts || []).map(transformPrompt);
 };
 
-// Generate AI prompts
+// Generate AI prompts - uses Next.js API route
 export const generatePrompts = async (request: GeneratePromptRequest) => {
-  const response = await axios.post(`${API_URL}/prompts/generate`, request, {
+  const response = await axios.post('/api/prompts/generate', request, {
     headers: createHeaders()
   });
   return response.data.prompts;
