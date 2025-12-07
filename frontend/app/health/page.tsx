@@ -3,6 +3,9 @@ import { HealthDashboard } from "@/components/health/HealthDashboard";
 import { HealthStatusSkeleton } from "@/components/health/HealthStatusSkeleton";
 import { TrueErrorBoundary } from "@/components/ui/react-error-boundary";
 
+// Force dynamic rendering - this page requires runtime data
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "System Health - Reflekt Journal",
   description: "Monitor the health of Reflekt Journal backend services",

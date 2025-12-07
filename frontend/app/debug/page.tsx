@@ -10,6 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ServiceDebugMonitor } from "@/components/debug/ServiceDebugMonitor";
 import { DebugMonitorSkeleton } from "@/components/debug/DebugMonitorSkeleton";
 import { TrueErrorBoundary } from "@/components/ui/react-error-boundary";
+
+// Force dynamic rendering - this page requires runtime data
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Debug Dashboard - Reflekt Journal",
   description: "Debug and monitor Reflekt Journal services",
