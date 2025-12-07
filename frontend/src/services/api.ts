@@ -123,13 +123,24 @@ export interface GeneratePromptRequest {
   count?: number;
 }
 
+// Helper to transform backend prompt (created_at) to frontend format (createdAt)
+const transformPrompt = (prompt: any): Prompt => ({
+  id: prompt.id,
+  text: prompt.text,
+  category: prompt.category,
+  createdAt: prompt.created_at || prompt.createdAt,
+  tags: prompt.tags,
+  generated: prompt.generated,
+});
+
 // Get random prompt
 export const getRandomPrompt = async () => {
   const response = await axios.get(`${API_URL}/prompts/random`, {
     headers: createHeaders()
   });
   // API route returns response.data directly, which may contain { prompt: ... } or be the prompt itself
-  return response.data.prompt ? response.data : { prompt: response.data };
+  const data = response.data.prompt ? response.data : { prompt: response.data };
+  return { prompt: transformPrompt(data.prompt) };
 };
 
 // Get daily prompt
@@ -138,7 +149,8 @@ export const getDailyPrompt = async () => {
     headers: createHeaders()
   });
   // API route returns response.data directly, which may contain { prompt: ... } or be the prompt itself
-  return response.data.prompt ? response.data : { prompt: response.data };
+  const data = response.data.prompt ? response.data : { prompt: response.data };
+  return { prompt: transformPrompt(data.prompt) };
 };
 
 // Get prompts by category
@@ -146,7 +158,7 @@ export const getPromptsByCategory = async (category: string) => {
   const response = await axios.get(`${API_URL}/prompts/category/${category}`, {
     headers: createHeaders()
   });
-  return response.data.prompts;
+  return (response.data.prompts || []).map(transformPrompt);
 };
 
 // Generate AI prompts
