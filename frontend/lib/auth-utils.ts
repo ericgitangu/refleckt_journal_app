@@ -1,4 +1,4 @@
-import getServerSession from "next-auth";
+import { getServerSession } from "next-auth";
 import { Session } from "@/types/api";
 import { authOptions } from "@/lib/auth/auth-options";
 
@@ -6,10 +6,22 @@ import { authOptions } from "@/lib/auth/auth-options";
  * Get the server session with typechecking
  */
 export async function getAuthSession(): Promise<Session | null> {
-  // For Next.js App Router, use the auth() function directly instead
   try {
-    const session = (await getServerSession(authOptions)) as Session | null;
-    return session;
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return null;
+    }
+    // Map next-auth session to our Session type
+    return {
+      user: {
+        id: session.user?.email || "",
+        email: session.user?.email || "",
+        name: session.user?.name || "",
+        image: session.user?.image || undefined,
+        accessToken: (session as any).accessToken || "",
+      },
+      expires: session.expires,
+    } as Session;
   } catch (error) {
     console.error("Error getting session:", error);
     return null;

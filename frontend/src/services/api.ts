@@ -128,7 +128,8 @@ export const getRandomPrompt = async () => {
   const response = await axios.get(`${API_URL}/prompts/random`, {
     headers: createHeaders()
   });
-  return response.data.prompt;
+  // API route returns response.data directly, which may contain { prompt: ... } or be the prompt itself
+  return response.data.prompt ? response.data : { prompt: response.data };
 };
 
 // Get daily prompt
@@ -136,7 +137,8 @@ export const getDailyPrompt = async () => {
   const response = await axios.get(`${API_URL}/prompts/daily`, {
     headers: createHeaders()
   });
-  return response.data.prompt;
+  // API route returns response.data directly, which may contain { prompt: ... } or be the prompt itself
+  return response.data.prompt ? response.data : { prompt: response.data };
 };
 
 // Get prompts by category
