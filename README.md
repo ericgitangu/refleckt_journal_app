@@ -14,6 +14,7 @@ A modern, AI-powered journaling application with Next.js frontend and serverless
 - [🛠️ Tech Stack](#️-tech-stack)
 - [🚀 Quick Start](#-quick-start)
 - [💻 Development](#-development)
+- [🔧 Troubleshooting](#-troubleshooting)
 - [☁️ Deployment](#️-deployment)
 - [📡 Status Monitoring](#-status-monitoring)
 - [💰 Cost Estimation](#-cost-estimation)
@@ -427,6 +428,43 @@ make build-all
 | `yarn cypress:headless` | E2E tests |
 | `make build-all` | Build all Rust services |
 | `sam local start-api` | Local API Gateway |
+
+## 🔧 Troubleshooting
+
+### Lambda ARM64 Cross-Compilation Issues
+
+If your Lambda functions crash with `Runtime.ExitError: signal: illegal instruction`, the binary contains x86 CPU instructions incompatible with ARM64 Graviton2 processors.
+
+**Root Cause:** The default Zig cross-compiler in cargo-lambda doesn't properly handle crates with C components (like `ring`, `aws-lc-sys`).
+
+**Solution:** Use the `cross` compiler which runs builds inside Docker containers with the correct ARM64 toolchain:
+
+```bash
+# CORRECT - Use cross compiler for ARM64
+cargo lambda build --compiler cross --arm64 --release
+
+# INCORRECT - May produce binaries with x86 instructions
+cargo lambda build --arm64 --release
+cargo lambda build --target aarch64-unknown-linux-musl --release
+```
+
+**All service Makefiles use this pattern:**
+```makefile
+build-musl:
+    cargo lambda build --compiler cross --arm64 --release --output-format zip
+```
+
+**Prerequisites:**
+- Docker must be installed and running
+- `cross` uses Docker to provide consistent ARM64 build environment
+
+**Verification:**
+```bash
+# After deployment, check Lambda logs for initialization errors
+aws logs tail /aws/lambda/<function-name> --follow
+
+# A working Lambda should NOT show "illegal instruction" errors
+```
 
 ## ☁️ Deployment
 
