@@ -25,7 +25,10 @@ export async function GET() {
     // Get authentication session
     const session = await getAuthSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      // Return default settings when not authenticated
+      // This prevents UI errors while maintaining functionality
+      console.warn("No session found, returning default settings");
+      return NextResponse.json(defaultSettings);
     }
 
     // Forward request to backend API

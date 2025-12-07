@@ -33,41 +33,51 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account, user }) {
       // On initial sign in, generate a backend JWT token
       if (account && user) {
-        // Generate a backend-compatible JWT token
-        const backendToken = generateBackendToken({
-          id: user.id || token.sub || "",
-          email: user.email || "",
-          name: user.name || "",
-        });
+        try {
+          // Generate a backend-compatible JWT token
+          const backendToken = generateBackendToken({
+            id: user.id || token.sub || "",
+            email: user.email || "",
+            name: user.name || "",
+          });
 
-        token.accessToken = backendToken;
+          token.accessToken = backendToken;
+          token.backendToken = backendToken;
+        } catch (error) {
+          console.error("Failed to generate backend token:", error);
+          // Fall back to storing user info for later token generation
+          token.accessToken = account.access_token;
+        }
         token.refreshToken = account.refresh_token;
         token.expiresAt = Math.floor(Date.now() / 1000) + 24 * 60 * 60; // 24 hours
         token.provider = account.provider;
-        token.backendToken = backendToken;
       }
 
       // Check if backend token needs refreshing (24 hour expiry)
       const expiresAt = token.expiresAt as number;
-      if (Date.now() < expiresAt * 1000) {
+      if (expiresAt && Date.now() < expiresAt * 1000) {
         return token;
       }
 
       // Regenerate the backend token when it expires
       // The backend token is generated from user info, so we can regenerate it
       if (token.sub && token.email) {
-        const newBackendToken = generateBackendToken({
-          id: token.sub as string,
-          email: token.email as string,
-          name: token.name as string || "",
-        });
+        try {
+          const newBackendToken = generateBackendToken({
+            id: token.sub as string,
+            email: token.email as string,
+            name: (token.name as string) || "",
+          });
 
-        return {
-          ...token,
-          accessToken: newBackendToken,
-          backendToken: newBackendToken,
-          expiresAt: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
-        };
+          return {
+            ...token,
+            accessToken: newBackendToken,
+            backendToken: newBackendToken,
+            expiresAt: Math.floor(Date.now() / 1000) + 24 * 60 * 60,
+          };
+        } catch (error) {
+          console.error("Failed to regenerate backend token:", error);
+        }
       }
 
       return token;
