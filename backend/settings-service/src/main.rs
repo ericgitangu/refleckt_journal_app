@@ -21,23 +21,36 @@ struct Category {
 
 // User settings model
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UserSettings {
-    tenant_id: String,
-    user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_id: Option<String>,
     theme: Option<String>,
     date_format: Option<String>,
+    time_format: Option<String>,
+    language: Option<String>,
+    privacy_level: Option<String>,
     notification_preferences: Option<NotificationPreferences>,
     display_preferences: Option<DisplayPreferences>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct NotificationPreferences {
     email_notifications: bool,
-    reminders_enabled: bool,
+    journal_reminders: bool,
     reminder_time: Option<String>,
+    browser_notifications: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct DisplayPreferences {
     default_view: Option<String>,
     entries_per_page: Option<i32>,
@@ -61,9 +74,13 @@ struct UpdateCategoryInput {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct UpdateSettingsInput {
     theme: Option<String>,
     date_format: Option<String>,
+    time_format: Option<String>,
+    language: Option<String>,
+    privacy_level: Option<String>,
     notification_preferences: Option<NotificationPreferences>,
     display_preferences: Option<DisplayPreferences>,
 }
@@ -409,20 +426,26 @@ async fn get_settings(
             if let Some(item) = response.item {
                 // Convert DynamoDB item to UserSettings
                 let settings = UserSettings {
-                    tenant_id: claims.tenant_id.clone(),
-                    user_id: claims.sub.clone(),
+                    id: Some(format!("{}:{}", claims.tenant_id.clone(), claims.sub.clone())),
+                    user_id: Some(claims.sub.clone()),
                     theme: item.get("theme").and_then(|v| v.as_s().ok().map(|s| s.clone())),
                     date_format: item.get("date_format").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                    time_format: item.get("time_format").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                    language: item.get("language").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                    privacy_level: item.get("privacy_level").and_then(|v| v.as_s().ok().map(|s| s.clone())),
                     notification_preferences: if let Some(AttributeValue::M(prefs)) = item.get("notification_preferences") {
                         Some(NotificationPreferences {
                             email_notifications: prefs.get("email_notifications")
                                 .and_then(|v| v.as_bool().ok().copied())
                                 .unwrap_or(false),
-                            reminders_enabled: prefs.get("reminders_enabled")
+                            journal_reminders: prefs.get("journal_reminders")
                                 .and_then(|v| v.as_bool().ok().copied())
                                 .unwrap_or(false),
                             reminder_time: prefs.get("reminder_time")
                                 .and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                            browser_notifications: prefs.get("browser_notifications")
+                                .and_then(|v| v.as_bool().ok().copied())
+                                .unwrap_or(false),
                         })
                     } else {
                         None
@@ -442,29 +465,38 @@ async fn get_settings(
                     } else {
                         None
                     },
+                    created_at: item.get("created_at").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                    updated_at: item.get("updated_at").and_then(|v| v.as_s().ok().map(|s| s.clone())),
                 };
-                
+
                 Ok(json_response(200, &settings))
             } else {
                 // Return default settings if none found
+                let now = chrono::Utc::now().to_rfc3339();
                 let default_settings = UserSettings {
-                    tenant_id: claims.tenant_id,
-                    user_id: claims.sub,
+                    id: Some(format!("{}:{}", claims.tenant_id, claims.sub.clone())),
+                    user_id: Some(claims.sub),
                     theme: Some("system".to_string()),
-                    date_format: Some("YYYY-MM-DD".to_string()),
+                    date_format: Some("MM/DD/YYYY".to_string()),
+                    time_format: Some("12h".to_string()),
+                    language: Some("en".to_string()),
+                    privacy_level: Some("private".to_string()),
                     notification_preferences: Some(NotificationPreferences {
                         email_notifications: false,
-                        reminders_enabled: false,
-                        reminder_time: None,
+                        journal_reminders: false,
+                        reminder_time: Some("20:00".to_string()),
+                        browser_notifications: false,
                     }),
                     display_preferences: Some(DisplayPreferences {
-                        default_view: Some("entries".to_string()),
+                        default_view: Some("list".to_string()),
                         entries_per_page: Some(10),
                         show_word_count: Some(true),
                         show_insights: Some(true),
                     }),
+                    created_at: Some(now.clone()),
+                    updated_at: Some(now),
                 };
-                
+
                 Ok(json_response(200, &default_settings))
             }
         }
@@ -512,32 +544,67 @@ async fn update_settings(
         expression_values.insert(":date_format".to_string(), AttributeValue::S(date_format.clone()));
         is_first = false;
     }
-    
+
+    // Add time_format if present
+    if let Some(time_format) = &input.time_format {
+        if !is_first {
+            update_expression.push_str(", ");
+        }
+        update_expression.push_str("time_format = :time_format");
+        expression_values.insert(":time_format".to_string(), AttributeValue::S(time_format.clone()));
+        is_first = false;
+    }
+
+    // Add language if present
+    if let Some(language) = &input.language {
+        if !is_first {
+            update_expression.push_str(", ");
+        }
+        update_expression.push_str("language = :language");
+        expression_values.insert(":language".to_string(), AttributeValue::S(language.clone()));
+        is_first = false;
+    }
+
+    // Add privacy_level if present
+    if let Some(privacy_level) = &input.privacy_level {
+        if !is_first {
+            update_expression.push_str(", ");
+        }
+        update_expression.push_str("privacy_level = :privacy_level");
+        expression_values.insert(":privacy_level".to_string(), AttributeValue::S(privacy_level.clone()));
+        is_first = false;
+    }
+
     // Add notification_preferences if present
     if let Some(notification_prefs) = &input.notification_preferences {
         if !is_first {
             update_expression.push_str(", ");
         }
-        
+
         let mut prefs_map = HashMap::new();
-        
+
         prefs_map.insert(
             "email_notifications".to_string(),
             AttributeValue::Bool(notification_prefs.email_notifications),
         );
-        
+
         prefs_map.insert(
-            "reminders_enabled".to_string(),
-            AttributeValue::Bool(notification_prefs.reminders_enabled),
+            "journal_reminders".to_string(),
+            AttributeValue::Bool(notification_prefs.journal_reminders),
         );
-        
+
+        prefs_map.insert(
+            "browser_notifications".to_string(),
+            AttributeValue::Bool(notification_prefs.browser_notifications),
+        );
+
         if let Some(reminder_time) = &notification_prefs.reminder_time {
             prefs_map.insert(
                 "reminder_time".to_string(),
                 AttributeValue::S(reminder_time.clone()),
             );
         }
-        
+
         update_expression.push_str("notification_preferences = :notification_prefs");
         expression_values.insert(":notification_prefs".to_string(), AttributeValue::M(prefs_map));
         is_first = false;
@@ -601,22 +668,29 @@ async fn update_settings(
         Ok(response) => {
             // Build updated settings
             let updated_item = response.attributes().unwrap();
-            
+            let now = chrono::Utc::now().to_rfc3339();
+
             let settings = UserSettings {
-                tenant_id: claims.tenant_id,
-                user_id: claims.sub,
+                id: Some(format!("{}:{}", claims.tenant_id.clone(), claims.sub.clone())),
+                user_id: Some(claims.sub),
                 theme: updated_item.get("theme").and_then(|v| v.as_s().ok().map(|s| s.clone())),
                 date_format: updated_item.get("date_format").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                time_format: updated_item.get("time_format").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                language: updated_item.get("language").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                privacy_level: updated_item.get("privacy_level").and_then(|v| v.as_s().ok().map(|s| s.clone())),
                 notification_preferences: if let Some(AttributeValue::M(prefs)) = updated_item.get("notification_preferences") {
                     Some(NotificationPreferences {
                         email_notifications: prefs.get("email_notifications")
                             .and_then(|v| v.as_bool().ok().copied())
                             .unwrap_or(false),
-                        reminders_enabled: prefs.get("reminders_enabled")
+                        journal_reminders: prefs.get("journal_reminders")
                             .and_then(|v| v.as_bool().ok().copied())
                             .unwrap_or(false),
                         reminder_time: prefs.get("reminder_time")
                             .and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                        browser_notifications: prefs.get("browser_notifications")
+                            .and_then(|v| v.as_bool().ok().copied())
+                            .unwrap_or(false),
                     })
                 } else {
                     None
@@ -636,8 +710,10 @@ async fn update_settings(
                 } else {
                     None
                 },
+                created_at: updated_item.get("created_at").and_then(|v| v.as_s().ok().map(|s| s.clone())),
+                updated_at: Some(now),
             };
-            
+
             Ok(json_response(200, &settings))
         }
         Err(e) => Ok(error_response(
