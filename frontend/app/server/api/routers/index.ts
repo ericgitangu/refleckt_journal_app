@@ -83,18 +83,21 @@ const mockJournalEntries = [
 ];
 
 // Define the app router with procedures
+// tRPC serves as a fallback mock data provider when REST API is unavailable
 export const appRouter = router({
   hello: publicProcedure.query(() => "Hello tRPC"),
 
+  // Returns mock journal entries as fallback when REST API fails
   getJournalEntries: publicProcedure.query(async () => {
-    // In a real app, this would query a database
+    // Return mock data - this is used as fallback when REST API is unavailable
     return mockJournalEntries;
   }),
 
+  // Returns a single mock entry by ID as fallback
   getJournalEntry: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
-      // In a real app, this would query a database
+      // Return mock data - this is used as fallback when REST API is unavailable
       return mockJournalEntries.find((entry) => entry.id === input.id);
     }),
 });

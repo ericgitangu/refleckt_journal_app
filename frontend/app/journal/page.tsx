@@ -73,20 +73,16 @@ function JournalContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(DEFAULT_ENTRIES_PER_PAGE);
 
-  // First try tRPC, fallback to REST API if needed
+  // tRPC query for fallback mock data (only used if REST API fails)
   const {
-    data: journalData,
-    isLoading: isLoadingJournal,
-    error: trpcError,
-    refetch,
+    data: trpcFallbackData,
+    refetch: refetchTrpc,
   } = trpc.getJournalEntries.useQuery(undefined, {
+    enabled: false, // Don't auto-fetch, only manual fallback
     retry: false,
-    onError: (err) => {
-      console.error("tRPC error, falling back to REST API:", err);
-    },
   });
 
-  // Fallback fetch function
+  // Primary fetch function - REST API
   const fetchEntries = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
     try {
@@ -95,42 +91,42 @@ function JournalContent() {
         throw new Error(`API error: ${response.status}`);
       }
       const data = await response.json();
-      setEntries(data.items || []);
+      // Handle both array and {items: []} response formats
+      const items = Array.isArray(data) ? data : (data.items || []);
+      setEntries(items);
       setError(null);
     } catch (err) {
-      console.error("Error fetching from REST API:", err);
-      setError("Failed to load journal entries");
+      console.error("Error fetching from REST API, falling back to tRPC mock data:", err);
+      // Fallback to tRPC mock data
+      try {
+        const result = await refetchTrpc();
+        if (result.data) {
+          const items = Array.isArray(result.data) ? result.data : (result.data.items || []);
+          setEntries(items);
+          setError(null);
+        } else {
+          setError("Failed to load journal entries");
+        }
+      } catch {
+        setError("Failed to load journal entries");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [refetchTrpc]);
 
-  // Fallback to REST API if tRPC fails
+  // Initial load - fetch from REST API
   useEffect(() => {
-    if (journalData) {
-      setEntries(journalData.items || []);
-      setLoading(false);
-      return;
+    if (status === "authenticated") {
+      fetchEntries();
     }
-
-    if (isLoadingJournal && !trpcError) {
-      return;
-    }
-
-    fetchEntries();
-  }, [journalData, isLoadingJournal, trpcError, fetchEntries]);
+  }, [status, fetchEntries]);
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await refetch();
-    } catch {
-      await fetchEntries(true);
-    }
-    setRefreshing(false);
-  }, [refetch, fetchEntries]);
+    await fetchEntries(true);
+  }, [fetchEntries]);
 
   // Filter entries by search
   const filteredEntries = entries.filter((entry) => {
