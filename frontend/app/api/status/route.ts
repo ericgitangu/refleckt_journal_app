@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
 import { DynamoDBClient, DescribeTableCommand } from "@aws-sdk/client-dynamodb";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
 import type {
   SystemStatus,
   ServiceHealth,
@@ -761,9 +763,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Extract auth token from request if available
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
+    // Get auth token from session (more reliable than request header)
+    let token: string | undefined;
+    try {
+      const session = await getServerSession(authOptions);
+      token = (session as { accessToken?: string })?.accessToken;
+    } catch {
+      // Fall back to header-based auth
+      const authHeader = request.headers.get("authorization");
+      token = authHeader?.replace("Bearer ", "");
+    }
 
     // Perform health checks in parallel
     const serviceHealthPromises = SERVICE_CONFIGS.map((config) =>
