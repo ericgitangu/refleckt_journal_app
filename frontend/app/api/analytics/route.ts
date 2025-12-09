@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
-import { serverApiClient } from "@/lib/api-client";
+import axios from "axios";
+
+// Backend API URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL || "";
 
 // Force dynamic rendering for routes using auth
 export const dynamic = "force-dynamic";
@@ -29,12 +32,15 @@ export async function GET(req: Request) {
     }
 
     // Call the backend API
-    const data = await serverApiClient(
-      `/analytics?time_period=${time_period}`,
-      token
-    );
+    const response = await axios.get(`${API_URL}/analytics?time_period=${time_period}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 10000,
+    });
 
-    return NextResponse.json(data);
+    return NextResponse.json(response.data);
   } catch (error) {
     console.error("Analytics API error:", error);
 
@@ -67,11 +73,15 @@ export async function POST(req: Request) {
     }
 
     // Forward request to backend API
-    const data = await serverApiClient("/analytics", token, {
-      method: "POST",
+    const response = await axios.post(`${API_URL}/analytics`, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 10000,
     });
 
-    return NextResponse.json(data);
+    return NextResponse.json(response.data);
   } catch (error) {
     console.error("Analytics POST error:", error);
     return NextResponse.json(

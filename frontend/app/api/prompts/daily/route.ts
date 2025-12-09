@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { serverApiClient } from "@/lib/api-client";
 import { shouldUseMockData } from "@/lib/mock-utils";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
+import axios from "axios";
+
+// Backend API URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL || "";
 
 // Force dynamic rendering for routes using auth
 export const dynamic = "force-dynamic";
@@ -35,11 +38,14 @@ export async function GET() {
 
     // Try to get data from real backend
     try {
-      const data = await serverApiClient(
-        "/prompts/daily",
-        session.accessToken as string,
-      );
-      return NextResponse.json(data);
+      const response = await axios.get(`${API_URL}/prompts/daily`, {
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      });
+      return NextResponse.json(response.data);
     } catch (backendError) {
       // Log the error but don't fail - use mock data instead
       console.warn(

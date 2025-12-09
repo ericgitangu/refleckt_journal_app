@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
-import { serverApiClient } from "@/lib/api-client";
 import { calculateGamificationStats } from "@/lib/gamification-calculator";
 import type { Entry } from "@/types/entries";
+import axios from "axios";
 
 // Force dynamic rendering for routes using auth
 export const dynamic = "force-dynamic";
+
+// Backend API URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL || "";
 
 // GET: Fetch gamification stats - calculate from actual entries
 export async function GET() {
@@ -31,7 +34,14 @@ export async function GET() {
 
     // First try to get stats from backend gamification service
     try {
-      const data = await serverApiClient("/gamification/stats", token);
+      const response = await axios.get(`${API_URL}/gamification/stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      });
+      const data = response.data;
       // If backend has valid data with points, use it
       if (data && data.points_balance > 0) {
         return NextResponse.json(data);
@@ -45,9 +55,28 @@ export async function GET() {
 
     // Backend unavailable or empty - calculate stats from actual entries
     try {
-      const entries = await serverApiClient("/entries", token) as Entry[];
+      const response = await axios.get(`${API_URL}/entries`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      });
+
+      // Handle various response formats
+      let entries: Entry[] = [];
+      if (Array.isArray(response.data)) {
+        entries = response.data;
+      } else if (response.data?.items && Array.isArray(response.data.items)) {
+        entries = response.data.items;
+      } else if (response.data?.entries && Array.isArray(response.data.entries)) {
+        entries = response.data.entries;
+      }
+
+      console.log(`Gamification: Found ${entries.length} entries for calculation`);
+
       const calculatedStats = calculateGamificationStats(
-        Array.isArray(entries) ? entries : [],
+        entries,
         userId,
         "default"
       );
