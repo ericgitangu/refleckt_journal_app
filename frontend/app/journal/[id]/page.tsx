@@ -73,9 +73,14 @@ export default function EntryPage() {
       });
       toast({
         title: "Success",
-        description: "Entry saved successfully",
+        description: "Entry saved successfully. AI insights will be generated shortly.",
         variant: "default",
       });
+
+      // Trigger insights refetch after a delay to allow backend processing
+      setTimeout(() => {
+        refetchInsights();
+      }, 5000);
     } catch (err) {
       toast({
         title: "Error",
@@ -121,16 +126,16 @@ export default function EntryPage() {
   return (
     <div className="container mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 py-8">
       <div className="md:col-span-2">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-2xl font-bold w-full bg-transparent border-none focus:outline-none"
+            className="text-2xl font-bold w-full sm:flex-1 sm:min-w-0 bg-transparent border-none focus:outline-none"
             placeholder="Entry Title"
           />
 
-          <div className="space-x-2">
+          <div className="flex gap-2 self-end sm:self-auto flex-shrink-0">
             <Button
               onClick={handleSave}
               disabled={updateEntryMutation.isLoading}
@@ -190,7 +195,7 @@ export default function EntryPage() {
           {!hasInsights && !insightsLoading && (
             <div className="p-6 border rounded-lg bg-muted/20 text-center">
               <p className="text-sm text-muted-foreground">
-                Click the button above to get AI-powered insights about this entry.
+                AI insights are generated automatically when you save your entry. Click the button above to check if they&apos;re ready.
               </p>
             </div>
           )}

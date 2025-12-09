@@ -2,33 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
 import { serverApiClient } from "@/lib/api-client";
+import { calculateGamificationStats } from "@/lib/gamification-calculator";
+import type { Entry } from "@/types/entries";
 
 // Force dynamic rendering for routes using auth
 export const dynamic = "force-dynamic";
 
-// Default stats for new users (not mock - actual starting state)
-const defaultGamificationStats = {
-  user_id: "",
-  tenant_id: "default",
-  points_balance: 0,
-  lifetime_points: 0,
-  level: 1,
-  level_title: "Novice Writer",
-  current_streak: 0,
-  longest_streak: 0,
-  last_entry_date: null,
-  achievements: [],
-  total_entries: 0,
-  total_words: 0,
-  insights_requested: 0,
-  prompts_used: 0,
-  next_level_points: 100,
-  points_to_next_level: 100,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
-
-// GET: Fetch gamification stats from backend
+// GET: Fetch gamification stats - calculate from actual entries
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
@@ -47,22 +27,41 @@ export async function GET() {
       );
     }
 
+    const userId = session.user.id || session.user.email || "";
+
+    // First try to get stats from backend gamification service
     try {
       const data = await serverApiClient("/gamification/stats", token);
-      return NextResponse.json(data);
+      // If backend has valid data with points, use it
+      if (data && data.points_balance > 0) {
+        return NextResponse.json(data);
+      }
     } catch (backendError) {
-      // Backend returned 404 likely means user has no stats yet
-      // Return default starting stats (not mock data)
       console.warn(
-        "Backend gamification API error:",
+        "Backend gamification API unavailable, calculating from entries:",
         backendError instanceof Error ? backendError.message : "Unknown error"
       );
+    }
 
-      // Return default stats for new users
-      return NextResponse.json({
-        ...defaultGamificationStats,
-        user_id: session.user.id || session.user.email || "",
-      });
+    // Backend unavailable or empty - calculate stats from actual entries
+    try {
+      const entries = await serverApiClient("/entries", token) as Entry[];
+      const calculatedStats = calculateGamificationStats(
+        Array.isArray(entries) ? entries : [],
+        userId,
+        "default"
+      );
+      return NextResponse.json(calculatedStats);
+    } catch (entriesError) {
+      console.warn(
+        "Could not fetch entries for calculation:",
+        entriesError instanceof Error ? entriesError.message : "Unknown error"
+      );
+
+      // Return default starting stats if we can't fetch entries
+      return NextResponse.json(
+        calculateGamificationStats([], userId, "default")
+      );
     }
   } catch (error) {
     console.error("Gamification stats API error:", error);

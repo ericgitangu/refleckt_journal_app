@@ -16,6 +16,10 @@ export async function GET(request: Request) {
         'You\'ve mentioned "balance" and "overwhelmed" frequently in recent entries. Consider scheduling dedicated relaxation time to improve work-life balance.',
       source: "pattern-analysis",
       insight_type: "suggestions",
+      sentiment: "neutral",
+      sentiment_score: 0.1,
+      keywords: ["balance", "overwhelmed", "work-life"],
+      suggested_categories: ["wellness", "productivity"],
     },
     {
       id: "2",
@@ -26,15 +30,24 @@ export async function GET(request: Request) {
         "Your entries from this week show more optimistic language compared to your entries from last week. Your mood seems to be improving.",
       source: "sentiment-analysis",
       insight_type: "reflections",
+      sentiment: "positive",
+      sentiment_score: 0.65,
+      keywords: ["optimistic", "improvement", "mood"],
+      suggested_categories: ["emotional health", "progress"],
     },
     {
       id: "3",
       entry_id: entryId,
+      title: "Journal Entry",
       created_at: new Date().toISOString(),
       content:
         "You've been consistently writing about your mobile app project. There's a positive trend in your descriptions, suggesting good progress.",
       source: "topic-tracking",
       insight_type: "observations",
+      sentiment: "positive",
+      sentiment_score: 0.45,
+      keywords: ["mobile app", "project", "progress"],
+      suggested_categories: ["work", "achievements"],
     },
     {
       id: "4",
@@ -45,6 +58,10 @@ export async function GET(request: Request) {
         "Consider starting a gratitude practice. You often mention positive experiences, but explicitly noting things you\'re grateful for can enhance wellbeing.",
       source: "content-analysis",
       insight_type: "suggestions",
+      sentiment: "neutral",
+      sentiment_score: 0.2,
+      keywords: ["gratitude", "positive experiences", "wellbeing"],
+      suggested_categories: ["mindfulness", "self-improvement"],
     },
     {
       id: "5",
@@ -55,6 +72,10 @@ export async function GET(request: Request) {
         "Based on timestamps, you tend to write more accomplished entries in the morning. Consider scheduling important tasks during your morning hours when possible.",
       source: "behavior-analysis",
       insight_type: "suggestions",
+      sentiment: "positive",
+      sentiment_score: 0.35,
+      keywords: ["morning", "productivity", "scheduling"],
+      suggested_categories: ["productivity", "time management"],
     },
   ];
 

@@ -46,36 +46,44 @@ export function useGamification() {
     fetchTransactions();
   }, [fetchStats, fetchTransactions]);
 
+  // Award points - now just refreshes stats since calculation happens server-side from entries
   const awardPoints = useCallback(
-    async (reason: string, entryId?: string) => {
+    async (_reason: string, _entryId?: string) => {
       try {
-        const result = await gamificationApi.awardPoints(reason, entryId);
-        // Refresh stats after awarding points
+        // Points are now calculated automatically from entries
+        // Just refresh stats to get the updated calculation
         await fetchStats();
-        toast({
-          title: "Points Earned!",
-          description: `+${result.points} points`,
-        });
-        return result;
+        const newStats = await gamificationApi.getStats();
+        if (newStats.points_balance > (stats?.points_balance || 0)) {
+          const pointsGained = newStats.points_balance - (stats?.points_balance || 0);
+          toast({
+            title: "Points Earned!",
+            description: `+${pointsGained} points`,
+          });
+        }
+        return { points: newStats.points_balance };
       } catch (err) {
-        console.error("Failed to award points:", err);
-        toast({
-          title: "Error",
-          description: "Failed to award points",
-          variant: "destructive",
-        });
-        throw err;
+        console.error("Failed to refresh points:", err);
+        // Don't show error toast - stats will update on next page load
+        return { points: stats?.points_balance || 0 };
       }
     },
-    [fetchStats]
+    [fetchStats, stats?.points_balance]
   );
 
+  // Check achievements - now calculates from entries server-side
   const checkAchievements = useCallback(async () => {
     try {
-      const newAchievements = await gamificationApi.checkAchievements();
-      if (newAchievements.length > 0) {
+      // Refresh achievements from server (calculated from entries)
+      const currentAchievements = await gamificationApi.getAchievements();
+      const previouslyUnlocked = stats?.achievements?.filter((a: Achievement) => a.unlocked) || [];
+      const newlyUnlocked = currentAchievements.filter(
+        (a: Achievement) => a.unlocked && !previouslyUnlocked.some((p: Achievement) => p.id === a.id)
+      );
+
+      if (newlyUnlocked.length > 0) {
         // Show toast for each new achievement
-        newAchievements.forEach((achievement) => {
+        newlyUnlocked.forEach((achievement: Achievement) => {
           toast({
             title: "Achievement Unlocked!",
             description: `${achievement.name}: ${achievement.description}`,
@@ -84,24 +92,25 @@ export function useGamification() {
         // Refresh stats to get updated achievements
         await fetchStats();
       }
-      return newAchievements;
+      return newlyUnlocked;
     } catch (err) {
       console.error("Failed to check achievements:", err);
       return [];
     }
-  }, [fetchStats]);
+  }, [fetchStats, stats?.achievements]);
 
+  // Update streak - now calculated from entries server-side
   const updateStreak = useCallback(async () => {
     try {
-      const streakData = await gamificationApi.updateStreak();
-      // Refresh stats to get updated streak
+      // Streak is calculated automatically from entries
+      // Just refresh to get the latest calculation
       await fetchStats();
-      return streakData;
+      return { current_streak: stats?.current_streak || 0, longest_streak: stats?.longest_streak || 0 };
     } catch (err) {
       console.error("Failed to update streak:", err);
-      throw err;
+      return { current_streak: 0, longest_streak: 0 };
     }
-  }, [fetchStats]);
+  }, [fetchStats, stats?.current_streak, stats?.longest_streak]);
 
   const refresh = useCallback(async () => {
     await Promise.all([fetchStats(), fetchTransactions()]);

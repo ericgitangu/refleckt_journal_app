@@ -43,8 +43,11 @@ interface InsightsSummary {
 }
 
 // Sentiment score to visual representation
-function getSentimentConfig(score: number, sentiment: string) {
-  if (sentiment === "positive" || score > 0.3) {
+function getSentimentConfig(score: number | null | undefined, sentiment: string | null | undefined) {
+  const safeScore = score ?? 0;
+  const safeSentiment = sentiment ?? "neutral";
+
+  if (safeSentiment === "positive" || safeScore > 0.3) {
     return {
       color: "text-emerald-600 dark:text-emerald-400",
       bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
@@ -52,7 +55,7 @@ function getSentimentConfig(score: number, sentiment: string) {
       icon: <Icons.trendingUp className="h-4 w-4" />,
       label: "Positive",
     };
-  } else if (sentiment === "negative" || score < -0.3) {
+  } else if (safeSentiment === "negative" || safeScore < -0.3) {
     return {
       color: "text-rose-600 dark:text-rose-400",
       bgColor: "bg-rose-100 dark:bg-rose-900/30",
@@ -105,19 +108,25 @@ function InsightCard({ insight }: { insight: EntryWithInsight }) {
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Sentiment Score</span>
             <span className={sentimentConfig.color}>
-              {insight.sentiment_score > 0 ? "+" : ""}
-              {(insight.sentiment_score * 100).toFixed(0)}%
+              {insight.sentiment_score != null ? (
+                <>
+                  {insight.sentiment_score > 0 ? "+" : ""}
+                  {(insight.sentiment_score * 100).toFixed(0)}%
+                </>
+              ) : (
+                "N/A"
+              )}
             </span>
           </div>
           <div className="relative h-2 w-full bg-muted rounded-full overflow-hidden">
             <div
               className={cn(
                 "absolute h-full rounded-full transition-all",
-                insight.sentiment_score >= 0 ? "bg-emerald-500" : "bg-rose-500"
+                (insight.sentiment_score ?? 0) >= 0 ? "bg-emerald-500" : "bg-rose-500"
               )}
               style={{
-                width: `${Math.abs(insight.sentiment_score) * 50}%`,
-                left: insight.sentiment_score >= 0 ? "50%" : `${50 - Math.abs(insight.sentiment_score) * 50}%`,
+                width: `${Math.abs(insight.sentiment_score ?? 0) * 50}%`,
+                left: (insight.sentiment_score ?? 0) >= 0 ? "50%" : `${50 - Math.abs(insight.sentiment_score ?? 0) * 50}%`,
               }}
             />
             <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-border" />
