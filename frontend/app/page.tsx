@@ -1,9 +1,11 @@
 "use client";
 
-import { BookOpen, PenLine, Archive, Sparkles, Trophy } from "lucide-react";
+import { BookOpen, PenLine, Archive, Sparkles, Trophy, BarChart3 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 // Simple loading fallback
 const LoadingFallback = () => (
@@ -35,6 +37,26 @@ function FeatureCard({
 }
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // Redirect authenticated users to journal
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/journal");
+    }
+  }, [status, router]);
+
+  // Show loading while checking auth
+  if (status === "loading") {
+    return <LoadingFallback />;
+  }
+
+  // If authenticated, show loading while redirecting
+  if (status === "authenticated") {
+    return <LoadingFallback />;
+  }
+
   return (
     <Suspense fallback={<LoadingFallback />}>
       <div className="min-h-[90vh] flex flex-col items-center justify-center">
@@ -82,6 +104,11 @@ export default function Home() {
                 icon={<Trophy className="h-6 w-6" />}
                 title="Rewards & Streaks"
                 description="Earn points, unlock achievements, and track your journaling streaks to stay motivated"
+              />
+              <FeatureCard
+                icon={<BarChart3 className="h-6 w-6" />}
+                title="Analytics"
+                description="Track your mood trends, writing patterns, and gain insights with interactive charts"
               />
             </div>
 
